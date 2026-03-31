@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>L2F — ניהול מפתח</title>
+<style>
+:root{
+  --bg:#d9d9d6;--card:rgba(255,255,255,.54);--card2:rgba(255,255,255,.34);--text:#171717;--muted:#696969;
+  --border:rgba(255,255,255,.48);--accent:#79c23a;--ok:#79c23a;--danger:#d98b2b;--warn:#d98b2b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:
+  radial-gradient(circle at 50% 8%, rgba(255,255,255,.74), transparent 22%),
+  radial-gradient(circle at 84% 18%, rgba(0,0,0,.18), transparent 28%),
+  linear-gradient(145deg, #efefec 0%, #d7d7d3 42%, #bdbdb8 100%);
+color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+
+/* ── AUTH / SETUP ── */
+#loginScreen,#setupScreen{display:none;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+.screen-credit{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);font-size:12px;color:var(--muted);opacity:.9;z-index:30;pointer-events:none}
+.login-box{background:rgba(255,255,255,.52);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.6);border-radius:24px;padding:36px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.16)}
+.login-box h1{font-size:22px;margin-bottom:4px}
+.login-sub{color:var(--muted);font-size:13px;margin-bottom:28px}
+.field{width:100%;padding:12px;background:rgba(255,255,255,.44);border:1px solid rgba(255,255,255,.56);border-radius:14px;color:var(--text);font-size:15px;margin-bottom:12px;outline:none}
+.field:focus{border-color:rgba(121,194,58,.55);box-shadow:0 0 0 3px rgba(121,194,58,.14)}
+.err{color:#f87171;font-size:13px;margin-top:6px;display:none}
+
+/* ── BUTTONS ── */
+.btn{padding:9px 16px;border-radius:9px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:filter .15s;white-space:nowrap}
+.btn:hover{filter:brightness(1.12)}
+.btn-primary{background:var(--text);color:#fff}
+.btn-full{width:100%;padding:12px;font-size:15px}
+.btn-ok{background:rgba(121,194,58,.14);color:#3f6f18;border:1px solid rgba(121,194,58,.28)}
+.btn-warn{background:rgba(217,139,43,.14);color:#9f5d14;border:1px solid rgba(217,139,43,.28)}
+.btn-danger{background:rgba(217,139,43,.14);color:#9f5d14;border:1px solid rgba(217,139,43,.28)}
+.btn-ghost{background:rgba(255,255,255,.34);color:var(--text);border:1px solid rgba(255,255,255,.56)}
+.btn-sm{padding:4px 10px;font-size:12px}
+
+/* ── LAYOUT ── */
+#appScreen{display:none}
+.sidebar{position:fixed;top:0;right:0;bottom:0;width:210px;background:rgba(255,255,255,.46);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,.58);padding:18px 14px;z-index:10;display:flex;flex-direction:column;box-shadow:-12px 0 30px rgba(0,0,0,.06)}
+.sidebar .logo{font-size:18px;font-weight:800;margin-bottom:3px}
+.sidebar .role{font-size:11px;color:#8c8c8c;margin-bottom:22px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:3px;user-select:none}
+.nav-item:hover,.nav-item.active{background:rgba(255,255,255,.62);color:var(--text);box-shadow:inset 4px 4px 10px rgba(255,255,255,.75), inset -4px -4px 10px rgba(0,0,0,.05)}
+.sidebar-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--border)}
+.main{margin-right:210px;padding:22px;min-height:100vh}
+.page{display:none}.page.active{display:block}
+
+/* ── COMPONENTS ── */
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.54) 0%, rgba(245,245,242,.42) 100%);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.58);border-radius:22px;padding:18px;margin-bottom:18px;box-shadow:12px 12px 28px rgba(0,0,0,.10), -10px -10px 24px rgba(255,255,255,.58)}
+.panel-title{font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.stat-card{background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.56);border-radius:18px;padding:14px 18px;flex:1 1 130px;box-shadow:10px 10px 24px rgba(0,0,0,.08), -8px -8px 20px rgba(255,255,255,.52)}
+.stat-card .val{font-size:26px;font-weight:800}
+.stat-card .lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.health-hero{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:14px;margin-bottom:18px}
+.health-score{border-radius:22px;padding:18px;background:linear-gradient(180deg,rgba(255,255,255,.62) 0%, rgba(238,238,234,.46) 100%);border:1px solid rgba(255,255,255,.62);display:flex;flex-direction:column;gap:10px;justify-content:center;box-shadow:12px 12px 28px rgba(0,0,0,.10), -10px -10px 24px rgba(255,255,255,.6)}
+.health-score.good{border-color:rgba(121,194,58,.26)}
+.health-score.warning{border-color:rgba(217,139,43,.26)}
+.health-score.critical{border-color:rgba(217,139,43,.26)}
+.health-score .score{font-size:46px;font-weight:900;line-height:1}
+.health-score .status{font-size:13px;font-weight:800}
+.health-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.mini-stat{background:rgba(255,255,255,.44);border:1px solid rgba(255,255,255,.56);border-radius:18px;padding:12px}
+.mini-stat .val{font-size:22px;font-weight:800}
+.mini-stat .lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.branch-device-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.branch-device-card{background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.54);border-radius:18px;padding:14px}
+.branch-device-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.branch-device-name{font-size:16px;font-weight:800}
+.branch-device-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.device-list{display:flex;flex-direction:column;gap:8px}
+.device-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.54);border-radius:16px}
+.device-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.device-name{font-size:13px;font-weight:700}
+.device-sub{font-size:11px;color:var(--muted);word-break:break-all}
+.error-list{display:flex;flex-direction:column;gap:8px}
+.error-row{padding:10px 12px;border:1px solid rgba(217,139,43,.24);background:rgba(255,255,255,.44);border-radius:16px}
+.error-row .kind{font-size:12px;font-weight:800;color:#9f5d14}
+.error-row .msg{font-size:13px;margin-top:3px}
+.error-row .meta{font-size:11px;color:#b17a3c;margin-top:4px}
+.dark-input{background:rgba(255,255,255,.44);border:1px solid rgba(255,255,255,.56);color:var(--text);border-radius:12px;padding:8px 11px;font-size:13px;outline:none}
+.dark-input:focus{border-color:rgba(121,194,58,.55);box-shadow:0 0 0 3px rgba(121,194,58,.12)}
+.input-group{display:flex;flex-direction:column;gap:3px;flex:1 1 150px}
+.input-group label{font-size:11px;color:var(--muted)}
+.input-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.badge-ok{background:rgba(121,194,58,.14);color:#3f6f18}
+.badge-blue{background:rgba(255,255,255,.56);color:var(--text)}
+.badge-warn{background:rgba(217,139,43,.14);color:#9f5d14}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:18px;border:1px solid rgba(255,255,255,.58);background:rgba(255,255,255,.28)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:right;padding:9px 12px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;background:rgba(255,255,255,.58)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(255,255,255,.2)}
+
+/* ── BRANCH VIEWER TABS ── */
+.branch-banner{background:linear-gradient(180deg,rgba(255,255,255,.58) 0%, rgba(237,237,233,.44) 100%);border:1px solid rgba(255,255,255,.62);border-radius:20px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.branch-banner .bname{font-size:18px;font-weight:800}
+.branch-banner .bsub{font-size:12px;color:var(--muted);margin-top:2px}
+.vtabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.vtab{padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13px;color:var(--muted);border:1px solid transparent}
+.vtab.active{background:rgba(255,255,255,.62);color:var(--text);border-color:rgba(255,255,255,.64)}
+.vtab:hover:not(.active){background:rgba(255,255,255,.24)}
+.vpanel{display:none}.vpanel.active{display:block}
+
+/* ── MISSING LIST ── */
+.mrow{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);gap:8px}
+.mrow:last-child{border-bottom:0}
+.mrow-info{display:flex;flex-direction:column;gap:3px}
+.mrow-main{font-size:14px;font-weight:600}
+.mrow-sub{font-size:11px;color:var(--muted)}
+.mlist{background:rgba(255,255,255,.32);border-radius:18px;overflow:hidden;max-height:460px;overflow-y:auto}
+.empty-state{padding:24px;text-align:center;color:var(--muted);font-size:13px}
+
+/* ── CHIP ── */
+.chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;margin:2px;border:1px solid rgba(255,255,255,.56);background:rgba(255,255,255,.4);color:var(--muted)}
+.chip.found{background:rgba(121,194,58,.14);color:#3f6f18;border-color:rgba(121,194,58,.28)}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:rgba(245,245,242,.9);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.62);border-radius:22px;padding:24px;width:100%;max-width:440px}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.danger-zone{background:rgba(217,139,43,.1);border:1px solid rgba(217,139,43,.22);border-radius:16px;padding:14px;margin-top:10px}
+.danger-zone p{font-size:13px;color:#9f5d14;margin-bottom:8px;line-height:1.5}
+
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(24,24,24,.9);color:#fff;border:1px solid rgba(255,255,255,.18);padding:10px 18px;border-radius:14px;font-size:13px;display:none;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.24);white-space:nowrap}
+
+@media(max-width:720px){
+  .sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:wrap;gap:4px;padding:10px 14px;border-left:none;border-bottom:1px solid var(--border)}
+  .sidebar .logo,.sidebar .role{display:none}
+  .sidebar-footer{margin-top:0;padding-top:0;border-top:none}
+  .main{margin-right:0;padding:14px}
+  .health-hero{grid-template-columns:1fr}
+}
+
+/* admin dark refresh */
+:root{
+  --bg:#090909;
+  --card:rgba(19,19,19,.92);
+  --card2:rgba(28,28,28,.88);
+  --text:#f5f5f3;
+  --muted:#9a9a95;
+  --border:rgba(255,255,255,.08);
+  --accent:#ffffff;
+  --ok:#83b86b;
+  --danger:#ff6a00;
+  --warn:#ff6a00;
+}
+body{
+  background:
+    radial-gradient(circle at top center, rgba(255,255,255,.08), rgba(255,255,255,0) 20%),
+    linear-gradient(180deg, #121212 0%, #090909 100%);
+  color:var(--text);
+}
+.login-box{
+  background:#141414;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:30px;
+  box-shadow:0 30px 60px rgba(0,0,0,.35);
+}
+.login-sub,.sidebar .role,.stat-card .lbl,.mini-stat .lbl,.branch-device-sub,.device-sub,.mrow-sub{
+  color:#a1a19b;
+}
+.field,.dark-input{
+  background:#101010;
+  border:1px solid rgba(255,255,255,.08);
+  color:#f5f5f3;
+  border-radius:18px;
+}
+.field:focus,.dark-input:focus{
+  border-color:rgba(255,255,255,.22);
+  box-shadow:0 0 0 3px rgba(255,255,255,.05);
+}
+.btn{
+  border-radius:18px;
+}
+.btn-primary{
+  background:#f5f5f3;
+  color:#101010;
+}
+.btn-ghost{
+  background:#171717;
+  color:#f5f5f3;
+  border:1px solid rgba(255,255,255,.08);
+}
+.btn-ok{
+  background:rgba(131,184,107,.12);
+  color:#a6d38f;
+  border:1px solid rgba(131,184,107,.24);
+}
+.btn-warn,.btn-danger{
+  background:#ff6a00;
+  color:#fff;
+  border:1px solid #ff6a00;
+}
+.sidebar{
+  background:rgba(10,10,10,.94);
+  border-left:1px solid rgba(255,255,255,.06);
+  box-shadow:-14px 0 30px rgba(0,0,0,.24);
+}
+.nav-item{
+  border-radius:16px;
+}
+.nav-item:hover,.nav-item.active{
+  background:#1b1b1b;
+  color:#fff;
+  box-shadow:none;
+}
+.panel,
+.stat-card,
+.health-score,
+.mini-stat,
+.branch-device-card,
+.device-row,
+.error-row,
+.branch-banner,
+.tbl-wrap,
+.mlist,
+.modal{
+  background:#141414;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:none;
+}
+.panel-title{
+  color:#d9d9d4;
+}
+.health-score{
+  background:linear-gradient(180deg, #181818 0%, #101010 100%);
+  transition:background .2s ease,border-color .2s ease, box-shadow .2s ease, color .2s ease;
+}
+.health-score.good{
+  background:linear-gradient(180deg, rgba(20,33,20,.98) 0%, rgba(11,20,11,.98) 100%);
+  border-color:rgba(131,184,107,.48);
+  box-shadow:inset 0 0 0 1px rgba(131,184,107,.10);
+}
+.health-score.warning{
+  background:linear-gradient(180deg, rgba(42,27,12,.98) 0%, rgba(24,15,7,.98) 100%);
+  border-color:rgba(255,106,0,.46);
+  box-shadow:inset 0 0 0 1px rgba(255,106,0,.10);
+}
+.health-score.critical{
+  background:linear-gradient(180deg, rgba(44,16,16,.98) 0%, rgba(26,9,9,.98) 100%);
+  border-color:rgba(231,76,60,.50);
+  box-shadow:inset 0 0 0 1px rgba(231,76,60,.10);
+}
+.health-score.good .panel-title,
+.health-score.good .score,
+.health-score.good .status,
+.health-score.good #healthScoreWindow{
+  color:#9fe27c !important;
+}
+.health-score.warning .panel-title,
+.health-score.warning .score,
+.health-score.warning .status,
+.health-score.warning #healthScoreWindow{
+  color:#ff9a3d !important;
+}
+.health-score.critical .panel-title,
+.health-score.critical .score,
+.health-score.critical .status,
+.health-score.critical #healthScoreWindow{
+  color:#ff7368 !important;
+}
+.badge-ok{
+  background:rgba(131,184,107,.12);
+  color:#a6d38f;
+}
+.badge-blue{
+  background:#202020;
+  color:#efefeb;
+}
+.badge-warn{
+  background:#ff6a00;
+  color:#fff;
+}
+th{
+  background:#1b1b1b;
+  color:#a1a19b;
+}
+td{
+  color:#f3f3ef;
+}
+tr:hover td{
+  background:#181818;
+}
+.vtab{
+  border-radius:16px;
+}
+.vtab.active{
+  background:#f5f5f3;
+  color:#101010;
+  border-color:#f5f5f3;
+}
+.vtab:hover:not(.active){
+  background:#191919;
+}
+.chip{
+  background:#1b1b1b;
+  color:#d8d8d2;
+  border:1px solid rgba(255,255,255,.08);
+}
+.chip.found{
+  background:rgba(131,184,107,.12);
+  color:#a6d38f;
+  border-color:rgba(131,184,107,.24);
+}
+.modal-bg{
+  background:rgba(0,0,0,.72);
+}
+.modal{
+  background:#121212;
+}
+.danger-zone{
+  background:rgba(255,106,0,.12);
+  border-color:rgba(255,106,0,.34);
+}
+.danger-zone p,.error-row .kind,.error-row .meta{
+  color:#ff8d3a;
+}
+#toast{
+  background:#f5f5f3;
+  color:#101010;
+  border-color:rgba(255,255,255,.12);
+}
+@media(max-width:720px){
+  .sidebar{
+    background:#0d0d0d;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP ══ -->
+<div id="setupScreen">
+  <div class="login-box">
+    <h1>🔧 יצירת חשבון מפתח</h1>
+    <div class="login-sub">מסך זה מופיע פעם אחת בלבד</div>
+    <input class="field" id="setupUser" placeholder="שם משתמש"/>
+    <input class="field" id="setupPass" type="password" placeholder="סיסמה (מינ׳ 6 תווים)"/>
+    <input class="field" id="setupPass2" type="password" placeholder="אימות סיסמה"/>
+    <button class="btn btn-primary btn-full" onclick="doSetup()">צור חשבון מפתח</button>
+    <div class="err" id="setupErr"></div>
+  </div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>🔐 L2F Admin</h1>
+    <div class="login-sub">כניסה לאזור מפתח בלבד</div>
+    <input class="field" id="adminUser" placeholder="שם משתמש" autocomplete="username"/>
+    <input class="field" id="adminPass" type="password" placeholder="סיסמה" autocomplete="current-password"/>
+    <button class="btn btn-primary btn-full" onclick="doAdminLogin()">כניסה</button>
+    <div class="err" id="loginErr"></div>
+    <div style="margin-top:16px;text-align:center">
+      <a href="/" style="color:var(--muted);font-size:12px">← חזרה למערכת הסניפים</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div class="screen-credit" id="adminCredit">&copy; כל הזכויות שמורות ליאיר קרשיגייב</div>
+<div id="appScreen">
+  <div class="sidebar">
+    <div class="logo">📦 L2F</div>
+    <div class="role">⚙️ Super Admin</div>
+    <div class="nav-item active" data-page="overview" onclick="showPage('overview')">📊 סקירה</div>
+    <div class="nav-item" data-page="branches" onclick="showPage('branches')">🏪 סניפים</div>
+    <div class="nav-item" data-page="create" onclick="showPage('create')">➕ סניף חדש</div>
+    <div class="nav-item" data-page="barcodes" onclick="showPage('barcodes')">🏷️ ברקודים</div>
+    <div class="nav-item" data-page="admins" onclick="showPage('admins')">👤 אדמינים</div>
+    <div class="nav-item" id="navViewer" data-page="viewer" onclick="showPage('viewer')" style="display:none">👁 צפייה בסניף</div>
+    <div class="sidebar-footer">
+      <div class="nav-item" onclick="doAdminLogout()">🚪 יציאה</div>
+      <a href="/" style="display:block;text-align:center;margin-top:6px;font-size:11px;color:var(--muted)">→ מערכת סניפים</a>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- ═══ OVERVIEW ═══ -->
+    <div class="page active" id="page-overview">
+      <h1 style="font-size:21px;margin-bottom:16px">סקירה כללית</h1>
+      <div class="stat-row" id="overviewStats"></div>
+      <div class="health-hero">
+        <div id="healthScoreCard" class="health-score">
+          <div class="panel-title" style="margin:0">דופק המערכת</div>
+          <div class="score" id="healthScoreValue">—</div>
+          <div class="status" id="healthScoreStatus">טוען...</div>
+          <div style="font-size:12px" id="healthScoreWindow"></div>
+        </div>
+        <div class="health-grid" id="healthGrid"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">שגיאות אחרונות</div>
+        <div id="recentErrors" class="error-list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">סניפים אחרונים שנכנסו</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>סניף</th><th>Store ID</th><th>מחוברים עכשיו</th><th>כניסה אחרונה</th><th></th></tr></thead>
+            <tbody id="recentBranches"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BRANCHES LIST ═══ -->
+    <div class="page" id="page-branches">
+      <h1 style="font-size:21px;margin-bottom:14px">ניהול סניפים</h1>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <input class="dark-input" id="branchSearch" placeholder="חיפוש שם / Store ID..."
+               oninput="filterBranches()" style="flex:1;width:100%"/>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>שם סניף</th><th>Store ID</th><th>מחוברים עכשיו</th><th>נוצר</th><th>כניסה אחרונה</th><th>פעולות</th></tr>
+          </thead>
+          <tbody id="branchTbody"></tbody>
+        </table>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-top:6px" id="branchCount"></div>
+    </div>
+
+    <!-- ═══ CREATE ═══ -->
+    <div class="page" id="page-create">
+      <h1 style="font-size:21px;margin-bottom:14px">יצירת סניף חדש</h1>
+      <div class="panel" style="max-width:480px">
+        <div class="input-group" style="margin-bottom:10px">
+          <label>שם הסניף *</label>
+          <input class="dark-input" id="newName" style="width:100%" placeholder="לדוגמה: סניף תל אביב"/>
+        </div>
+        <div class="input-group" style="margin-bottom:10px">
+          <label>Store ID (אופציונלי)</label>
+          <input class="dark-input" id="newStoreId" style="width:100%" placeholder="לדוגמה: TLV01"/>
+        </div>
+        <div class="input-group" style="margin-bottom:10px">
+          <label>סיסמה ראשונית *</label>
+          <input class="dark-input" id="newPass" type="password" style="width:100%" placeholder="מינ׳ 4 תווים"/>
+        </div>
+        <div class="input-group" style="margin-bottom:18px">
+          <label>אימות סיסמה *</label>
+          <input class="dark-input" id="newPass2" type="password" style="width:100%"/>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="createBranch()">צור סניף</button>
+        <div class="err" id="createErr" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-barcodes">
+      <h1 style="font-size:21px;margin-bottom:14px">רשימת ברקודים</h1>
+      <div class="panel">
+        <div class="input-row">
+          <div class="input-group">
+            <label>חיפוש</label>
+            <input class="dark-input" id="barcodeSearch" placeholder="ברקוד / מק״ט / צבע" oninput="renderAdminBarcodes()" />
+          </div>
+          <div class="input-group">
+            <label>ברקוד</label>
+            <input class="dark-input" id="barcodeNewValue" />
+          </div>
+          <div class="input-group">
+            <label>מק״ט</label>
+            <input class="dark-input" id="barcodeNewSku" />
+          </div>
+          <div class="input-group">
+            <label>צבע</label>
+            <input class="dark-input" id="barcodeNewColor" />
+          </div>
+          <div class="input-group">
+            <label>מידה</label>
+            <select class="dark-input" id="barcodeNewSize">
+              <option value="">בחר</option>
+              <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="createAdminBarcode()">הוסף</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <input type="file" id="barcodeImportFile" accept=".csv" />
+          <button class="btn btn-ghost" onclick="importAdminBarcodes()">ייבוא CSV</button>
+          <a class="btn btn-ghost" href="/api/barcodes/export/csv">ייצוא CSV</a>
+          <span id="barcodeImportMsg" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th><th>פעולות</th></tr></thead>
+            <tbody id="barcodeTbody"></tbody>
+          </table>
+        </div>
+        <div style="color:var(--muted);font-size:12px;margin-top:6px" id="barcodeCount"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-admins">
+      <h1 style="font-size:21px;margin-bottom:14px">ניהול אדמינים</h1>
+      <div class="panel">
+        <div class="panel-title">משתמשי אדמין</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>שם משתמש</th><th>נוצר</th><th>פעולות</th></tr></thead>
+            <tbody id="adminsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BRANCH VIEWER ═══ -->
+    <div class="page" id="page-viewer">
+      <!-- Banner -->
+      <div class="branch-banner" id="viewerBanner">
+        <div>
+          <div class="bname" id="viewerName">—</div>
+          <div class="bsub" id="viewerSub">—</div>
+        </div>
+        <button class="btn btn-ghost" onclick="showPage('branches')">← חזרה לסניפים</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">מכשירים מחוברים וחסומים</div>
+        <div id="viewerDevicesSummary" class="small" style="margin-bottom:10px;color:var(--muted)">טוען...</div>
+        <div id="viewerDevicesWrap" class="branch-device-grid"></div>
+      </div>
+
+      <!-- Sub-tabs -->
+      <div class="vtabs">
+        <div class="vtab active" data-vtab="vt1" onclick="showVTab('vt1')">1) חוסרים מהרצפה</div>
+        <div class="vtab" data-vtab="vt2" onclick="showVTab('vt2')">2) חוסרים מחסן</div>
+        <div class="vtab" data-vtab="vt3" onclick="showVTab('vt3')">3) מיקומים</div>
+        <div class="vtab" data-vtab="vt4" onclick="showVTab('vt4')">4) סשן בוקר</div>
+      </div>
+
+      <!-- VTab 1: Missing Floor -->
+      <div class="vpanel active" id="vt1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="font-weight:700">חוסרים פעילים מהרצפה</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openAddFloorModal()">+ הוסף</button>
+            <button class="btn btn-danger btn-sm" onclick="clearFloor()">נקה הכל</button>
+          </div>
+        </div>
+        <div class="mlist" id="floorList"><div class="empty-state">טוען...</div></div>
+      </div>
+
+      <!-- VTab 2: Missing Warehouse -->
+      <div class="vpanel" id="vt2">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="font-weight:700">ממתינים להשלמה מהמחסן (FIFO)</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openAddWhModal()">+ הוסף</button>
+            <button class="btn btn-danger btn-sm" onclick="clearWh()">נקה הכל</button>
+          </div>
+        </div>
+        <div class="mlist" id="whList"><div class="empty-state">טוען...</div></div>
+      </div>
+
+      <!-- VTab 3: Locations -->
+      <div class="vpanel" id="vt3">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="font-weight:700">מיקומים במחסן</span>
+          <button class="btn btn-ghost btn-sm" onclick="openAddLocModal()">+ הוסף / עדכן</button>
+        </div>
+        <!-- Search -->
+        <input class="dark-input" id="locSearchInput" placeholder="חיפוש מק״ט..." oninput="filterLocs()"
+               style="width:100%;margin-bottom:10px"/>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>מק״ט</th><th>מיקום</th><th>עודכן</th><th></th></tr></thead>
+            <tbody id="locTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VTab 4: Morning Sessions -->
+      <div class="vpanel" id="vt4">
+        <div style="margin-bottom:10px;font-weight:700">סשן בוקר — היום</div>
+        <div id="sessionsList"><div class="empty-state">טוען...</div></div>
+      </div>
+
+    </div><!-- page-viewer -->
+
+  </div><!-- .main -->
+</div><!-- #appScreen -->
+
+<!-- ══ MODAL: Edit Branch ══ -->
+<div id="editModal" class="modal-bg">
+  <div class="modal">
+    <h3>✏️ עריכת סניף</h3>
+    <input type="hidden" id="editId"/>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>שם הסניף</label>
+      <input class="dark-input" id="editName" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>Store ID</label>
+      <input class="dark-input" id="editStoreId" style="width:100%"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('editModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveEdit()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Reset Password ══ -->
+<div id="resetModal" class="modal-bg">
+  <div class="modal">
+    <h3>🔑 איפוס סיסמה</h3>
+    <input type="hidden" id="resetId"/>
+    <p id="resetBranchName" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>סיסמה חדשה</label>
+      <input class="dark-input" id="resetPass" type="password" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>אימות</label>
+      <input class="dark-input" id="resetPass2" type="password" style="width:100%"/>
+    </div>
+    <div class="err" id="resetErr" style="margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('resetModal')">ביטול</button>
+      <button class="btn btn-warn" onclick="saveReset()">אפס סיסמה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Delete Branch ══ -->
+<div id="deleteModal" class="modal-bg">
+  <div class="modal">
+    <h3>🗑️ מחיקת סניף</h3>
+    <input type="hidden" id="deleteId"/>
+    <div class="danger-zone">
+      <p>⚠️ <strong>פעולה זו בלתי הפיכה.</strong> כל נתוני הסניף יימחקו לצמיתות.</p>
+      <p>הקלד את שם הסניף לאישור:</p>
+      <p id="deleteBranchNameHint" style="font-weight:700;color:#fca5a5;font-size:14px;margin:6px 0"></p>
+      <input class="dark-input" id="deleteConfirm" placeholder="שם הסניף..." style="width:100%;margin-top:4px"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">ביטול</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">מחק לצמיתות</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Add Missing Floor ══ -->
+<div id="addFloorModal" class="modal-bg">
+  <div class="modal">
+    <h3>+ הוסף חוסר לרצפה</h3>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>מק״ט</label><input class="dark-input" id="af_sku" style="width:100%"/>
+    </div>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>צבע</label><input class="dark-input" id="af_color" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>מידה</label>
+      <select class="dark-input" id="af_size" style="width:100%">
+        <option value="">בחר</option>
+        <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addFloorModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAddFloor()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Add Missing WH ══ -->
+<div id="addWhModal" class="modal-bg">
+  <div class="modal">
+    <h3>+ הוסף חוסר למחסן</h3>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>מק״ט</label><input class="dark-input" id="aw_sku" style="width:100%"/>
+    </div>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>צבע</label><input class="dark-input" id="aw_color" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>מידה</label>
+      <select class="dark-input" id="aw_size" style="width:100%">
+        <option value="">בחר</option>
+        <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addWhModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAddWh()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Add Location ══ -->
+<div id="addLocModal" class="modal-bg">
+  <div class="modal">
+    <h3>+ הוסף / עדכן מיקום</h3>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>מק״ט</label><input class="dark-input" id="al_sku" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>מיקום (לדוגמה: A1-03)</label><input class="dark-input" id="al_loc" style="width:100%"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addLocModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAddLoc()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminUserModal" class="modal-bg">
+  <div class="modal">
+    <h3>עריכת אדמין</h3>
+    <input type="hidden" id="adminUserId"/>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>שם משתמש</label>
+      <input class="dark-input" id="adminUserName" style="width:100%"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('adminUserModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAdminUserEdit()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminPasswordModal" class="modal-bg">
+  <div class="modal">
+    <h3>שינוי סיסמת אדמין</h3>
+    <input type="hidden" id="adminPasswordId"/>
+    <p id="adminPasswordHint" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>סיסמה חדשה</label>
+      <input class="dark-input" id="adminPasswordValue" type="password" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>אימות</label>
+      <input class="dark-input" id="adminPasswordValue2" type="password" style="width:100%"/>
+    </div>
+    <div class="err" id="adminPasswordErr" style="margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('adminPasswordModal')">ביטול</button>
+      <button class="btn btn-warn" onclick="saveAdminPassword()">שנה סיסמה</button>
+    </div>
+  </div>
+</div>
+
+<div id="barcodeEditModal" class="modal-bg">
+  <div class="modal">
+    <h3>עריכת ברקוד</h3>
+    <input type="hidden" id="barcodeEditValue"/>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>מק״ט</label>
+      <input class="dark-input" id="barcodeEditSku" style="width:100%"/>
+    </div>
+    <div class="input-group" style="margin-bottom:10px">
+      <label>צבע</label>
+      <input class="dark-input" id="barcodeEditColor" style="width:100%"/>
+    </div>
+    <div class="input-group">
+      <label>מידה</label>
+      <select class="dark-input" id="barcodeEditSize" style="width:100%">
+        <option value="">בחר</option>
+        <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('barcodeEditModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAdminBarcodeEdit()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $   = id => document.getElementById(id);
+const esc = s  => String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function toast(msg, ms=2200){
+  const t=$('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none', ms);
+}
+function showErr(id, msg){ const e=$(id); e.textContent=msg; e.style.display='block'; setTimeout(()=>e.style.display='none',3500); }
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+
+async function api(method, url, body=null){
+  const opts={method, headers:{'Content-Type':'application/json'}};
+  if(body) opts.body=JSON.stringify(body);
+  const res=await fetch(url, opts);
+  return res.json();
+}
+const GET    = url     => api('GET',    url);
+const POST   = (url,b) => api('POST',   url, b);
+const PUT    = (url,b) => api('PUT',    url, b);
+const DELETE = (url,b) => api('DELETE', url, b);
+let _overviewTimer=null;
+const fmtDate = s => s ? s.slice(0,16) : '—';
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+(async()=>{
+  const me = await GET('/api/admin/me');
+  if(me.ok){ enterAdmin(); return; }
+  const check = await GET('/api/admin/setup-check');
+  if(check.needs_setup){
+    $('setupScreen').style.display='flex';
+  } else {
+    $('loginScreen').style.display='flex';
+  }
+})();
+
+// ══════════════════════════════════════════
+// SETUP
+// ══════════════════════════════════════════
+async function doSetup(){
+  const user=$('setupUser').value.trim(), pw=$('setupPass').value, pw2=$('setupPass2').value;
+  if(!user)             return showErr('setupErr','הזן שם משתמש');
+  if(pw.length<6)       return showErr('setupErr','סיסמה — מינ׳ 6 תווים');
+  if(pw!==pw2)          return showErr('setupErr','הסיסמאות לא תואמות');
+  const r=await POST('/api/admin/setup',{username:user,password:pw});
+  if(r.error)           return showErr('setupErr','שגיאה: '+r.error);
+  const l=await POST('/api/admin/login',{username:user,password:pw});
+  if(l.ok){ $('setupScreen').style.display='none'; enterAdmin(); }
+}
+
+// ══════════════════════════════════════════
+// LOGIN / LOGOUT
+// ══════════════════════════════════════════
+async function doAdminLogin(){
+  const user=$('adminUser').value.trim(), pw=$('adminPass').value;
+  if(!user||!pw) return showErr('loginErr','מלא שם וסיסמה');
+  const r=await POST('/api/admin/login',{username:user,password:pw});
+  if(r.error) return showErr('loginErr','שם משתמש או סיסמה שגויים');
+  $('loginScreen').style.display='none'; enterAdmin();
+}
+$('adminPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+
+async function doAdminLogout(){ await POST('/api/admin/logout'); location.reload(); }
+
+function enterAdmin(){
+  $('loginScreen').style.display='none';
+  $('setupScreen').style.display='none';
+  $('appScreen').style.display='block';
+  loadOverview(); loadBranches(); loadAdminBarcodes(); loadAdmins();
+  if(!_overviewTimer){
+    _overviewTimer=setInterval(()=>{
+      if($('appScreen').style.display==='block') loadOverview();
+    },15000);
+  }
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  $('page-'+name).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${name}"]`)?.classList.add('active');
+}
+
+function showVTab(name){
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.vpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.vtab[data-vtab="${name}"]`).classList.add('active');
+  $(name).classList.add('active');
+}
+
+// ══════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════
+async function loadOverview(){
+  const [branches, overview, health] = await Promise.all([
+    GET('/api/admin/branches'),
+    GET('/api/admin/overview'),
+    GET('/api/admin/system-health')
+  ]);
+  $('overviewStats').innerHTML=`
+    <div class="stat-card"><div class="val">${overview.total_branches ?? branches.length}</div><div class="lbl">סה״כ סניפים</div></div>
+    <div class="stat-card"><div class="val">${overview.active_devices ?? 0}</div><div class="lbl">מכשירים מחוברים כרגע</div></div>
+    <div class="stat-card"><div class="val">${overview.connected_branches ?? 0}</div><div class="lbl">סניפים מחוברים כרגע</div></div>`;
+  const numericScore = Number(health.health_score ?? 0);
+  const scoreClass =
+    numericScore >= 85 ? 'good' :
+    numericScore >= 60 ? 'warning' :
+    'critical';
+  $('healthScoreCard').className=`health-score ${scoreClass}`;
+  $('healthScoreValue').textContent=health.health_score ?? '—';
+  $('healthScoreStatus').textContent=
+    scoreClass==='critical' ? 'מצב קריטי' :
+    scoreClass==='warning' ? 'דורש תשומת לב' :
+    'תקין';
+  $('healthScoreWindow').textContent=`נמדד על חלון של ${Math.round((health.window_seconds||300)/60)} דקות`;
+  $('healthGrid').innerHTML=`
+    <div class="mini-stat"><div class="val">${health.avg_request_ms ?? 0}ms</div><div class="lbl">זמן תגובה ממוצע</div></div>
+    <div class="mini-stat"><div class="val">${health.requests_last_window ?? 0}</div><div class="lbl">בקשות ב-5 דקות</div></div>
+    <div class="mini-stat"><div class="val">${health.scans_last_window ?? 0}</div><div class="lbl">סריקות ב-5 דקות</div></div>
+    <div class="mini-stat"><div class="val">${health.errors_last_window ?? 0}</div><div class="lbl">שגיאות ב-5 דקות</div></div>
+    <div class="mini-stat"><div class="val">${health.socket_connects_last_window ?? 0}</div><div class="lbl">חיבורים חדשים</div></div>
+    <div class="mini-stat"><div class="val">${health.socket_disconnects_last_window ?? 0}</div><div class="lbl">ניתוקים</div></div>
+    <div class="mini-stat"><div class="val">${health.socket_emits_last_window ?? 0}</div><div class="lbl">אירועי realtime</div></div>
+    <div class="mini-stat"><div class="val">${health.stale_devices ?? 0}</div><div class="lbl">מכשירים רדומים</div></div>`;
+  $('recentErrors').innerHTML=health.recent_errors?.length ? health.recent_errors.slice().reverse().map(err=>`
+    <div class="error-row">
+      <div class="kind">${esc(err.kind)}</div>
+      <div class="msg">${esc(err.message)}</div>
+      <div class="meta">${esc(err.scope||'system')} · ${fmtUnix(err.ts)}</div>
+    </div>`).join('') : '<div class="empty-state">אין שגיאות אחרונות</div>';
+  const recent=[...branches].sort((a,b)=>(b.last_login||'').localeCompare(a.last_login||'')).slice(0,5);
+  $('recentBranches').innerHTML=recent.length?recent.map(b=>`
+    <tr>
+      <td><b>${esc(b.name)}</b></td>
+      <td><span class="badge badge-blue">${esc(b.store_id||'—')}</span></td>
+      <td><span class="badge ${b.active_devices ? 'badge-ok' : 'badge-warn'}">${b.active_devices||0}</span></td>
+      <td class="small">${fmtDate(b.last_login)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openBranchViewer(${b.id},'${esc(b.name)}','${esc(b.store_id||'')}')">צפה</button></td>
+    </tr>`).join(''):'<tr><td colspan="5" class="empty-state">אין נתונים</td></tr>';
+}
+
+// ══════════════════════════════════════════
+// BRANCHES LIST
+// ══════════════════════════════════════════
+function fmtUnix(ts){
+  if(!ts) return '—';
+  const date=new Date(Number(ts)*1000);
+  if(Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('he-IL',{hour12:false});
+}
+
+async function disconnectAllBranchDevices(branchId, branchName){
+  if(!confirm(`לנתק את כל המכשירים של ${branchName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/disconnect-all`);
+  if(res.error) return toast('לא הצלחתי לנתק את כל המכשירים');
+  toast(`נותקו ${res.disconnected||0} חיבורים`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId) loadViewerDevices();
+}
+
+async function disconnectDevice(branchId, deviceId, deviceName){
+  if(!confirm(`לנתק את המכשיר ${deviceName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/devices/${encodeURIComponent(deviceId)}/disconnect`);
+  if(res.error) return toast('לא הצלחתי לנתק את המכשיר');
+  toast(`המכשיר "${deviceName}" נותק`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId) loadViewerDevices();
+}
+
+async function blockBranch(branchId, branchName){
+  if(!confirm(`לחסום את הסניף ${branchName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/block`);
+  if(res.error) return toast('לא הצלחתי לחסום את הסניף');
+  toast(`הסניף "${branchName}" נחסם`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId){
+    loadViewerDevices();
+    refreshViewerSub(true);
+  }
+}
+
+async function unblockBranch(branchId, branchName){
+  if(!confirm(`לבטל חסימה לסניף ${branchName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/unblock`);
+  if(res.error) return toast('לא הצלחתי לבטל את חסימת הסניף');
+  toast(`החסימה של "${branchName}" בוטלה`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId){
+    loadViewerDevices();
+    refreshViewerSub(false);
+  }
+}
+
+function renderViewerDevices(data){
+  $('viewerDevicesSummary').textContent=`מחוברים: ${data.active_devices||0} מכשירים · חיבורים: ${data.active_sockets||0} · חסומים: ${(data.blocked_devices||[]).length}`;
+  const activeCard=`
+    <div class="branch-device-card">
+      <div class="branch-device-head">
+        <div>
+          <div class="branch-device-name">מכשירים מחוברים</div>
+          <div class="branch-device-sub">${data.active_devices||0} מכשירים · ${data.active_sockets||0} חיבורים</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="disconnectAllBranchDevices(${data.branch_id},$('viewerName').textContent.replace('🏪 ',''))">נתק את כל המכשירים</button>
+      </div>
+      <div class="device-list">
+        ${data.devices?.length ? data.devices.map(device=>`
+          <div class="device-row">
+            <div class="device-main">
+              <div class="device-name">${esc(device.device_name||'מכשיר ללא שם')}</div>
+              <div class="device-sub">מזהה: ${esc(device.device_id)}</div>
+              <div class="device-sub">חיבורים: ${Number(device.socket_count||1)} · נראה לאחרונה: ${fmtUnix(device.last_seen)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-warn btn-sm" onclick="disconnectDevice(${data.branch_id},'${esc(device.device_id)}','${esc(device.device_name||'מכשיר ללא שם')}')">נתק</button>
+              <button class="btn btn-danger btn-sm" onclick="blockDevice(${data.branch_id},'${esc(device.device_id)}','${esc(device.device_name||'מכשיר ללא שם')}')">חסום</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteDevice(${data.branch_id},'${esc(device.device_id)}','${esc(device.device_name||'מכשיר ללא שם')}')">מחק</button>
+            </div>
+          </div>`).join('') : '<div class="empty-state">אין מכשירים מחוברים</div>'}
+      </div>
+    </div>`;
+
+  const blockedCard=`
+    <div class="branch-device-card">
+      <div class="branch-device-head">
+        <div>
+          <div class="branch-device-name">מכשירים חסומים</div>
+          <div class="branch-device-sub">${(data.blocked_devices||[]).length} חסומים כרגע</div>
+        </div>
+      </div>
+      <div class="device-list">
+        ${data.blocked_devices?.length ? data.blocked_devices.map(device=>`
+          <div class="device-row">
+            <div class="device-main">
+              <div class="device-name">${esc(device.device_name||'מכשיר ללא שם')}</div>
+              <div class="device-sub">מזהה: ${esc(device.device_id)}</div>
+              <div class="device-sub">נחסם: ${fmtDate(device.blocked_at)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-ok btn-sm" onclick="unblockDevice(${data.branch_id},'${esc(device.device_id)}','${esc(device.device_name||'מכשיר ללא שם')}')">בטל חסימה</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteDevice(${data.branch_id},'${esc(device.device_id)}','${esc(device.device_name||'מכשיר ללא שם')}')">מחק</button>
+            </div>
+          </div>`).join('') : '<div class="empty-state">אין מכשירים חסומים</div>'}
+      </div>
+    </div>`;
+
+  $('viewerDevicesWrap').innerHTML=activeCard+blockedCard;
+}
+
+async function loadViewerDevices(){
+  if(!_viewBranchId) return;
+  const data=await GET(`/api/admin/branches/${_viewBranchId}/devices`);
+  renderViewerDevices(data);
+}
+
+async function blockDevice(branchId, deviceId, deviceName){
+  if(!confirm(`לחסום את המכשיר ${deviceName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/devices/${encodeURIComponent(deviceId)}/block`,{device_name:deviceName});
+  if(res.error) return toast('לא הצלחתי לחסום את המכשיר');
+  toast(`המכשיר "${deviceName}" נחסם`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId) loadViewerDevices();
+}
+
+async function unblockDevice(branchId, deviceId, deviceName){
+  if(!confirm(`לבטל חסימה למכשיר ${deviceName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/devices/${encodeURIComponent(deviceId)}/unblock`);
+  if(res.error) return toast('לא הצלחתי לבטל חסימה');
+  toast(`החסימה של "${deviceName}" בוטלה`);
+  if(_viewBranchId===branchId) loadViewerDevices();
+}
+
+async function deleteDevice(branchId, deviceId, deviceName){
+  if(!confirm(`למחוק את המכשיר ${deviceName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/devices/${encodeURIComponent(deviceId)}/delete`);
+  if(res.error) return toast('לא הצלחתי למחוק את המכשיר');
+  toast(`המכשיר "${deviceName}" נמחק`);
+  loadOverview(); loadBranches();
+  if(_viewBranchId===branchId) loadViewerDevices();
+}
+
+let _allBranches=[];
+async function loadBranches(){
+  _allBranches=await GET('/api/admin/branches');
+  renderBranches(_allBranches);
+}
+function filterBranches(){
+  const q=$('branchSearch').value.toLowerCase().trim();
+  renderBranches(q?_allBranches.filter(b=>b.name.toLowerCase().includes(q)||(b.store_id||'').toLowerCase().includes(q)):_allBranches);
+}
+function renderBranches(list){
+  const tbody=$('branchTbody');
+  if(!list.length){ tbody.innerHTML='<tr><td colspan="6" class="empty-state">אין סניפים</td></tr>'; $('branchCount').textContent=''; return; }
+  tbody.innerHTML=list.map(b=>`
+    <tr>
+      <td><b>${esc(b.name)}</b></td>
+      <td><span class="badge badge-blue">${esc(b.store_id||'—')}</span></td>
+      <td><span class="badge ${b.active_devices ? 'badge-ok' : 'badge-warn'}">${b.active_devices||0}</span></td>
+      <td style="color:var(--muted);font-size:12px">${fmtDate(b.created_at)}</td>
+      <td style="color:var(--muted);font-size:12px">${fmtDate(b.last_login)}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="openBranchViewer(${b.id},'${esc(b.name)}','${esc(b.store_id||'')}')">👁 צפה</button>
+          ${b.is_blocked ? `<button class="btn btn-ok btn-sm" onclick="unblockBranch(${b.id},'${esc(b.name)}')">בטל חסימה</button>` : `<button class="btn btn-danger btn-sm" onclick="blockBranch(${b.id},'${esc(b.name)}')">חסום</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="openEdit(${b.id},'${esc(b.name)}','${esc(b.store_id||'')}')">ערוך</button>
+          <button class="btn btn-warn btn-sm" onclick="openReset(${b.id},'${esc(b.name)}')">סיסמה</button>
+          <button class="btn btn-danger btn-sm" onclick="openDelete(${b.id},'${esc(b.name)}')">מחק</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  $('branchCount').textContent=`מציג ${list.length} מתוך ${_allBranches.length} סניפים`;
+}
+
+let _allAdminBarcodes=[];
+async function loadAdminBarcodes(){
+  _allAdminBarcodes=await GET('/api/barcodes');
+  renderAdminBarcodes();
+}
+function renderAdminBarcodes(){
+  const q=$('barcodeSearch')?.value?.toLowerCase().trim()||'';
+  const rows=q
+    ?_allAdminBarcodes.filter(r=>r.barcode.toLowerCase().includes(q)||r.sku.toLowerCase().includes(q)||r.color.toLowerCase().includes(q))
+    :_allAdminBarcodes;
+  const tbody=$('barcodeTbody');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="5" class="empty-state">אין ברקודים</td></tr>';
+    $('barcodeCount').textContent='';
+    return;
+  }
+  tbody.innerHTML=rows.map(r=>`
+    <tr>
+      <td style="font-family:monospace">${esc(r.barcode)}</td>
+      <td><b>${esc(r.sku)}</b></td>
+      <td>${esc(r.color)}</td>
+      <td>${esc(r.size).toUpperCase()}</td>
+      <td>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="openAdminBarcodeEdit('${esc(r.barcode)}','${esc(r.sku)}','${esc(r.color)}','${esc(r.size)}')">ערוך</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAdminBarcode('${esc(r.barcode)}')">מחק</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  $('barcodeCount').textContent=`מציג ${rows.length} מתוך ${_allAdminBarcodes.length} ברקודים`;
+}
+async function createAdminBarcode(){
+  const barcode=$('barcodeNewValue').value.trim();
+  const sku=$('barcodeNewSku').value.trim();
+  const color=$('barcodeNewColor').value.trim();
+  const size=$('barcodeNewSize').value;
+  if(!barcode||!sku||!color||!size) return toast('מלא את כל שדות הברקוד');
+  const r=await POST('/api/barcodes',{barcode,sku,color,size});
+  if(r.error) return toast('לא הצלחתי להוסיף ברקוד');
+  ['barcodeNewValue','barcodeNewSku','barcodeNewColor','barcodeNewSize'].forEach(id=>$(id).value='');
+  toast('ברקוד נוסף');
+  loadAdminBarcodes();
+}
+function openAdminBarcodeEdit(barcode,sku,color,size){
+  $('barcodeEditValue').value=barcode;
+  $('barcodeEditSku').value=sku;
+  $('barcodeEditColor').value=color;
+  $('barcodeEditSize').value=size;
+  openModal('barcodeEditModal');
+}
+async function saveAdminBarcodeEdit(){
+  const barcode=$('barcodeEditValue').value;
+  const sku=$('barcodeEditSku').value.trim();
+  const color=$('barcodeEditColor').value.trim();
+  const size=$('barcodeEditSize').value;
+  if(!sku||!color||!size) return toast('מלא את כל השדות');
+  const r=await PUT(`/api/barcodes/${barcode}`,{sku,color,size});
+  if(r.error) return toast('לא הצלחתי לעדכן ברקוד');
+  closeModal('barcodeEditModal');
+  toast('ברקוד עודכן');
+  loadAdminBarcodes();
+}
+async function deleteAdminBarcode(barcode){
+  if(!confirm(`למחוק ברקוד ${barcode}?`)) return;
+  await DELETE(`/api/barcodes/${barcode}`);
+  toast('ברקוד נמחק');
+  loadAdminBarcodes();
+}
+async function importAdminBarcodes(){
+  const f=$('barcodeImportFile').files[0];
+  if(!f) return toast('בחר קובץ CSV');
+  const fd=new FormData(); fd.append('file',f);
+  const res=await fetch('/api/barcodes/import-admin',{method:'POST',body:fd}).then(r=>r.json());
+  $('barcodeImportMsg').textContent=`יובאו ${res.inserted||0}, שגיאות ${res.skipped_error||0}`;
+  loadAdminBarcodes();
+}
+
+let _admins=[];
+async function loadAdmins(){
+  _admins=await GET('/api/admin/admins');
+  renderAdmins();
+}
+function renderAdmins(){
+  const tbody=$('adminsTbody');
+  if(!_admins.length){
+    tbody.innerHTML='<tr><td colspan="3" class="empty-state">אין אדמינים</td></tr>';
+    return;
+  }
+  tbody.innerHTML=_admins.map(a=>`
+    <tr>
+      <td><b>${esc(a.username)}</b></td>
+      <td style="color:var(--muted);font-size:12px">${fmtDate(a.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="openAdminUserModal(${a.id},'${esc(a.username)}')">שם משתמש</button>
+          <button class="btn btn-warn btn-sm" onclick="openAdminPasswordModal(${a.id},'${esc(a.username)}')">סיסמה</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+function openAdminUserModal(id, username){
+  $('adminUserId').value=id;
+  $('adminUserName').value=username;
+  openModal('adminUserModal');
+}
+async function saveAdminUserEdit(){
+  const id=$('adminUserId').value;
+  const username=$('adminUserName').value.trim();
+  if(!username) return toast('הזן שם משתמש');
+  const r=await PUT(`/api/admin/admins/${id}`,{username});
+  if(r.error==='username_taken') return toast('שם המשתמש כבר קיים');
+  if(r.error) return toast('לא הצלחתי לעדכן אדמין');
+  closeModal('adminUserModal');
+  toast('שם האדמין עודכן');
+  loadAdmins();
+}
+function openAdminPasswordModal(id, username){
+  $('adminPasswordId').value=id;
+  $('adminPasswordHint').textContent='אדמין: '+username;
+  $('adminPasswordValue').value='';
+  $('adminPasswordValue2').value='';
+  openModal('adminPasswordModal');
+}
+async function saveAdminPassword(){
+  const id=$('adminPasswordId').value;
+  const pw=$('adminPasswordValue').value;
+  const pw2=$('adminPasswordValue2').value;
+  if(pw.length<6) return showErr('adminPasswordErr','סיסמה קצרה מדי');
+  if(pw!==pw2) return showErr('adminPasswordErr','הסיסמאות לא תואמות');
+  const r=await POST(`/api/admin/admins/${id}/reset-password`,{password:pw});
+  if(r.error) return showErr('adminPasswordErr','לא הצלחתי לעדכן סיסמה');
+  closeModal('adminPasswordModal');
+  toast('סיסמת האדמין עודכנה');
+}
+
+// ══════════════════════════════════════════
+// CREATE BRANCH
+// ══════════════════════════════════════════
+async function createBranch(){
+  const name=$('newName').value.trim(), storeId=$('newStoreId').value.trim();
+  const pw=$('newPass').value, pw2=$('newPass2').value;
+  if(!name)     return showErr('createErr','הזן שם סניף');
+  if(!storeId)  return showErr('createErr','הזן מספר סניף');
+  if(pw.length<4) return showErr('createErr','סיסמה קצרה מדי');
+  if(pw!==pw2)  return showErr('createErr','הסיסמאות לא תואמות');
+  const r=await POST('/api/admin/branches',{name,store_id:storeId,password:pw});
+  if(r.error==='name_taken') return showErr('createErr','שם כבר קיים');
+  if(r.error) return showErr('createErr','שגיאה: '+r.error);
+  ['newName','newStoreId','newPass','newPass2'].forEach(id=>$(id).value='');
+  toast(`✅ סניף "${r.branch.name}" נוצר`);
+  loadBranches(); loadOverview(); showPage('branches');
+}
+
+// ══════════════════════════════════════════
+// EDIT / RESET / DELETE (modals)
+// ══════════════════════════════════════════
+function openEdit(id,name,storeId){ $('editId').value=id; $('editName').value=name; $('editStoreId').value=storeId; openModal('editModal'); }
+async function saveEdit(){
+  const id=$('editId').value, name=$('editName').value.trim(), storeId=$('editStoreId').value.trim();
+  if(!name) return toast('הזן שם');
+  if(!storeId) return toast('הזן מספר סניף');
+  const r=await PUT(`/api/admin/branches/${id}`,{name,store_id:storeId});
+  if(r.error) return toast('שגיאה: '+r.error);
+  closeModal('editModal'); toast('✅ עודכן'); loadBranches(); loadOverview();
+}
+
+function openReset(id,name){ $('resetId').value=id; $('resetBranchName').textContent='סניף: '+name; $('resetPass').value=''; $('resetPass2').value=''; openModal('resetModal'); }
+async function saveReset(){
+  const id=$('resetId').value, pw=$('resetPass').value, pw2=$('resetPass2').value;
+  if(pw.length<4) return showErr('resetErr','סיסמה קצרה מדי');
+  if(pw!==pw2)    return showErr('resetErr','הסיסמאות לא תואמות');
+  const r=await POST(`/api/admin/branches/${id}/reset-password`,{password:pw});
+  if(r.error) return showErr('resetErr','שגיאה');
+  closeModal('resetModal'); toast('✅ סיסמה עודכנה');
+}
+
+function openDelete(id,name){ $('deleteId').value=id; $('deleteBranchNameHint').textContent=name; $('deleteConfirm').value=''; openModal('deleteModal'); }
+async function confirmDelete(){
+  const id=$('deleteId').value, confirm=$('deleteConfirm').value.trim(), expected=$('deleteBranchNameHint').textContent;
+  if(confirm!==expected){ toast('⚠️ שם לא תואם'); return; }
+  const r=await DELETE(`/api/admin/branches/${id}`,{confirm});
+  if(r.error){ toast('שגיאה: '+r.error); return; }
+  closeModal('deleteModal'); toast(`🗑️ "${r.deleted}" נמחק`);
+  loadBranches(); loadOverview();
+}
+
+['editModal','resetModal','deleteModal','addFloorModal','addWhModal','addLocModal','adminUserModal','adminPasswordModal','barcodeEditModal'].forEach(id=>{
+  $(id).addEventListener('click', e=>{ if(e.target===$(id)) closeModal(id); });
+});
+
+// ══════════════════════════════════════════
+// BRANCH VIEWER
+// ══════════════════════════════════════════
+let _viewBranchId=null, _viewBranchName='', _viewStoreId='', _allLocs=[];
+
+function refreshViewerSub(isBlocked=false){
+  $('viewerSub').textContent=`Store ID: ${_viewStoreId||'—'} · מזהה: ${_viewBranchId}${isBlocked ? ' · חסום' : ''}`;
+}
+
+async function openBranchViewer(id, name, storeId){
+  _viewBranchId=id;
+  _viewBranchName=name;
+  _viewStoreId=storeId||'';
+  $('viewerName').textContent='🏪 '+name;
+  refreshViewerSub(false);
+  $('navViewer').style.display='flex';
+  showPage('viewer');
+  showVTab('vt1');
+  // Load all tabs
+  loadViewerDevices(); loadFloor(); loadWh(); loadLocs(); loadSessions();
+}
+
+// ── Tab 1: Floor ─────────────────────────────────────────────
+async function loadFloor(){
+  const rows=await GET(`/api/admin/branches/${_viewBranchId}/missing-floor`);
+  const el=$('floorList');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">אין חוסרים פעילים 🎉</div>'; return; }
+  el.innerHTML=rows.map(r=>`
+    <div class="mrow">
+      <div class="mrow-info">
+        <div class="mrow-main"><b>${esc(r.sku)}</b> · ${esc(r.color)} · <span style="font-weight:700">${esc(r.size).toUpperCase()}</span></div>
+        <div class="mrow-sub">${r.created_at}</div>
+      </div>
+      <button class="btn btn-ok btn-sm" onclick="resolveFloor(${r.id})">✓ נמצא</button>
+    </div>`).join('');
+}
+async function resolveFloor(id){
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-floor/${id}/resolve`);
+  toast('סומן כנמצא'); loadFloor();
+}
+async function clearFloor(){
+  if(!confirm('לנקות את כל החוסרים?')) return;
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-floor/clear`);
+  toast('נוקה'); loadFloor();
+}
+function openAddFloorModal(){ $('af_sku').value=''; $('af_color').value=''; $('af_size').value=''; openModal('addFloorModal'); }
+async function saveAddFloor(){
+  const sku=$('af_sku').value.trim(), color=$('af_color').value.trim(), size=$('af_size').value;
+  if(!sku||!color||!size){ toast('מלא כל השדות'); return; }
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-floor`,{sku,color,size});
+  closeModal('addFloorModal'); toast('נוסף'); loadFloor();
+}
+
+// ── Tab 2: Warehouse ─────────────────────────────────────────
+async function loadWh(){
+  const rows=await GET(`/api/admin/branches/${_viewBranchId}/missing-warehouse`);
+  const el=$('whList');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">אין פריטים ממתינים 🎉</div>'; return; }
+  el.innerHTML=rows.map(r=>`
+    <div class="mrow">
+      <div class="mrow-info">
+        <div class="mrow-main"><b>${esc(r.sku)}</b> · ${esc(r.color)} · <b>${esc(r.size).toUpperCase()}</b></div>
+        <div class="mrow-sub">${r.scanned_at}</div>
+      </div>
+      <button class="btn btn-ok btn-sm" onclick="restockWh(${r.id})">✓ הושלם</button>
+    </div>`).join('');
+}
+async function restockWh(id){
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-warehouse/${id}/restock`);
+  toast('סומן כהושלם'); loadWh();
+}
+async function clearWh(){
+  if(!confirm('לנקות?')) return;
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-warehouse/clear`);
+  toast('נוקה'); loadWh();
+}
+function openAddWhModal(){ $('aw_sku').value=''; $('aw_color').value=''; $('aw_size').value=''; openModal('addWhModal'); }
+async function saveAddWh(){
+  const sku=$('aw_sku').value.trim(), color=$('aw_color').value.trim(), size=$('aw_size').value;
+  if(!sku||!color||!size){ toast('מלא כל השדות'); return; }
+  await POST(`/api/admin/branches/${_viewBranchId}/missing-warehouse`,{sku,color,size});
+  closeModal('addWhModal'); toast('נוסף'); loadWh();
+}
+
+// ── Tab 3: Locations ─────────────────────────────────────────
+async function loadLocs(){
+  _allLocs=await GET(`/api/admin/branches/${_viewBranchId}/locations`);
+  renderLocs(_allLocs);
+}
+function filterLocs(){
+  const q=$('locSearchInput').value.toLowerCase().trim();
+  renderLocs(q?_allLocs.filter(r=>r.sku.toLowerCase().includes(q)||r.location.toLowerCase().includes(q)):_allLocs);
+}
+function renderLocs(list){
+  const tbody=$('locTbody');
+  if(!list.length){ tbody.innerHTML='<tr><td colspan="4" class="empty-state">אין מיקומים</td></tr>'; return; }
+  tbody.innerHTML=list.map(r=>`
+    <tr>
+      <td><b>${esc(r.sku)}</b></td>
+      <td>${esc(r.location)}</td>
+      <td style="color:var(--muted);font-size:11px">${(r.updated_at||'').slice(0,16)}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${esc(r.location)}').then(()=>toast('הועתק'))">העתק</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLoc('${esc(r.sku)}')">מחק</button>
+      </td>
+    </tr>`).join('');
+}
+async function deleteLoc(sku){
+  await DELETE(`/api/admin/branches/${_viewBranchId}/locations/${sku}`);
+  toast('נמחק'); loadLocs();
+}
+function openAddLocModal(){ $('al_sku').value=''; $('al_loc').value=''; openModal('addLocModal'); }
+async function saveAddLoc(){
+  const sku=$('al_sku').value.trim(), location=$('al_loc').value.trim();
+  if(!sku||!location){ toast('מלא מק״ט ומיקום'); return; }
+  await POST(`/api/admin/branches/${_viewBranchId}/locations`,{sku,location});
+  closeModal('addLocModal'); toast('נשמר'); loadLocs();
+}
+
+// ── Tab 4: Morning Sessions ───────────────────────────────────
+async function loadSessions(){
+  const rows=await GET(`/api/admin/branches/${_viewBranchId}/sessions`);
+  const el=$('sessionsList');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">אין קבוצות בוקר פתוחות להיום</div>'; return; }
+  el.innerHTML=rows.map(r=>{
+    const foundSet=new Set(r.sizes_found);
+    const chips=r.sizes_all.map(sz=>`<span class="chip ${foundSet.has(sz)?'found':''}">${esc(sz).toUpperCase()}${foundSet.has(sz)?' ✓':''}</span>`).join('');
+    const missing=r.sizes_all.filter(sz=>!foundSet.has(sz));
+    return `
+    <div class="panel" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><b style="font-size:15px">${esc(r.sku)}</b> <span style="color:var(--muted);margin-right:6px">${esc(r.color)}</span>
+          ${r.approved?'<span class="badge badge-ok">אושר</span>':'<span class="badge badge-warn">פתוח</span>'}
+        </div>
+        <span style="font-size:12px;color:var(--muted)">${missing.length>0?`חסרות: ${missing.length}`:'הכל נמצא ✓'}</span>
+      </div>
+      <div>${chips||'<span style="color:var(--muted);font-size:12px">אין מידות בקטלוג</span>'}</div>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
