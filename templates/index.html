@@ -25,9 +25,6 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 .authBox{background:rgba(255,255,255,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.58);border-radius:24px;padding:32px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.18)}
 .authBox h1{margin:0 0 4px;font-size:28px}
 .authSub{color:var(--muted);font-size:13px;margin-bottom:24px}
-.authTabs{display:flex;border:1px solid rgba(255,255,255,.55);border-radius:14px;overflow:hidden;margin-bottom:20px;background:rgba(255,255,255,.3)}
-.authTab{flex:1;padding:10px;text-align:center;cursor:pointer;background:transparent;color:var(--muted);font-size:14px;border:none;outline:none}
-.authTab.active{background:var(--text);color:#fff;font-weight:700}
 .authField{width:100%;padding:12px;border:1px solid rgba(255,255,255,.55);border-radius:14px;font-size:15px;margin-bottom:12px;outline:none;background:rgba(255,255,255,.44);color:var(--text)}
 .authField:focus{border-color:rgba(121,194,58,.55);box-shadow:0 0 0 3px rgba(121,194,58,.14)}
 .authBtn{width:100%;padding:12px;background:var(--text);color:#fff;border:none;border-radius:14px;font-size:16px;cursor:pointer;font-weight:700}
@@ -254,22 +251,6 @@ html,body{
   font-size:14px;
   color:#838383;
   margin-bottom:26px;
-}
-.authTabs{
-  background:#f3f0eb;
-  border:1px solid #ebe5de;
-  border-radius:20px;
-  padding:4px;
-}
-.authTab{
-  border-radius:16px;
-  font-size:15px;
-  padding:12px 10px;
-}
-.authTab.active{
-  background:#111;
-  color:#fff;
-  box-shadow:none;
 }
 .authField{
   border-radius:20px;
@@ -666,23 +647,11 @@ body.app-dark #appScreen .queue-box{
       <div class="authNotice-title" id="authNoticeTitle"></div>
       <div class="authNotice-body" id="authNoticeBody"></div>
     </div>
-    <div class="authTabs">
-      <button class="authTab active" onclick="showAuthTab('login')">כניסה</button>
-      <button class="authTab" onclick="showAuthTab('register')">סניף חדש</button>
-    </div>
     <div id="loginForm">
       <input class="authField" id="loginName" placeholder="שם הסניף" autocomplete="username"/>
       <input class="authField" id="loginPass" placeholder="סיסמה" type="password" autocomplete="current-password"/>
       <button class="authBtn" onclick="doLogin()">כניסה</button>
       <div class="authErr" id="loginErr"></div>
-    </div>
-    <div id="registerForm" style="display:none">
-      <input class="authField" id="regName" placeholder="שם הסניף" autocomplete="username"/>
-      <input class="authField" id="regStoreId" placeholder="מספר סניף" inputmode="numeric"/>
-      <input class="authField" id="regPass" placeholder="סיסמה (מינ׳ 4 תווים)" type="password"/>
-      <input class="authField" id="regPass2" placeholder="אימות סיסמה" type="password"/>
-      <button class="authBtn" onclick="doRegister()">יצירת סניף</button>
-      <div class="authErr" id="registerErr"></div>
     </div>
 
     <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border); text-align:center">
@@ -1128,12 +1097,6 @@ const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
-function showAuthTab(tab){
-  $('loginForm').style.display    = tab==='login'    ?'block':'none';
-  $('registerForm').style.display = tab==='register' ?'block':'none';
-  $$('.authTab').forEach((b,i)=>b.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register')));
-}
-
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
 
 function hideAuthNotice(){
@@ -1214,18 +1177,6 @@ async function doLogin(){
   await enterApp(res.branch);
 }
 $('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-
-async function doRegister(){
-  const name=$('regName').value.trim(), storeId=$('regStoreId').value.trim(), pw=$('regPass').value, pw2=$('regPass2').value;
-  if(!name)return authErr('registerErr','הזן שם לסניף');
-  if(!storeId)return authErr('registerErr','הזן מספר סניף');
-  if(pw.length<4)return authErr('registerErr','סיסמה חייבת להיות לפחות 4 תווים');
-  if(pw!==pw2)return authErr('registerErr','הסיסמאות לא תואמות');
-  const res=await POST('/api/auth/register',{name,store_id:storeId,password:pw});
-  if(res.error==='name_taken')return authErr('registerErr','שם הסניף תפוס');
-  if(res.error)return authErr('registerErr','שגיאה: '+res.error);
-  await enterApp(res.branch);
-}
 
 async function doLogout(options={}){
   const reason = options.reason || '';

@@ -2,14 +2,9 @@ from flask import Blueprint, request, jsonify
 from database.db import get_connection
 from backend.auth_utils import require_branch
 from backend.realtime import emit_update
-from datetime import date
+from backend.utils import today as _today, normalize_barcode as _normalize_barcode
 
 missing_floor_bp = Blueprint("missing_floor", __name__, url_prefix="/api/missing-floor")
-
-
-def _today():
-    return str(date.today())
-
 
 def _sizes_list(s: str) -> list:
     return [x for x in s.split(",") if x] if s else []
@@ -17,14 +12,6 @@ def _sizes_list(s: str) -> list:
 
 def _sizes_str(lst: list) -> str:
     return ",".join(sorted(set(lst)))
-
-
-def _normalize_barcode(value: str) -> str:
-    value = str(value or "").strip().upper()
-    if value.startswith("E"):
-        value = value[1:]
-    return value
-
 
 def _location_for_sku(conn, branch_id, sku):
     row = conn.execute(

@@ -6,21 +6,9 @@ from flask import Blueprint, request, jsonify
 from database.db import get_connection
 from backend.auth_utils import require_branch
 from backend.realtime import emit_update
-from datetime import date
+from backend.utils import today as _today, normalize_barcode as _normalize_barcode
 
 missing_warehouse_bp = Blueprint("missing_warehouse", __name__, url_prefix="/api/missing-warehouse")
-
-
-def _today():
-    return str(date.today())
-
-
-def _normalize_barcode(value: str) -> str:
-    value = str(value or "").strip().upper()
-    if value.startswith("E"):
-        value = value[1:]
-    return value
-
 
 def _load_item_with_location(conn, item_id):
     row = conn.execute(

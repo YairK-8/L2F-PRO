@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, session
 from database.db import get_connection
 from backend.realtime import socketio
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -22,30 +22,7 @@ def _set_branch_session(branch_id, branch_name):
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json(silent=True) or {}
-    name = str(data.get("name", "")).strip()
-    store_id = str(data.get("store_id", "")).strip()
-    pw   = str(data.get("password", "")).strip()
-    if not name or not store_id or not pw:
-        return jsonify({"error": "missing_fields"}), 400
-    if len(pw) < 4:
-        return jsonify({"error": "password_too_short"}), 400
-    hashed = generate_password_hash(pw)
-    conn = get_connection()
-    try:
-        conn.execute(
-            "INSERT INTO branches (name, store_id, password) VALUES (?,?,?)", (name, store_id, hashed)
-        )
-        conn.commit()
-        row = conn.execute(
-            "SELECT id, name, store_id FROM branches WHERE name=?", (name,)
-        ).fetchone()
-        _set_branch_session(row["id"], row["name"])
-    except Exception:
-        conn.close()
-        return jsonify({"error": "name_taken"}), 409
-    conn.close()
-    return jsonify({"ok": True, "branch": {"id": row["id"], "name": row["name"], "store_id": row["store_id"]}}), 201
+    return jsonify({"error": "admin_only"}), 403
 
 
 @auth_bp.route("/login", methods=["POST"])

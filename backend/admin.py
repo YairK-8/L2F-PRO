@@ -519,13 +519,13 @@ def edit_branch(branch_id):
             (name, store_id, branch_id)
         )
         conn.commit()
+        changed = conn.total_changes
     except Exception:
         conn.close()
         return jsonify({"error": "name_taken"}), 409
-    if conn.total_changes == 0:
-        conn.close()
-        return jsonify({"error": "not_found"}), 404
     conn.close()
+    if not changed:
+        return jsonify({"error": "not_found"}), 404
     return jsonify({"ok": True})
 
 

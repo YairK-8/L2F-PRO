@@ -27,15 +27,8 @@ from flask import Blueprint, request, jsonify, Response
 import csv
 import io
 
-try:
-    from database.db import get_connection
-except ImportError:
-    from ..database.db import get_connection
-
-try:
-    from backend.auth_utils import require_branch, require_branch_or_admin, require_admin
-except ImportError:
-    from .auth_utils import require_branch, require_branch_or_admin, require_admin
+from database.db import get_connection
+from backend.auth_utils import require_branch, require_branch_or_admin, require_admin
 
 
 barcodes_bp = Blueprint("barcodes", __name__, url_prefix="/api/barcodes")

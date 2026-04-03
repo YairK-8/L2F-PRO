@@ -50,16 +50,6 @@ def _migrate():
     except sqlite3.OperationalError:
         pass
 
-    cur.execute(
-        """CREATE TABLE IF NOT EXISTS blocked_devices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            branch_id INTEGER NOT NULL REFERENCES branches(id),
-            device_id TEXT NOT NULL,
-            device_name TEXT NOT NULL DEFAULT '',
-            blocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-            UNIQUE(branch_id, device_id)
-        )"""
-    )
     cur.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
 
     conn.commit()
