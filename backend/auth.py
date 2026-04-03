@@ -7,6 +7,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
+def _clear_branch_session():
+    session.pop("branch_id", None)
+    session.pop("branch_name", None)
+    session.modified = True
+
+
+def _set_branch_session(branch_id, branch_name):
+    _clear_branch_session()
+    session["branch_id"] = branch_id
+    session["branch_name"] = branch_name
+    session.modified = True
+
+
 @auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
@@ -27,9 +40,7 @@ def register():
         row = conn.execute(
             "SELECT id, name, store_id FROM branches WHERE name=?", (name,)
         ).fetchone()
-        session["branch_id"]   = row["id"]
-        session["branch_name"] = row["name"]
-        session["is_admin"]    = False
+        _set_branch_session(row["id"], row["name"])
     except Exception:
         conn.close()
         return jsonify({"error": "name_taken"}), 409
@@ -59,16 +70,13 @@ def login():
     )
     conn.commit()
     conn.close()
-    session.clear()
-    session["branch_id"]   = row["id"]
-    session["branch_name"] = row["name"]
-    session["is_admin"]    = False
+    _set_branch_session(row["id"], row["name"])
     return jsonify({"ok": True, "branch": {"id": row["id"], "name": row["name"]}})
 
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
-    session.clear()
+    _clear_branch_session()
     return jsonify({"ok": True})
 
 
@@ -83,10 +91,10 @@ def me():
     ).fetchone()
     conn.close()
     if not row:
-        session.clear()
+        _clear_branch_session()
         return jsonify({"error": "not_logged_in"}), 401
     if row["is_blocked"]:
-        session.clear()
+        _clear_branch_session()
         return jsonify({"error": "branch_blocked"}), 403
     return jsonify({
         "branch_id":   session["branch_id"],

@@ -24,7 +24,7 @@ def require_branch_or_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if session.get("is_admin"):
-            kwargs["branch_id"] = session.get("branch_id")
+            kwargs["branch_id"] = None
             return f(*args, **kwargs)
         if "branch_id" not in session:
             return jsonify({"error": "not_logged_in"}), 401
@@ -37,7 +37,9 @@ def require_admin(f):
     """Ensures the super-admin is logged in. Returns 403 otherwise."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("is_admin"):
+        if not session.get("is_admin") or not session.get("admin_id"):
             return jsonify({"error": "forbidden"}), 403
+        session.permanent = True
+        session.modified = True
         return f(*args, **kwargs)
     return decorated

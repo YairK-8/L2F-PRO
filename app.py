@@ -1,6 +1,7 @@
 """app.py — L2F v4 with Super Admin"""
 import os, secrets, time
 from datetime import timedelta
+from pathlib import Path
 from flask import Flask, g, request, send_from_directory
 from database.db import init_db
 from backend.realtime import (
@@ -18,12 +19,33 @@ from backend.locations import locations_bp
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
-_env_secret = os.environ.get("SECRET_KEY", "").strip()
-app.secret_key = _env_secret if _env_secret else secrets.token_hex(32)
+
+def _load_secret_key():
+    env_secret = os.environ.get("SECRET_KEY", "").strip()
+    if env_secret:
+        return env_secret
+
+    secret_file = Path(app.root_path) / "database" / ".flask_secret_key"
+    try:
+        if secret_file.exists():
+            saved_secret = secret_file.read_text(encoding="utf-8").strip()
+            if saved_secret:
+                return saved_secret
+        secret_file.parent.mkdir(parents=True, exist_ok=True)
+        new_secret = secrets.token_hex(32)
+        secret_file.write_text(new_secret, encoding="utf-8")
+        return new_secret
+    except OSError:
+        # Fallback only if the secret file cannot be accessed.
+        return secrets.token_hex(32)
+
+
+app.secret_key = _load_secret_key()
 
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
 for bp in [auth_bp, admin_bp, barcodes_bp, missing_floor_bp,
            missing_warehouse_bp, locations_bp]:

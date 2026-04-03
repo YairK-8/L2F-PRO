@@ -28,12 +28,30 @@ from werkzeug.security import generate_password_hash, check_password_hash
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 
+def _clear_admin_session():
+    session.pop("is_admin", None)
+    session.pop("admin_id", None)
+    session.pop("admin_username", None)
+    session.modified = True
+
+
+def _quote_sqlite_ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _quote_sqlite_string(name: str) -> str:
+    return "'" + str(name).replace("'", "''") + "'"
+
+
 # ── Session check ─────────────────────────────────────────────
 
 @admin_bp.route("/me", methods=["GET"])
 def admin_me():
-    if not session.get("is_admin"):
+    if not session.get("is_admin") or not session.get("admin_id"):
+        _clear_admin_session()
         return jsonify({"error": "not_logged_in"}), 401
+    session.permanent = True
+    session.modified = True
     return jsonify({
         "ok": True,
         "admin_id": session.get("admin_id"),
@@ -98,18 +116,19 @@ def admin_login():
     if not row or not check_password_hash(row["password"], pw):
         return jsonify({"error": "invalid_credentials"}), 401
 
-    # Clear any branch session and set admin session
-    session.clear()
+    # Keep branch login intact if it exists in the same browser.
+    _clear_admin_session()
     session.permanent = True
     session["is_admin"]       = True
     session["admin_id"]       = row["id"]
     session["admin_username"] = row["username"]
+    session.modified = True
     return jsonify({"ok": True, "username": row["username"]})
 
 
 @admin_bp.route("/logout", methods=["POST"])
 def admin_logout():
-    session.clear()
+    _clear_admin_session()
     return jsonify({"ok": True})
 
 
@@ -175,6 +194,91 @@ def get_system_health():
         branch["name"] = meta.get("name", f"סניף {branch['branch_id']}")
         branch["store_id"] = meta.get("store_id") or ""
     return jsonify(health)
+
+
+@admin_bp.route("/database-schema", methods=["GET"])
+@require_admin
+def get_database_schema():
+    conn = get_connection()
+    try:
+        table_rows = conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table'
+              AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+            """
+        ).fetchall()
+
+        tables = []
+        for row in table_rows:
+            table_name = row["name"]
+            try:
+                cols = conn.execute(
+                    f"PRAGMA table_info({_quote_sqlite_string(table_name)})"
+                ).fetchall()
+                row_count = conn.execute(
+                    f"SELECT COUNT(*) AS count FROM {_quote_sqlite_ident(table_name)}"
+                ).fetchone()["count"]
+            except Exception as exc:
+                tables.append({
+                    "name": table_name,
+                    "row_count": None,
+                    "columns": [],
+                    "error": str(exc),
+                })
+                continue
+            tables.append({
+                "name": table_name,
+                "row_count": row_count,
+                "columns": [
+                    {
+                        "cid": col["cid"],
+                        "name": col["name"],
+                        "type": col["type"],
+                        "notnull": bool(col["notnull"]),
+                        "default": col["dflt_value"],
+                        "pk": bool(col["pk"]),
+                    }
+                    for col in cols
+                ],
+            })
+        return jsonify({"tables": tables})
+    finally:
+        conn.close()
+
+
+@admin_bp.route("/database-table/<path:table_name>", methods=["GET"])
+@require_admin
+def get_database_table(table_name):
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table'
+              AND name=?
+              AND name NOT LIKE 'sqlite_%'
+            """,
+            (table_name,)
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "table_not_found"}), 404
+
+        safe_name = _quote_sqlite_ident(table_name)
+        cols = conn.execute(
+            f"PRAGMA table_info({_quote_sqlite_string(table_name)})"
+        ).fetchall()
+        rows = conn.execute(f"SELECT * FROM {safe_name}").fetchall()
+        return jsonify({
+            "name": table_name,
+            "columns": [col["name"] for col in cols],
+            "rows": [dict(item) for item in rows],
+        })
+    finally:
+        conn.close()
 
 
 @admin_bp.route("/branches/<int:branch_id>/devices", methods=["GET"])
@@ -295,7 +399,6 @@ def admin_delete_device(branch_id, device_id):
     disconnected = disconnect_single_device(branch_id, device_id, "admin_deleted_device")
     if not disconnected and not removed_blocks:
         return jsonify({"error": "not_found"}), 404
-
     return jsonify({
         "ok": True,
         "deleted": True,

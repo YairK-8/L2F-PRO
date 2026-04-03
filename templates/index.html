@@ -33,11 +33,22 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 .authBtn{width:100%;padding:12px;background:var(--text);color:#fff;border:none;border-radius:14px;font-size:16px;cursor:pointer;font-weight:700}
 .authBtn:hover{background:#000}
 .authErr{color:#dc2626;font-size:13px;margin-top:8px;display:none}
+.authNotice{display:none;margin:0 0 18px;padding:14px 16px;border-radius:18px;border:1px solid rgba(217,139,43,.28);background:rgba(217,139,43,.12);box-shadow:0 12px 26px rgba(0,0,0,.08)}
+.authNotice.open{display:block}
+.authNotice-title{font-size:15px;font-weight:800;color:#7b4b10;margin-bottom:5px}
+.authNotice-body{font-size:13px;line-height:1.5;color:#8d611d}
+.authNotice.warn{border-color:rgba(217,139,43,.28);background:rgba(217,139,43,.12)}
+.authNotice.warn .authNotice-title{color:#7b4b10}
+.authNotice.warn .authNotice-body{color:#8d611d}
+.authNotice.danger{border-color:rgba(166,43,43,.26);background:rgba(166,43,43,.1)}
+.authNotice.danger .authNotice-title{color:#8f2626}
+.authNotice.danger .authNotice-body{color:#9d4343}
 
 /* ── APP ── */
 #appScreen{display:none}
 .wrap{max-width:1300px;margin:0 auto;padding:16px}
 header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .badge{background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.55);color:var(--text);padding:5px 12px;border-radius:999px;font-size:13px;font-weight:700}
 .rtdot{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;margin-left:6px;box-shadow:0 0 0 2px rgba(121,194,58,.16)}
 .rtdot.off{background:#94a3b8;box-shadow:none}
@@ -62,6 +73,23 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .btn-ok{background:rgba(121,194,58,.14);border-color:rgba(121,194,58,.32);color:#3f6f18}
 .btn-ghost{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.55);color:var(--text)}
 .btn-warn{background:rgba(217,139,43,.14);border-color:rgba(217,139,43,.3);color:#9f5d14}
+.btn-sticky-on{background:rgba(121,194,58,.16);border-color:rgba(121,194,58,.34);color:#365f16}
+.header-icon-btn{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  line-height:1;
+}
+.header-icon-btn .icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
 
 .list{max-height:600px;overflow:auto;border:1px dashed rgba(255,255,255,.42);border-radius:18px;padding:8px;background:rgba(255,255,255,.3)}
 .kv{display:flex;justify-content:space-between;gap:8px;padding:9px 8px;border-bottom:1px dashed var(--border);align-items:center}
@@ -634,6 +662,10 @@ body.app-dark #appScreen .queue-box{
   <div class="authBox">
     <h1>📦 L2F</h1>
     <div class="authSub">מערכת ניהול חוסרים ומיקומים</div>
+    <div id="authNotice" class="authNotice warn">
+      <div class="authNotice-title" id="authNoticeTitle"></div>
+      <div class="authNotice-body" id="authNoticeBody"></div>
+    </div>
     <div class="authTabs">
       <button class="authTab active" onclick="showAuthTab('login')">כניסה</button>
       <button class="authTab" onclick="showAuthTab('register')">סניף חדש</button>
@@ -668,11 +700,18 @@ body.app-dark #appScreen .queue-box{
 <div class="wrap">
   <header>
     <b style="font-size:20px">📦 L2F</b>
-    <div style="display:flex;gap:8px;align-items:center">
+    <div class="header-actions">
       <span class="badge" id="branchBadge">—</span>
       <span id="rtIndicator" title="חיבור Realtime" aria-label="חיבור Realtime"><span class="rtdot off"></span></span>
-      <button class="btn-ghost" id="workThemeBtn" onclick="toggleWorkTheme()" style="font-size:13px;padding:6px 12px">מצב כהה</button>
-      <button class="btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">יציאה</button>
+      <button class="btn-ghost header-icon-btn" id="alwaysConnectedBtn" type="button" onclick="toggleAlwaysConnected()" title="שמירת התחברות במכשיר הזה" aria-label="שמירת התחברות במכשיר הזה">
+        <span class="icon" aria-hidden="true">⏳</span>
+      </button>
+      <button class="btn-ghost header-icon-btn" id="workThemeBtn" type="button" onclick="toggleWorkTheme()" title="מצב עבודה">
+        <span class="icon" aria-hidden="true">☀</span>
+      </button>
+      <button class="btn-ghost header-icon-btn" type="button" onclick="doLogout()" title="יציאה" aria-label="יציאה">
+        <span class="icon" aria-hidden="true">✕</span>
+      </button>
     </div>
   </header>
 
@@ -720,7 +759,10 @@ body.app-dark #appScreen .queue-box{
         <h2>הוספה ידנית לקבוצה</h2>
         <div class="card">
           <label>ברקוד</label>
-          <input id="man1Barcode" placeholder="ברקוד" inputmode="numeric" style="width:100%;margin-bottom:6px"/>
+          <div class="scanbox" style="margin-bottom:6px">
+            <input id="man1Barcode" placeholder="ברקוד" inputmode="numeric"/>
+            <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('man1Barcode')" title="סריקה מהמצלמה">📷</button>
+          </div>
           <div class="small hint" style="margin-bottom:6px">או מלא ישירות:</div>
           <input id="man1Sku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"/>
           <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
@@ -830,10 +872,14 @@ body.app-dark #appScreen .queue-box{
           <div id="locCollapseContent" class="collapse-content" style="display:none">
             <div class="actions" style="justify-content:flex-end;margin-top:8px">
               <a class="btn-ghost" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid var(--border);font-size:14px" href="/api/locations/export/json" download="locations.json">ייצוא</a>
-              <button class="btn-ghost" onclick="document.getElementById('locFileInput').click()">ייבוא</button>
               <button class="btn-danger" onclick="wipeLocations()">נקה הכל</button>
             </div>
-            <input type="file" id="locFileInput" accept=".json" style="display:none" onchange="importLocations()"/>
+            <div class="card" style="margin-top:10px">
+              <label>קובץ JSON</label>
+              <input id="locFileInput" type="file" accept=".json,.txt" style="width:100%;margin-bottom:6px"/>
+              <div class="actions"><button class="btn-accent" onclick="importLocations()">ייבוא JSON</button></div>
+              <div id="locImportMsg" class="hint" style="display:none"></div>
+            </div>
             <table style="margin-top:8px">
               <thead><tr><th>מק״ט</th><th>מיקום</th><th>פעולות</th></tr></thead>
               <tbody id="locTbody"></tbody>
@@ -867,6 +913,7 @@ body.app-dark #appScreen .queue-box{
 
         <div class="scanbox" style="margin-bottom:8px">
           <input id="bcSearch" placeholder="חיפוש לפי ברקוד / מק״ט / צבע..." oninput="renderBarcodeTable()"/>
+          <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה">📷</button>
           <button class="btn-ghost" onclick="document.getElementById('bcSearch').value='';renderBarcodeTable()">נקה</button>
         </div>
 
@@ -900,13 +947,11 @@ body.app-dark #appScreen .queue-box{
 
         <h2>ייבוא CSV מסונן לפי מיקומים</h2>
         <div class="card">
-          <div class="hint" style="margin-bottom:8px">
-            ⚠️ רק ברקודים של מק״טים שקיימים במיקומי הסניף יייובאו.
-          </div>
-          <label>קובץ CSV (barcode, sku, color, size)</label>
-          <input type="file" id="bcImportFile" accept=".csv,.txt"/>
+          <div class="hint err-hint">רק ברקודים של מק״טים שקיימים במיקומי הסניף ייובאו. מבנה הקובץ: <code>barcode, sku, color, size</code>.</div>
+          <label>קובץ CSV</label>
+          <input id="bcImportFile" type="file" accept=".csv,.txt" style="width:100%;margin-bottom:6px"/>
           <div class="actions"><button class="btn-accent" onclick="importBarcodes()">ייבוא מסונן</button></div>
-          <div id="bcImportMsg" class="hint" style="display:none;margin-top:8px"></div>
+          <div id="bcImportMsg" class="hint" style="display:none"></div>
         </div>
 
         <div class="divider"></div>
@@ -1074,11 +1119,13 @@ let _cameraCanvas=null, _cameraCtx=null;
 let _cameraFacing='environment';
 let _cameraDecodeBusy=false;
 let _cameraSessionToken=0;
+let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
 const CAMERA_DECODE_MAX_WIDTH = 720;
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
+const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
 function showAuthTab(tab){
@@ -1088,6 +1135,75 @@ function showAuthTab(tab){
 }
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
+
+function hideAuthNotice(){
+  const box=$('authNotice');
+  box.classList.remove('open','warn','danger');
+  box.classList.add('warn');
+  $('authNoticeTitle').textContent='';
+  $('authNoticeBody').textContent='';
+}
+
+function showAuthNotice(title, body, tone='warn'){
+  const box=$('authNotice');
+  box.classList.remove('warn','danger');
+  box.classList.add('open', tone === 'danger' ? 'danger' : 'warn');
+  $('authNoticeTitle').textContent=title || 'החיבור נותק';
+  $('authNoticeBody').textContent=body || '';
+}
+
+function showLogoutNotice(reason){
+  if(reason === 'heartbeat_timeout'){
+    showAuthNotice('החיבור נותק', 'המערכת הוציאה את המשתמש בגלל חוסר פעילות. אפשר להתחבר מחדש בכל רגע.');
+    return;
+  }
+  if(reason === 'admin_blocked_device' || reason === 'device_blocked'){
+    showAuthNotice('המכשיר נחסם', 'המכשיר הזה נחסם במערכת ולכן לא ניתן להמשיך לעבוד ממנו כרגע.', 'danger');
+    return;
+  }
+  if(reason === 'admin_deleted_device'){
+    showAuthNotice('המכשיר נמחק', 'המכשיר הוסר מהרשימה ויידרש רישום מחדש לפני התחברות.', 'danger');
+    return;
+  }
+  if(reason === 'branch_blocked'){
+    showAuthNotice('הסניף נחסם', 'לא ניתן להמשיך לעבוד כרגע כי הסניף חסום במערכת.', 'danger');
+    return;
+  }
+  showAuthNotice('החיבור נותק', 'המשתמש נותק מהמערכת. אפשר להתחבר מחדש כדי להמשיך לעבוד.');
+}
+
+function loadAlwaysConnectedPreference(){
+  try{
+    _alwaysConnected = localStorage.getItem(ALWAYS_CONNECTED_KEY) === '1';
+  }catch(_err){
+    _alwaysConnected = false;
+  }
+  updateAlwaysConnectedBtn();
+}
+
+function updateAlwaysConnectedBtn(){
+  const btn=$('alwaysConnectedBtn');
+  if(!btn) return;
+  btn.innerHTML='<span class="icon" aria-hidden="true">⏳</span>';
+  const label = _alwaysConnected ? 'תמיד מחובר פעיל' : 'תמיד מחובר כבוי';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  btn.classList.toggle('btn-sticky-on', !_alwaysConnected);
+  btn.classList.toggle('btn-ghost', _alwaysConnected);
+}
+
+function setAlwaysConnected(enabled){
+  _alwaysConnected=!!enabled;
+  try{
+    localStorage.setItem(ALWAYS_CONNECTED_KEY, _alwaysConnected ? '1' : '0');
+  }catch(_err){}
+  updateAlwaysConnectedBtn();
+  toast(_alwaysConnected ? 'המכשיר יישאר מחובר עד יציאה ידנית' : 'המכשיר יחזור להתנתק אוטומטית במקרה של timeout');
+}
+
+function toggleAlwaysConnected(){
+  setAlwaysConnected(!_alwaysConnected);
+}
 
 async function doLogin(){
   const name=$('loginName').value.trim(), pw=$('loginPass').value;
@@ -1111,13 +1227,19 @@ async function doRegister(){
   await enterApp(res.branch);
 }
 
-async function doLogout(){
+async function doLogout(options={}){
+  const reason = options.reason || '';
   await closeCameraScanner();
   stopHeartbeat();
   await POST('/api/auth/logout');
   if(_socket)_socket.disconnect();
   $('appScreen').style.display='none';
   $('authScreen').style.display='flex';
+  if(reason){
+    showLogoutNotice(reason);
+  }else{
+    hideAuthNotice();
+  }
 }
 
 function clearDeviceIdentity(){
@@ -1218,6 +1340,7 @@ function startHeartbeat(){
 async function enterApp(branch){
   _branchId=branch.id;
   await ensureDeviceIdentity();
+  hideAuthNotice();
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
   $('branchBadge').textContent='🏪 '+branch.name;
@@ -1226,6 +1349,7 @@ async function enterApp(branch){
 }
 
 // Auto-login check
+loadAlwaysConnectedPreference();
 (async()=>{
   const res=await GET('/api/auth/me');
   if(res.error==='branch_blocked'){
@@ -1246,19 +1370,40 @@ function initSocketIO(){
     startHeartbeat();
     setRtDot(true);
   });
-  _socket.on('disconnect',()=>{ setRtDot(false); stopHeartbeat(); });
+  _socket.on('disconnect', reason=>{
+    setRtDot(false);
+    stopHeartbeat();
+    if(_alwaysConnected && !_forceLogoutInProgress && reason==='io server disconnect'){
+      setTimeout(()=>{
+        if(_socket && !_socket.connected && _alwaysConnected && !_forceLogoutInProgress){
+          _socket.connect();
+        }
+      }, 1500);
+    }
+  });
   _socket.on('blocked_device', async ()=>{
     if(_forceLogoutInProgress) return;
     _forceLogoutInProgress=true;
     toast('המכשיר הזה חסום ולא יכול להתחבר');
     try{
-      await doLogout();
+      await doLogout({reason:'device_blocked'});
     }finally{
       _forceLogoutInProgress=false;
     }
   });
   _socket.on('force_logout', async data=>{
     if(_forceLogoutInProgress) return;
+    if(data?.reason === 'heartbeat_timeout' && _alwaysConnected){
+      toast('החיבור נותק זמנית, אבל המכשיר יישאר מחובר עד יציאה ידנית');
+      if(_socket && !_socket.connected){
+        setTimeout(()=>{
+          if(_socket && !_socket.connected && _alwaysConnected && !_forceLogoutInProgress){
+            _socket.connect();
+          }
+        }, 1200);
+      }
+      return;
+    }
     _forceLogoutInProgress=true;
     if(data?.reason === 'admin_deleted_device'){
       clearDeviceIdentity();
@@ -1273,7 +1418,7 @@ function initSocketIO(){
           : 'המכשיר נותק מהמערכת'
     );
     try{
-      await doLogout();
+      await doLogout({reason:data?.reason || 'system_disconnect'});
     }finally{
       _forceLogoutInProgress=false;
     }
@@ -1333,7 +1478,11 @@ function applyWorkTheme(){
   const dark = localStorage.getItem('l2f_work_theme') === 'dark';
   document.body.classList.toggle('app-dark', dark);
   const btn=$('workThemeBtn');
-  if(btn) btn.textContent = dark ? 'מצב בהיר' : 'מצב כהה';
+  if(btn){
+    btn.innerHTML = `<span class="icon" aria-hidden="true">${dark ? '☾' : '☀'}</span>`;
+    btn.title = dark ? 'מצב כהה פעיל' : 'מצב בהיר פעיל';
+    btn.setAttribute('aria-label', dark ? 'מעבר למצב בהיר' : 'מעבר למצב כהה');
+  }
 }
 
 function toggleWorkTheme(){
@@ -1395,6 +1544,28 @@ async function closeCameraScanner(){
   _cameraMode=null;
   $('cameraOverlay').classList.remove('open');
   $('cameraOverlay').setAttribute('aria-hidden','true');
+}
+
+function openCameraInputScanner(inputId){
+  openCameraScanner({ type:'fill-input', inputId });
+}
+
+async function fillCameraTargetInput(inputId, code){
+  const input=$(inputId);
+  if(!input) return false;
+  input.value=code;
+  input.focus();
+  input.dispatchEvent(new Event('input', { bubbles:true }));
+  input.dispatchEvent(new Event('change', { bubbles:true }));
+  if(inputId==='man1Barcode'){
+    $('lastScan1').textContent=`הוזן ידנית: ${code}`;
+  }
+  if(inputId==='bcSearch'){
+    renderBarcodeTable();
+  }
+  setCameraStatus(`הברקוד ${code} הוזן לשדה.`);
+  await closeCameraScanner();
+  return true;
 }
 
 async function handleDetectedCameraCode(rawValue){
@@ -1577,6 +1748,9 @@ async function toggleCameraFacing(){
 }
 
 async function handleCameraDetectedBarcode(code){
+  if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='fill-input'){
+    return fillCameraTargetInput(_cameraMode.inputId, code);
+  }
   if(_cameraMode==='t2') return processTab2Barcode(code, {fromCamera:true});
   if(_cameraMode==='t4') return processTab4Barcode(code, {fromCamera:true});
   return processTab1Barcode(code, {fromCamera:true});
@@ -2088,10 +2262,15 @@ async function wipeLocations(){
 }
 
 async function importLocations(){
-  const f=$('locFileInput').files[0]; if(!f)return;
+  const f=$('locFileInput').files[0];
+  if(!f) return toast('בחר קובץ JSON');
   const fd=new FormData(); fd.append('file',f);
   const res=await fetch('/api/locations/import/json',{method:'POST',body:fd}).then(r=>r.json());
-  toast(`יובאו ${res.inserted}, דולגו ${res.skipped}`); loadLocTable();
+  const msg=$('locImportMsg');
+  msg.textContent=`יובאו ${res.inserted||0}, דולגו ${res.skipped||0}`;
+  msg.style.display='block';
+  toast(`יובאו ${res.inserted||0}, דולגו ${res.skipped||0}`);
+  loadLocTable();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2189,11 +2368,12 @@ async function saveEdit(){
 $('editModal').addEventListener('click',e=>{if(e.target===$('editModal'))closeEditModal();});
 
 async function importBarcodes(){
-  const f=$('bcImportFile').files[0]; if(!f)return toast('בחר קובץ CSV');
+  const f=$('bcImportFile').files[0];
+  if(!f) return toast('בחר קובץ CSV');
   const fd=new FormData(); fd.append('file',f);
   const res=await fetch('/api/barcodes/import',{method:'POST',body:fd}).then(r=>r.json());
   const msg=$('bcImportMsg');
-  msg.textContent=`יובאו: ${res.inserted} | דולגו (אין מיקום): ${res.skipped_no_location} | שגיאות: ${res.skipped_error}`;
+  msg.textContent=`יובאו: ${res.inserted||0} | דולגו (אין מיקום): ${res.skipped_no_location||0} | שגיאות: ${res.skipped_error||0}`;
   msg.style.display='block';
   if(res.inserted>0)loadBarcodes();
 }

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>L2F — ניהול מפתח</title>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
 <style>
 :root{
   --bg:#d9d9d6;--card:rgba(255,255,255,.54);--card2:rgba(255,255,255,.34);--text:#171717;--muted:#696969;
@@ -46,6 +47,8 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 .nav-item:hover,.nav-item.active{background:rgba(255,255,255,.62);color:var(--text);box-shadow:inset 4px 4px 10px rgba(255,255,255,.75), inset -4px -4px 10px rgba(0,0,0,.05)}
 .sidebar-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--border)}
 .main{margin-right:210px;padding:22px;min-height:100vh}
+.admin-topbar{display:flex;justify-content:flex-start;align-items:center;margin-bottom:16px}
+.admin-top-actions{display:flex;gap:10px;flex-wrap:wrap}
 .page{display:none}.page.active{display:block}
 
 /* ── COMPONENTS ── */
@@ -86,10 +89,45 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 .input-group{display:flex;flex-direction:column;gap:3px;flex:1 1 150px}
 .input-group label{font-size:11px;color:var(--muted)}
 .input-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.scan-field{display:flex;gap:8px;align-items:center}
+.scan-field .dark-input{flex:1}
+.camera-btn{display:inline-flex;align-items:center;justify-content:center;min-width:42px;padding:8px 12px}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
 .badge-ok{background:rgba(121,194,58,.14);color:#3f6f18}
 .badge-blue{background:rgba(255,255,255,.56);color:var(--text)}
 .badge-warn{background:rgba(217,139,43,.14);color:#9f5d14}
+.db-list-panel,.db-detail-panel{background:#111;border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:16px}
+.db-list-panel{max-width:560px}
+.db-list{display:flex;flex-direction:column;gap:10px}
+.db-table-btn{width:100%;text-align:right;background:#151515;color:#f5f5f3;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:16px 18px;font-size:16px;font-weight:900;cursor:pointer;transition:background .15s,border-color .15s,transform .15s;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.db-table-btn:hover{background:#1f1f1f;border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+.db-table-btn.active{background:#f5f5f3;color:#101010;border-color:#f5f5f3}
+.db-table-btn-name{font-size:16px;font-weight:900}
+.db-table-btn-meta{font-size:12px;color:#a9a9a2}
+.db-table-btn.active .db-table-btn-meta{color:#4b4b45}
+.db-table-empty{padding:18px 10px;text-align:center;color:var(--muted);font-size:13px}
+.db-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.db-detail-name{font-size:24px;font-weight:900}
+.db-detail-sub{font-size:13px;color:#b7b7b1;margin-top:4px}
+.db-detail-actions{display:flex;gap:8px;flex-wrap:wrap}
+.db-detail-panel{width:100%}
+.db-table-wrap{overflow:auto;max-height:70vh;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:#0d0d0d;width:100%}
+.db-table-wrap table{min-width:100%}
+.db-table-wrap th{position:sticky;top:0;background:#161616;color:#f3f3ef;border-bottom:1px solid rgba(255,255,255,.08)}
+.db-table-wrap td{color:#ecece8;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+.db-table-wrap tr:hover td{background:#171717}
+.db-cell{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.db-placeholder{min-height:240px;display:flex;align-items:center;justify-content:center;text-align:center;color:#a1a19b;font-size:15px;padding:20px}
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.page-sub{color:var(--muted);font-size:13px;margin-top:4px}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.cell-stack{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cell-main{font-size:13px;font-weight:700}
+.cell-sub{font-size:11px;color:var(--muted);word-break:break-word}
+.table-actions{display:flex;gap:6px;flex-wrap:wrap}
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:18px}
+.log-details{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px;white-space:normal}
+.badge-danger{background:rgba(255,106,0,.14);color:#ff9a3d;border:1px solid rgba(255,106,0,.26)}
 
 /* ── TABLE ── */
 .tbl-wrap{overflow-x:auto;border-radius:18px;border:1px solid rgba(255,255,255,.58);background:rgba(255,255,255,.28)}
@@ -130,6 +168,41 @@ tr:hover td{background:rgba(255,255,255,.2)}
 .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
 .danger-zone{background:rgba(217,139,43,.1);border:1px solid rgba(217,139,43,.22);border-radius:16px;padding:14px;margin-top:10px}
 .danger-zone p{font-size:13px;color:#9f5d14;margin-bottom:8px;line-height:1.5}
+.camera-overlay{position:fixed;inset:0;background:rgba(15,23,42,.14);backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);z-index:1200;display:none;align-items:flex-end;justify-content:center;padding:24px 20px 7vh;pointer-events:none}
+.camera-overlay.open{display:flex}
+.camera-shell{width:min(90vw,430px);height:min(42vh,320px);min-height:260px;background:transparent;border:none;border-radius:24px;overflow:hidden;display:block;position:relative;box-shadow:none;pointer-events:auto}
+.camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
+.camera-close,.camera-switch{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  padding:0;
+  border-radius:999px;
+  background:rgba(255,255,255,.56);
+  border:1px solid rgba(255,255,255,.44);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  line-height:1;
+  box-shadow:none;
+}
+.camera-close{color:#d84c4c}
+.camera-switch{color:rgba(70,70,70,.92)}
+.camera-actions{display:flex;gap:8px;align-items:center;width:100%;justify-content:space-between}
+.camera-body{position:absolute;inset:0;min-height:170px;background:#000;display:flex;align-items:center;justify-content:center}
+.camera-reader{width:100%;height:100%}
+.camera-reader video{width:100% !important;height:100% !important;object-fit:cover;background:#000}
+.camera-reader.mirrored video{transform:scaleX(-1)}
+.camera-reader section{padding:0 !important}
+.camera-reader section > div:not(:first-child){display:none !important}
+.camera-frame{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(88vw,390px);height:min(34vw,190px);max-height:190px;border:3px solid rgba(255,255,255,.92);border-radius:20px;box-shadow:0 0 0 9999px rgba(0,0,0,.12);pointer-events:none}
+.camera-frame.success{border-color:#22c55e;box-shadow:0 0 0 9999px rgba(34,197,94,.12)}
+.camera-frame.error{border-color:#ef4444;box-shadow:0 0 0 9999px rgba(239,68,68,.14)}
+.camera-status{position:absolute;right:12px;left:12px;bottom:12px;z-index:2;padding:10px 12px;border-radius:14px;background:rgba(17,17,17,.76);color:#fff;font-size:12px;line-height:1.45;text-align:center}
+.camera-status.error{color:#fecaca;background:#450a0a}
 
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(24,24,24,.9);color:#fff;border:1px solid rgba(255,255,255,.18);padding:10px 18px;border-radius:14px;font-size:13px;display:none;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.24);white-space:nowrap}
 
@@ -138,7 +211,12 @@ tr:hover td{background:rgba(255,255,255,.2)}
   .sidebar .logo,.sidebar .role{display:none}
   .sidebar-footer{margin-top:0;padding-top:0;border-top:none}
   .main{margin-right:0;padding:14px}
+  .admin-topbar{margin-bottom:12px}
   .health-hero{grid-template-columns:1fr}
+  .db-table-wrap{max-height:none}
+  .camera-overlay{padding:18px 14px 5vh}
+  .camera-shell{width:min(94vw,410px);height:min(40vh,300px);min-height:250px;border-radius:22px}
+  .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
 }
 
 /* admin dark refresh */
@@ -281,6 +359,11 @@ body{
   background:#ff6a00;
   color:#fff;
 }
+.badge-danger{
+  background:rgba(255,106,0,.14);
+  color:#ff9a3d;
+  border-color:rgba(255,106,0,.26);
+}
 th{
   background:#1b1b1b;
   color:#a1a19b;
@@ -379,6 +462,7 @@ tr:hover td{
     <div class="nav-item" data-page="create" onclick="showPage('create')">➕ סניף חדש</div>
     <div class="nav-item" data-page="barcodes" onclick="showPage('barcodes')">🏷️ ברקודים</div>
     <div class="nav-item" data-page="admins" onclick="showPage('admins')">👤 אדמינים</div>
+    <div class="nav-item" data-page="database" onclick="showPage('database')">🗃️ דאטאבייס</div>
     <div class="nav-item" id="navViewer" data-page="viewer" onclick="showPage('viewer')" style="display:none">👁 צפייה בסניף</div>
     <div class="sidebar-footer">
       <div class="nav-item" onclick="doAdminLogout()">🚪 יציאה</div>
@@ -387,6 +471,11 @@ tr:hover td{
   </div>
 
   <div class="main">
+    <div class="admin-topbar">
+      <div class="admin-top-actions">
+        <button class="btn btn-ghost" type="button" onclick="refreshAdminView()">↻ רענן</button>
+      </div>
+    </div>
 
     <!-- ═══ OVERVIEW ═══ -->
     <div class="page active" id="page-overview">
@@ -465,11 +554,17 @@ tr:hover td{
         <div class="input-row">
           <div class="input-group">
             <label>חיפוש</label>
-            <input class="dark-input" id="barcodeSearch" placeholder="ברקוד / מק״ט / צבע" oninput="renderAdminBarcodes()" />
+            <div class="scan-field">
+              <input class="dark-input" id="barcodeSearch" placeholder="ברקוד / מק״ט / צבע" oninput="renderAdminBarcodes()" />
+              <button class="btn btn-ghost camera-btn" type="button" onclick="openAdminCameraScanner('barcodeSearch')" title="סריקה מהמצלמה">📷</button>
+            </div>
           </div>
           <div class="input-group">
             <label>ברקוד</label>
-            <input class="dark-input" id="barcodeNewValue" />
+            <div class="scan-field">
+              <input class="dark-input" id="barcodeNewValue" inputmode="numeric" />
+              <button class="btn btn-ghost camera-btn" type="button" onclick="openAdminCameraScanner('barcodeNewValue')" title="סריקה מהמצלמה">📷</button>
+            </div>
           </div>
           <div class="input-group">
             <label>מק״ט</label>
@@ -489,10 +584,10 @@ tr:hover td{
           <button class="btn btn-primary" onclick="createAdminBarcode()">הוסף</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-          <input type="file" id="barcodeImportFile" accept=".csv" />
-          <button class="btn btn-ghost" onclick="importAdminBarcodes()">ייבוא CSV</button>
+          <input class="dark-input" id="barcodeImportFile" type="file" accept=".csv,.txt" />
+          <button class="btn btn-primary" onclick="importAdminBarcodes()">ייבוא CSV</button>
           <a class="btn btn-ghost" href="/api/barcodes/export/csv">ייצוא CSV</a>
-          <span id="barcodeImportMsg" style="font-size:12px;color:var(--muted)"></span>
+          <span id="barcodeImportMsg" style="color:var(--muted);font-size:12px"></span>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -513,6 +608,31 @@ tr:hover td{
             <thead><tr><th>שם משתמש</th><th>נוצר</th><th>פעולות</th></tr></thead>
             <tbody id="adminsTbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-database">
+      <h1 style="font-size:21px;margin-bottom:14px">טבלאות הדאטאבייס</h1>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <div>
+            <div class="panel-title" style="margin-bottom:6px">Tables</div>
+            <div id="dbSchemaSummary" class="small" style="color:var(--muted)">טוען...</div>
+          </div>
+          <button class="btn btn-ghost" onclick="loadDatabaseSchema()">רענן</button>
+        </div>
+        <div class="db-list-panel">
+          <div class="panel-title" style="margin-bottom:10px">רשימת טבלאות</div>
+          <div id="dbSchemaWrap" class="db-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-database-table">
+      <div class="panel">
+        <div id="dbTableView" class="db-detail-panel">
+          <div class="db-placeholder">בחר טבלה כדי לראות את כל הנתונים שלה</div>
         </div>
       </div>
     </div>
@@ -781,6 +901,24 @@ tr:hover td{
   </div>
 </div>
 
+<div id="adminCameraOverlay" class="camera-overlay" aria-hidden="true">
+  <div class="camera-shell">
+    <div class="camera-head">
+      <div class="camera-actions">
+        <button class="camera-close btn-ghost" type="button" onclick="closeAdminCameraScanner()" title="סגור" aria-label="סגור">×</button>
+        <button id="adminCameraSwitchBtn" class="camera-switch btn-ghost" type="button" onclick="toggleAdminCameraFacing()" title="החלף מצלמה" aria-label="החלף מצלמה">↺</button>
+      </div>
+    </div>
+    <div class="camera-body">
+      <div id="adminCameraReader" class="camera-reader">
+        <video id="adminCameraVideo" playsinline muted autoplay></video>
+      </div>
+      <div id="adminCameraFrame" class="camera-frame"></div>
+    </div>
+    <div id="adminCameraStatus" class="camera-status"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -796,30 +934,356 @@ function showErr(id, msg){ const e=$(id); e.textContent=msg; e.style.display='bl
 function openModal(id){ $(id).classList.add('open'); }
 function closeModal(id){ $(id).classList.remove('open'); }
 
-async function api(method, url, body=null){
-  const opts={method, headers:{'Content-Type':'application/json'}};
-  if(body) opts.body=JSON.stringify(body);
-  const res=await fetch(url, opts);
-  return res.json();
+async function apiWithOptions(method, url, body=null, options={}){
+  const opts={method, credentials:'same-origin', headers:{}};
+  if(body!==null && body!==undefined){
+    opts.headers['Content-Type']='application/json';
+    opts.body=JSON.stringify(body);
+  }
+  let res;
+  try{
+    res=await fetch(url, opts);
+  }catch(_err){
+    throw new Error('network_error');
+  }
+  const contentType=res.headers.get('content-type')||'';
+  let data={};
+  if(contentType.includes('application/json')){
+    data=await res.json();
+  }else{
+    const text=await res.text();
+    data={error: res.ok ? 'invalid_response' : `http_${res.status}`, text};
+  }
+  const handleAuth=options.handleAuth!==false;
+  if(handleAuth && (res.status===401 || res.status===403)){
+    handleAdminSessionExpired();
+    throw new Error(data.error || 'admin_auth_lost');
+  }
+  if(options.throwOnHttpError && !res.ok){
+    throw new Error(data.error || `http_${res.status}`);
+  }
+  return data;
 }
-const GET    = url     => api('GET',    url);
-const POST   = (url,b) => api('POST',   url, b);
-const PUT    = (url,b) => api('PUT',    url, b);
-const DELETE = (url,b) => api('DELETE', url, b);
+async function api(method, url, body=null){
+  return apiWithOptions(method, url, body, {});
+}
+const GET    = (url,options={})   => apiWithOptions('GET',    url, null, {throwOnHttpError:true, ...options});
+const POST   = (url,b,options) => apiWithOptions('POST',   url, b, options);
+const PUT    = (url,b,options) => apiWithOptions('PUT',    url, b, options);
+const DELETE = (url,b,options) => apiWithOptions('DELETE', url, b, options);
 let _overviewTimer=null;
+let _dbSchema=[];
+let _dbSelectedTable='';
+let _adminAuthLost=false;
+let _adminCameraTargetInputId='';
+let _adminCameraStream=null, _adminCameraLoopTimer=0, _adminCameraLoopActive=false;
+let _adminCameraCooldownUntil=0, _adminCameraLastValue='';
+let _adminCameraCanvas=null, _adminCameraCtx=null;
+let _adminCameraFacing='environment';
+let _adminCameraDecodeBusy=false;
+let _adminCameraSessionToken=0;
+const ADMIN_CAMERA_SCAN_INTERVAL_MS = 667;
+const ADMIN_CAMERA_SUCCESS_PAUSE_MS = 850;
+const ADMIN_CAMERA_DECODE_MAX_WIDTH = 720;
+function handleAdminSessionExpired(){
+  if(_adminAuthLost) return;
+  _adminAuthLost=true;
+  if(_overviewTimer){
+    clearInterval(_overviewTimer);
+    _overviewTimer=null;
+  }
+  $('appScreen').style.display='none';
+  $('setupScreen').style.display='none';
+  $('loginScreen').style.display='flex';
+  showErr('loginErr','פג תוקף ההתחברות לאזור האדמין. יש להתחבר מחדש.');
+}
 const fmtDate = s => s ? s.slice(0,16) : '—';
+
+function setAdminCameraStatus(msg, isError=false){
+  const el=$('adminCameraStatus');
+  el.textContent=msg;
+  el.classList.toggle('error', !!isError);
+}
+
+function updateAdminCameraSwitchButton(){
+  const btn=$('adminCameraSwitchBtn');
+  if(!btn) return;
+  btn.textContent = _adminCameraFacing === 'environment' ? '↺' : '↻';
+  $('adminCameraReader').classList.toggle('mirrored', _adminCameraFacing === 'user');
+}
+
+function flashAdminCameraSuccess(){
+  const frame=$('adminCameraFrame');
+  frame.classList.remove('error');
+  frame.classList.add('success');
+  if(navigator.vibrate) navigator.vibrate(120);
+  setTimeout(()=>frame.classList.remove('success'), 450);
+}
+
+function flashAdminCameraError(){
+  const frame=$('adminCameraFrame');
+  frame.classList.remove('success');
+  frame.classList.add('error');
+  if(navigator.vibrate) navigator.vibrate(70);
+  setTimeout(()=>frame.classList.remove('error'), 450);
+}
+
+async function stopAdminCameraStream(){
+  _adminCameraLoopActive=false;
+  _adminCameraDecodeBusy=false;
+  _adminCameraSessionToken+=1;
+  clearTimeout(_adminCameraLoopTimer);
+  _adminCameraLoopTimer=0;
+  if(_adminCameraCtx && _adminCameraCanvas){
+    try{ _adminCameraCtx.clearRect(0, 0, _adminCameraCanvas.width, _adminCameraCanvas.height); }catch(_err){}
+  }
+  _adminCameraCanvas=null;
+  _adminCameraCtx=null;
+  if(_adminCameraStream){
+    _adminCameraStream.getTracks().forEach(track=>track.stop());
+    _adminCameraStream=null;
+  }
+  const video=$('adminCameraVideo');
+  try{ video.pause(); }catch(_err){}
+  video.srcObject=null;
+}
+
+async function closeAdminCameraScanner(){
+  await stopAdminCameraStream();
+  _adminCameraTargetInputId='';
+  $('adminCameraOverlay').classList.remove('open');
+  $('adminCameraOverlay').setAttribute('aria-hidden','true');
+}
+
+function ensureAdminCameraCanvas(){
+  if(!_adminCameraCanvas){
+    _adminCameraCanvas=document.createElement('canvas');
+    _adminCameraCtx=_adminCameraCanvas.getContext('2d', { willReadFrequently: true });
+  }
+}
+
+async function optimizeAdminCameraTrack(){
+  const track = _adminCameraStream?.getVideoTracks?.()[0];
+  if(!track?.applyConstraints) return;
+  try{
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+    const advanced = [];
+    if(capabilities.focusMode?.includes?.('continuous')) advanced.push({ focusMode:'continuous' });
+    if(capabilities.exposureMode?.includes?.('continuous')) advanced.push({ exposureMode:'continuous' });
+    if(capabilities.whiteBalanceMode?.includes?.('continuous')) advanced.push({ whiteBalanceMode:'continuous' });
+    if(advanced.length) await track.applyConstraints({ advanced });
+  }catch(_err){}
+}
+
+async function applyAdminCameraBarcode(code){
+  const input=$(_adminCameraTargetInputId);
+  if(!input) return false;
+  input.value=code;
+  input.focus();
+  input.dispatchEvent(new Event('input', { bubbles:true }));
+  input.dispatchEvent(new Event('change', { bubbles:true }));
+
+  if(_adminCameraTargetInputId==='barcodeSearch'){
+    renderAdminBarcodes();
+    toast(`הוזן לחיפוש: ${code}`);
+    await closeAdminCameraScanner();
+    return true;
+  }
+
+  if(_adminCameraTargetInputId==='barcodeNewValue'){
+    $('barcodeNewSku').value='';
+    $('barcodeNewColor').value='';
+    $('barcodeNewSize').value='';
+    const existing=await GET(`/api/barcodes/${encodeURIComponent(code)}`, {throwOnHttpError:false});
+    if(existing && !existing.error){
+      $('barcodeNewSku').value=existing.sku || '';
+      $('barcodeNewColor').value=existing.color || '';
+      $('barcodeNewSize').value=existing.size || '';
+      toast('הברקוד נמצא והשדות מולאו');
+    }else{
+      toast('הברקוד הוזן. אפשר להשלים פרטים');
+    }
+    await closeAdminCameraScanner();
+    return true;
+  }
+
+  toast(`הברקוד ${code} הוזן לשדה`);
+  await closeAdminCameraScanner();
+  return true;
+}
+
+async function handleAdminDetectedCameraCode(rawValue){
+  const code=String(rawValue||'').trim();
+  if(!code) return false;
+  const now=Date.now();
+  if(now < _adminCameraCooldownUntil && code === _adminCameraLastValue) return false;
+  _adminCameraLastValue=code;
+  _adminCameraCooldownUntil=now + 1800;
+  const ok = await applyAdminCameraBarcode(code);
+  if(ok) flashAdminCameraSuccess();
+  else flashAdminCameraError();
+  return ok;
+}
+
+async function scanAdminCameraFrame(){
+  if(!_adminCameraLoopActive || !_adminCameraStream) return;
+  const sessionToken = _adminCameraSessionToken;
+  const video=$('adminCameraVideo');
+  if(video.readyState < 2){
+    if(_adminCameraLoopActive && sessionToken === _adminCameraSessionToken){
+      _adminCameraLoopTimer=setTimeout(scanAdminCameraFrame, ADMIN_CAMERA_SCAN_INTERVAL_MS);
+    }
+    return;
+  }
+  if(_adminCameraDecodeBusy){
+    if(_adminCameraLoopActive && sessionToken === _adminCameraSessionToken){
+      _adminCameraLoopTimer=setTimeout(scanAdminCameraFrame, ADMIN_CAMERA_SCAN_INTERVAL_MS);
+    }
+    return;
+  }
+
+  _adminCameraDecodeBusy=true;
+  let nextDelay = ADMIN_CAMERA_SCAN_INTERVAL_MS;
+  try{
+    ensureAdminCameraCanvas();
+    const sourceWidth = video.videoWidth || 1280;
+    const sourceHeight = video.videoHeight || 720;
+    const scale = Math.min(1, ADMIN_CAMERA_DECODE_MAX_WIDTH / Math.max(sourceWidth, 1));
+    const width = Math.max(720, Math.round(sourceWidth * scale));
+    const height = Math.max(405, Math.round(sourceHeight * scale));
+    if(_adminCameraCanvas.width !== width || _adminCameraCanvas.height !== height){
+      _adminCameraCanvas.width=width;
+      _adminCameraCanvas.height=height;
+    }
+    _adminCameraCtx.drawImage(video, 0, 0, width, height);
+    if(!_adminCameraLoopActive || sessionToken !== _adminCameraSessionToken) return;
+    const imageData=_adminCameraCtx.getImageData(0, 0, width, height);
+    if(!_adminCameraLoopActive || sessionToken !== _adminCameraSessionToken) return;
+    const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
+      formats: ['Code128','Code39','EAN-13','EAN-8','UPC-A','UPC-E','ITF','Codabar'],
+      maxNumberOfSymbols: 1,
+      tryHarder: true,
+      tryRotate: true,
+      tryInvert: true,
+      downscaleThreshold: 2800,
+    });
+    if(!_adminCameraLoopActive || sessionToken !== _adminCameraSessionToken) return;
+    const value = results?.[0]?.text;
+    if(value){
+      await handleAdminDetectedCameraCode(value);
+      nextDelay = ADMIN_CAMERA_SUCCESS_PAUSE_MS;
+    }
+  }catch(_err){
+    // keep scanning
+  }finally{
+    if(_adminCameraCtx && _adminCameraCanvas){
+      try{ _adminCameraCtx.clearRect(0, 0, _adminCameraCanvas.width, _adminCameraCanvas.height); }catch(_err){}
+    }
+    _adminCameraDecodeBusy=false;
+    if(_adminCameraLoopActive && sessionToken === _adminCameraSessionToken){
+      _adminCameraLoopTimer=setTimeout(scanAdminCameraFrame, nextDelay);
+    }
+  }
+}
+
+async function startAdminCameraStream(){
+  _adminCameraSessionToken+=1;
+  const sessionToken = _adminCameraSessionToken;
+  _adminCameraStream = await navigator.mediaDevices.getUserMedia({
+    video:{
+      facingMode:{ ideal:_adminCameraFacing },
+      width:{ ideal:1920 },
+      height:{ ideal:1080 },
+      frameRate:{ ideal:24, max:30 }
+    },
+    audio:false
+  });
+  const video=$('adminCameraVideo');
+  video.srcObject=_adminCameraStream;
+  await video.play();
+  if(sessionToken !== _adminCameraSessionToken){
+    await stopAdminCameraStream();
+    return;
+  }
+  await optimizeAdminCameraTrack();
+  _adminCameraLoopActive=true;
+  setAdminCameraStatus(
+    _adminCameraFacing === 'environment'
+      ? 'המצלמה האחורית פעילה. מרכז את הברקוד בתוך המסגרת.'
+      : 'המצלמה הקדמית פעילה. מרכז את הברקוד בתוך המסגרת.'
+  );
+  scanAdminCameraFrame();
+}
+
+async function openAdminCameraScanner(inputId){
+  _adminCameraTargetInputId=inputId;
+  _adminCameraLastValue='';
+  _adminCameraCooldownUntil=0;
+  $('adminCameraOverlay').classList.add('open');
+  $('adminCameraOverlay').setAttribute('aria-hidden','false');
+  updateAdminCameraSwitchButton();
+  setAdminCameraStatus(_adminCameraFacing === 'environment' ? 'פותח מצלמה אחורית...' : 'פותח מצלמה קדמית...');
+
+  if(!navigator.mediaDevices?.getUserMedia){
+    setAdminCameraStatus('המצלמה לא זמינה בדפדפן הזה.', true);
+    return;
+  }
+  if(!window.ZXingWASM?.readBarcodesFromImageData){
+    setAdminCameraStatus('ספריית zxing-wasm לא נטענה.', true);
+    return;
+  }
+
+  try{
+    await startAdminCameraStream();
+  }catch(err){
+    const denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
+    setAdminCameraStatus(
+      denied
+        ? 'לא ניתנה הרשאה למצלמה.'
+        : 'לא הצלחתי לפתוח את המצלמה.',
+      true
+    );
+    await stopAdminCameraStream();
+    $('adminCameraOverlay').classList.remove('open');
+    $('adminCameraOverlay').setAttribute('aria-hidden','true');
+  }
+}
+
+async function toggleAdminCameraFacing(){
+  if(!$('adminCameraOverlay').classList.contains('open')) return;
+  _adminCameraFacing = _adminCameraFacing === 'environment' ? 'user' : 'environment';
+  updateAdminCameraSwitchButton();
+  _adminCameraLastValue='';
+  _adminCameraCooldownUntil=0;
+  setAdminCameraStatus(_adminCameraFacing === 'environment' ? 'מחליף למצלמה אחורית...' : 'מחליף למצלמה קדמית...');
+  await stopAdminCameraStream();
+  try{
+    await startAdminCameraStream();
+  }catch(err){
+    const denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
+    setAdminCameraStatus(
+      denied ? 'לא ניתנה הרשאה למצלמה שנבחרה.' : 'לא הצלחתי להפעיל את המצלמה שנבחרה.',
+      true
+    );
+  }
+}
 
 // ══════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════
 (async()=>{
-  const me = await GET('/api/admin/me');
-  if(me.ok){ enterAdmin(); return; }
-  const check = await GET('/api/admin/setup-check');
-  if(check.needs_setup){
-    $('setupScreen').style.display='flex';
-  } else {
+  try{
+    const me = await GET('/api/admin/me', {handleAuth:false, throwOnHttpError:false});
+    if(me.ok){ enterAdmin(); return; }
+    const check = await GET('/api/admin/setup-check', {handleAuth:false, throwOnHttpError:false});
+    if(check.needs_setup){
+      $('setupScreen').style.display='flex';
+    } else {
+      $('loginScreen').style.display='flex';
+    }
+  }catch(_err){
     $('loginScreen').style.display='flex';
+    showErr('loginErr','לא הצלחתי להתחבר לשרת האדמין');
   }
 })();
 
@@ -831,9 +1295,9 @@ async function doSetup(){
   if(!user)             return showErr('setupErr','הזן שם משתמש');
   if(pw.length<6)       return showErr('setupErr','סיסמה — מינ׳ 6 תווים');
   if(pw!==pw2)          return showErr('setupErr','הסיסמאות לא תואמות');
-  const r=await POST('/api/admin/setup',{username:user,password:pw});
+  const r=await POST('/api/admin/setup',{username:user,password:pw},{handleAuth:false});
   if(r.error)           return showErr('setupErr','שגיאה: '+r.error);
-  const l=await POST('/api/admin/login',{username:user,password:pw});
+  const l=await POST('/api/admin/login',{username:user,password:pw},{handleAuth:false});
   if(l.ok){ $('setupScreen').style.display='none'; enterAdmin(); }
 }
 
@@ -843,22 +1307,28 @@ async function doSetup(){
 async function doAdminLogin(){
   const user=$('adminUser').value.trim(), pw=$('adminPass').value;
   if(!user||!pw) return showErr('loginErr','מלא שם וסיסמה');
-  const r=await POST('/api/admin/login',{username:user,password:pw});
+  const r=await POST('/api/admin/login',{username:user,password:pw},{handleAuth:false});
   if(r.error) return showErr('loginErr','שם משתמש או סיסמה שגויים');
+  _adminAuthLost=false;
   $('loginScreen').style.display='none'; enterAdmin();
 }
 $('adminPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
 
-async function doAdminLogout(){ await POST('/api/admin/logout'); location.reload(); }
+async function doAdminLogout(){ await POST('/api/admin/logout', null, {handleAuth:false}); location.reload(); }
 
 function enterAdmin(){
+  _adminAuthLost=false;
   $('loginScreen').style.display='none';
   $('setupScreen').style.display='none';
   $('appScreen').style.display='block';
-  loadOverview(); loadBranches(); loadAdminBarcodes(); loadAdmins();
+  loadOverview().catch(()=>{});
+  loadBranches().catch(()=>{});
+  loadAdminBarcodes().catch(()=>{});
+  loadAdmins().catch(()=>{});
+  loadDatabaseSchema().catch(()=>{});
   if(!_overviewTimer){
     _overviewTimer=setInterval(()=>{
-      if($('appScreen').style.display==='block') loadOverview();
+      if($('appScreen').style.display==='block') loadOverview().catch(()=>{});
     },15000);
   }
 }
@@ -870,7 +1340,7 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+name).classList.add('active');
-  document.querySelector(`.nav-item[data-page="${name}"]`)?.classList.add('active');
+  document.querySelector(`.nav-item[data-page="${name==='database-table' ? 'database' : name}"]`)?.classList.add('active');
 }
 
 function showVTab(name){
@@ -878,6 +1348,177 @@ function showVTab(name){
   document.querySelectorAll('.vpanel').forEach(p=>p.classList.remove('active'));
   document.querySelector(`.vtab[data-vtab="${name}"]`).classList.add('active');
   $(name).classList.add('active');
+}
+
+async function refreshAdminView(){
+  const currentPage=document.querySelector('.page.active')?.id?.replace('page-','') || 'overview';
+  try{
+
+  if(currentPage==='overview'){
+    await loadOverview();
+    toast('הסקירה רועננה');
+    return;
+  }
+
+  if(currentPage==='branches'){
+    await loadBranches();
+    toast('רשימת הסניפים רועננה');
+    return;
+  }
+
+  if(currentPage==='create'){
+    await Promise.all([loadOverview(), loadBranches()]);
+    toast('נתוני המערכת רועננו');
+    return;
+  }
+
+  if(currentPage==='barcodes'){
+    await loadAdminBarcodes();
+    toast('רשימת הברקודים רועננה');
+    return;
+  }
+
+  if(currentPage==='admins'){
+    await loadAdmins();
+    toast('רשימת האדמינים רועננה');
+    return;
+  }
+
+  if(currentPage==='database'){
+    await loadDatabaseSchema();
+    toast('רשימת הטבלאות רועננה');
+    return;
+  }
+
+  if(currentPage==='database-table'){
+    if(_dbSelectedTable){
+      await openDatabaseTable(_dbSelectedTable);
+      toast('הטבלה רועננה');
+    }else{
+      await loadDatabaseSchema();
+      toast('רשימת הטבלאות רועננה');
+    }
+    return;
+  }
+
+  if(currentPage==='viewer'){
+    await loadViewerDevices();
+    const currentVtab=document.querySelector('.vpanel.active')?.id || 'vt1';
+    if(currentVtab==='vt1') await loadFloor();
+    if(currentVtab==='vt2') await loadWh();
+    if(currentVtab==='vt3') await loadLocs();
+    if(currentVtab==='vt4') await loadSessions();
+    toast('נתוני הסניף רועננו');
+    return;
+  }
+
+  await Promise.all([loadOverview(), loadBranches()]);
+  toast('הנתונים רועננו');
+  }catch(err){
+    if(String(err?.message||'')==='admin_auth_lost') return;
+    toast('לא הצלחתי לרענן את המסך');
+  }
+}
+
+function renderDatabaseSchema(){
+  const wrap=$('dbSchemaWrap');
+  const tables=Array.isArray(_dbSchema)?_dbSchema:[];
+  $('dbSchemaSummary').textContent=tables.length
+    ? `${tables.length} טבלאות במערכת`
+    : 'לא נמצאו טבלאות';
+  if(!tables.length){
+    wrap.innerHTML='<div class="db-table-empty">אין טבלאות להצגה</div>';
+    return;
+  }
+  wrap.innerHTML=tables.map(table=>`
+    <button class="db-table-btn ${_dbSelectedTable===table.name ? 'active' : ''}" data-table="${encodeURIComponent(table.name)}" onclick="openDatabaseTableFromButton(this)">
+      <span class="db-table-btn-name">${esc(table.name)}</span>
+      <span class="db-table-btn-meta">${table.row_count===null || table.row_count===undefined ? 'ללא ספירה' : `${Number(table.row_count)} שורות`}</span>
+    </button>
+  `).join('');
+  if(_dbSelectedTable && !tables.some(table=>table.name===_dbSelectedTable)){
+    _dbSelectedTable='';
+  }
+}
+
+function renderDatabaseTable(data){
+  const columns=Array.isArray(data.columns) ? data.columns : [];
+  const rows=Array.isArray(data.rows) ? data.rows : [];
+  $('dbTableView').innerHTML=`
+    <div class="db-detail-head">
+      <div>
+        <div class="db-detail-name">${esc(data.name || '')}</div>
+        <div class="db-detail-sub">${columns.length} עמודות · ${rows.length} שורות</div>
+      </div>
+      <div class="db-detail-actions">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('database')">חזרה לטבלאות</button>
+        <button class="btn btn-ghost btn-sm" onclick="refreshCurrentDatabaseTable()">רענן טבלה</button>
+      </div>
+    </div>
+    <div class="db-table-wrap">
+      <table>
+        <thead>
+          <tr>${columns.map(col=>`<th>${esc(col)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${rows.length ? rows.map(row=>`
+            <tr>
+              ${columns.map(col=>{
+                const value=row?.[col];
+                const text=value===null || value===undefined || value==='' ? '—' : String(value);
+                return `<td><div class="db-cell" title="${esc(text)}">${esc(text)}</div></td>`;
+              }).join('')}
+            </tr>
+          `).join('') : `<tr><td colspan="${Math.max(columns.length,1)}" class="empty-state">הטבלה ריקה</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openDatabaseTableFromButton(btn){
+  const tableName=decodeURIComponent(btn.dataset.table || '');
+  if(!tableName) return;
+  openDatabaseTable(tableName);
+}
+
+async function openDatabaseTable(tableName){
+  _dbSelectedTable=tableName;
+  renderDatabaseSchema();
+  showPage('database-table');
+  $('dbTableView').innerHTML='<div class="db-placeholder">טוען את הטבלה...</div>';
+  try{
+    const res=await GET(`/api/admin/database-table/${encodeURIComponent(tableName)}`);
+    if(res.error) throw new Error(res.error);
+    renderDatabaseTable(res);
+  }catch(_err){
+    $('dbTableView').innerHTML='<div class="db-placeholder">לא הצלחתי לטעון את הטבלה</div>';
+  }
+}
+
+function refreshCurrentDatabaseTable(){
+  if(!_dbSelectedTable) return;
+  openDatabaseTable(_dbSelectedTable);
+}
+
+async function loadDatabaseSchema(){
+  $('dbSchemaSummary').textContent='טוען...';
+  $('dbSchemaWrap').innerHTML='<div class="db-table-empty">טוען...</div>';
+  try{
+    const res=await GET('/api/admin/database-schema');
+    _dbSchema=Array.isArray(res.tables) ? res.tables : [];
+    renderDatabaseSchema();
+    if(_dbSelectedTable && $('page-database-table').classList.contains('active')){
+      openDatabaseTable(_dbSelectedTable);
+    }
+  }catch(_err){
+    _dbSchema=[];
+    $('dbSchemaSummary').textContent='שגיאה בטעינת הסכמה';
+    $('dbSchemaWrap').innerHTML='<div class="db-table-empty">לא הצלחתי לטעון את טבלאות הדאטאבייס</div>';
+    if($('page-database-table').classList.contains('active')){
+      $('dbTableView').innerHTML='<div class="db-placeholder">לא הצלחתי לטעון את טבלאות הדאטאבייס</div>';
+    }
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1040,8 +1681,14 @@ function renderViewerDevices(data){
 
 async function loadViewerDevices(){
   if(!_viewBranchId) return;
-  const data=await GET(`/api/admin/branches/${_viewBranchId}/devices`);
-  renderViewerDevices(data);
+  try{
+    const data=await GET(`/api/admin/branches/${_viewBranchId}/devices`);
+    renderViewerDevices(data);
+  }catch(err){
+    $('viewerDevicesSummary').textContent='שגיאה בטעינת המכשירים';
+    $('viewerDevicesWrap').innerHTML='<div class="branch-device-card"><div class="empty-state">לא הצלחתי לטעון את נתוני המכשירים של הסניף</div></div>';
+    throw err;
+  }
 }
 
 async function blockDevice(branchId, deviceId, deviceName){
@@ -1432,6 +2079,16 @@ async function loadSessions(){
     </div>`;
   }).join('');
 }
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && $('adminCameraOverlay').classList.contains('open')){
+    closeAdminCameraScanner();
+  }
+});
+
+window.addEventListener('pagehide', ()=>{
+  stopAdminCameraStream();
+});
 </script>
 </body>
 </html>
