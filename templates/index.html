@@ -733,7 +733,7 @@ body.app-dark #appScreen .queue-box{
             <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('man1Barcode')" title="סריקה מהמצלמה">📷</button>
           </div>
           <div class="small hint" style="margin-bottom:6px">או מלא ישירות:</div>
-          <input id="man1Sku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"/>
+          <input id="man1Sku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="man1Size" style="width:100%">
             <option value="">מידה</option>
@@ -747,7 +747,7 @@ body.app-dark #appScreen .queue-box{
         <h2>הוספה ידנית לרשימת ליקוט</h2>
         <div class="card">
           <div class="small hint" style="margin-bottom:6px">אם פריט חסר ברשימת הליקוט, אפשר להוסיף אותו ידנית לקבוצת הבוקר ואז לסמן אם נמצא.</div>
-          <input id="manualMissingSku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"/>
+          <input id="manualMissingSku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="manualMissingColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="manualMissingSize" style="width:100%">
             <option value="">מידה</option>
@@ -797,7 +797,7 @@ body.app-dark #appScreen .queue-box{
 
         <h2>הוספה ידנית</h2>
         <div class="card">
-          <input id="man2Sku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"
+          <input id="man2Sku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:6px"
                  oninput="loadColorsForSku(this.value,'man2Color','man2Size')"/>
           <div style="position:relative">
             <input id="man2Color" placeholder="צבע" style="width:100%;margin-bottom:6px"
@@ -826,7 +826,7 @@ body.app-dark #appScreen .queue-box{
         <div class="card">
           <label>חיפוש לפי מק״ט</label>
           <div class="scanbox">
-            <input id="locSearchSku" placeholder="מק״ט..."/>
+            <input id="locSearchSku" placeholder="מק״ט..." inputmode="numeric" pattern="[0-9]*"/>
             <button class="btn-accent" onclick="doLocSearch()">חפש</button>
           </div>
           <div id="locSearchResult" class="locResultBox"><span class="locText"></span></div>
@@ -860,7 +860,7 @@ body.app-dark #appScreen .queue-box{
 
         <div class="card">
           <h3>הוספה / עדכון</h3>
-          <input id="locFormSku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"/>
+          <input id="locFormSku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="locFormLoc" placeholder="מיקום (לדוגמה: A1-03)" style="width:100%;margin-bottom:6px"/>
           <div class="actions"><button class="btn-primary" onclick="upsertLocation()">שמור</button></div>
           <div id="locFormMsg" class="hint" style="display:none"></div>
@@ -903,7 +903,7 @@ body.app-dark #appScreen .queue-box{
             <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t4')" title="סריקה מהמצלמה">📷</button>
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקה.</div>
-          <input id="bcNewSku" placeholder="מק״ט" style="width:100%;margin-bottom:6px"/>
+          <input id="bcNewSku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="bcNewColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="bcNewSize" style="width:100%">
             <option value="">מידה</option>
@@ -939,7 +939,7 @@ body.app-dark #appScreen .queue-box{
   <div class="modal-box">
     <h3>עריכת ברקוד</h3>
     <input id="editBarcode" readonly style="width:100%;margin-bottom:8px;background:#f1f5f9"/>
-    <input id="editSku" placeholder="מק״ט" style="width:100%;margin-bottom:8px"/>
+    <input id="editSku" placeholder="מק״ט" inputmode="numeric" pattern="[0-9]*" style="width:100%;margin-bottom:8px"/>
     <input id="editColor" placeholder="צבע" style="width:100%;margin-bottom:8px"/>
     <select id="editSize" style="width:100%;margin-bottom:16px">
       <option value="">מידה</option>

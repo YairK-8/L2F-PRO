@@ -568,7 +568,7 @@ tr:hover td{
           </div>
           <div class="input-group">
             <label>מק״ט</label>
-            <input class="dark-input" id="barcodeNewSku" />
+            <input class="dark-input" id="barcodeNewSku" inputmode="numeric" pattern="[0-9]*" />
           </div>
           <div class="input-group">
             <label>צבע</label>
@@ -693,7 +693,7 @@ tr:hover td{
           <button class="btn btn-ghost btn-sm" onclick="openAddLocModal()">+ הוסף / עדכן</button>
         </div>
         <!-- Search -->
-        <input class="dark-input" id="locSearchInput" placeholder="חיפוש מק״ט..." oninput="filterLocs()"
+        <input class="dark-input" id="locSearchInput" placeholder="חיפוש מק״ט..." inputmode="numeric" pattern="[0-9]*" oninput="filterLocs()"
                style="width:100%;margin-bottom:10px"/>
         <div class="tbl-wrap">
           <table>
@@ -779,7 +779,7 @@ tr:hover td{
   <div class="modal">
     <h3>+ הוסף חוסר לרצפה</h3>
     <div class="input-group" style="margin-bottom:10px">
-      <label>מק״ט</label><input class="dark-input" id="af_sku" style="width:100%"/>
+      <label>מק״ט</label><input class="dark-input" id="af_sku" inputmode="numeric" pattern="[0-9]*" style="width:100%"/>
     </div>
     <div class="input-group" style="margin-bottom:10px">
       <label>צבע</label><input class="dark-input" id="af_color" style="width:100%"/>
@@ -803,7 +803,7 @@ tr:hover td{
   <div class="modal">
     <h3>+ הוסף חוסר למחסן</h3>
     <div class="input-group" style="margin-bottom:10px">
-      <label>מק״ט</label><input class="dark-input" id="aw_sku" style="width:100%"/>
+      <label>מק״ט</label><input class="dark-input" id="aw_sku" inputmode="numeric" pattern="[0-9]*" style="width:100%"/>
     </div>
     <div class="input-group" style="margin-bottom:10px">
       <label>צבע</label><input class="dark-input" id="aw_color" style="width:100%"/>
@@ -827,7 +827,7 @@ tr:hover td{
   <div class="modal">
     <h3>+ הוסף / עדכן מיקום</h3>
     <div class="input-group" style="margin-bottom:10px">
-      <label>מק״ט</label><input class="dark-input" id="al_sku" style="width:100%"/>
+      <label>מק״ט</label><input class="dark-input" id="al_sku" inputmode="numeric" pattern="[0-9]*" style="width:100%"/>
     </div>
     <div class="input-group">
       <label>מיקום (לדוגמה: A1-03)</label><input class="dark-input" id="al_loc" style="width:100%"/>
@@ -881,7 +881,7 @@ tr:hover td{
     <input type="hidden" id="barcodeEditValue"/>
     <div class="input-group" style="margin-bottom:10px">
       <label>מק״ט</label>
-      <input class="dark-input" id="barcodeEditSku" style="width:100%"/>
+      <input class="dark-input" id="barcodeEditSku" inputmode="numeric" pattern="[0-9]*" style="width:100%"/>
     </div>
     <div class="input-group" style="margin-bottom:10px">
       <label>צבע</label>
