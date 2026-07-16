@@ -1,0 +1,37 @@
+{
+  "name": "L2F · מערכת ליקוט, ברקודים ומיקומים",
+  "short_name": "L2F",
+  "description": "מערכת ליקוט, ברקודים, מיקומים והשלמות לסניפים.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#F47820",
+  "background_color": "#F47820",
+  "icons": [
+    {
+      "src": "/APP-icon.png?v=20260716-2",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png?v=20260716-2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png?v=20260716-2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png?v=20260716-2",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

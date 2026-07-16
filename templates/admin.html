@@ -4,7 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>L2F — ניהול מפתח</title>
+<link rel="manifest" href="/manifest.json?v=20260716-2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260716-2">
+<link rel="shortcut icon" href="/APP-icon.png?v=20260716-2">
+<meta name="theme-color" content="#F47820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="L2F">
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js?v=20260716-2").catch(() => {});
+  });
+}
+</script>
 <style>
 :root{
   --bg:#d9d9d6;--card:rgba(255,255,255,.54);--card2:rgba(255,255,255,.34);--text:#171717;--muted:#696969;

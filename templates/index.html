@@ -4,8 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>L2F</title>
+<link rel="manifest" href="/manifest.json?v=20260716-2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260716-2">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260716-2">
+<link rel="shortcut icon" href="/APP-icon.png?v=20260716-2">
+<meta name="theme-color" content="#F47820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="L2F">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js?v=20260716-2").catch(() => {});
+  });
+}
+</script>
 <style>
 :root{
   --bg:#d9d9d6;--card:rgba(255,255,255,.52);--text:#171717;--muted:#686868;
@@ -17,7 +39,7 @@ html,body{height:100%;margin:0;background:
   radial-gradient(circle at 50% 8%, rgba(255,255,255,.72), transparent 22%),
   radial-gradient(circle at 82% 20%, rgba(0,0,0,.22), transparent 26%),
   linear-gradient(145deg, #efefec 0%, #d7d7d3 42%, #bdbdb8 100%);
-color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-serif}
+color:var(--text);font-family:"Heebo",system-ui,-apple-system,Segoe UI,sans-serif}
 
 /* ── AUTH ── */
 #authScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
@@ -612,6 +634,534 @@ body.app-dark #appScreen .queue-box{
   border-color:rgba(255,255,255,.08);
   background:rgba(255,255,255,.08);
 }
+
+/* refined mobile shell */
+#appScreen .wrap{
+  max-width:920px;
+  padding:18px 12px 132px;
+}
+.screen-credit#indexCredit{
+  bottom:96px;
+}
+.app-header{
+  align-items:center;
+  gap:16px;
+  padding:4px 2px 0;
+  margin-bottom:18px;
+}
+.header-actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:nowrap;
+  direction:ltr;
+}
+.header-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:28px;
+  font-weight:800;
+  letter-spacing:-.04em;
+}
+.header-brand i{
+  color:#c79042;
+  font-size:28px;
+}
+.branch-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-width:190px;
+  padding:14px 22px;
+  font-size:18px;
+  font-weight:700;
+}
+.branch-badge i{
+  font-size:18px;
+  color:#6f8a72;
+}
+.branch-badge-text{
+  line-height:1;
+}
+.rt-indicator{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+}
+.header-icon-btn{
+  width:64px;
+  height:64px;
+  min-width:64px;
+  border-radius:999px;
+  padding:0;
+  font-size:28px;
+  background:rgba(255,255,255,.92);
+  border:1px solid #ece7e1;
+  box-shadow:0 12px 28px rgba(17,17,17,.05);
+}
+.header-icon-btn .icon{
+  font-size:28px;
+}
+.btn-sticky-on{
+  background:#f3faed;
+  border-color:#bfe2a7;
+  color:#345b18;
+}
+.tabs{
+  position:fixed;
+  left:50%;
+  top:auto;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(680px, calc(100vw - 16px));
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  gap:8px;
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  align-items:center;
+  margin:0;
+  z-index:60;
+}
+.tab{
+  border:none;
+  border-radius:22px;
+  background:transparent;
+  padding:10px 8px 12px;
+  color:#9a9a9a;
+  font-size:13px;
+  font-weight:500;
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:70px;
+  position:relative;
+  text-align:center;
+}
+.tab span{
+  line-height:1.15;
+}
+.tab.active{
+  background:#fff;
+  border:1px solid #ece7e1;
+  box-shadow:0 10px 24px rgba(17,17,17,.06);
+  color:#161616;
+  font-weight:800;
+}
+.tab.active::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:8px;
+  width:28px;
+  height:4px;
+  border-radius:999px;
+  background:#ff6a00;
+}
+.tab-icon{
+  font-size:24px;
+  line-height:1;
+}
+.tab-icon-sun{
+  color:#ffae1a;
+}
+
+/* locations screen redesign */
+.locations-screen .col{
+  padding:28px;
+  border-radius:36px;
+}
+.loc-screen-head{
+  text-align:right;
+  margin-bottom:22px;
+}
+.loc-screen-head h2{
+  margin:0 0 8px;
+  font-size:31px;
+  letter-spacing:-.03em;
+}
+.loc-screen-head p{
+  margin:0;
+  color:#919191;
+  font-size:18px;
+}
+.locations-screen .divider{
+  margin:24px -28px;
+}
+.loc-search-card{
+  background:transparent;
+  border:none;
+  padding:0;
+}
+.loc-search-bar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  direction:ltr;
+  margin-top:18px;
+}
+.loc-search-bar input{
+  flex:1;
+  height:74px;
+  padding:0 24px;
+  font-size:19px;
+  text-align:right;
+  border-radius:999px;
+}
+.loc-search-submit,
+.loc-search-scan{
+  height:74px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.loc-search-submit{
+  min-width:156px;
+  padding:0 26px;
+  font-size:21px;
+  box-shadow:0 18px 32px rgba(17,17,17,.08);
+}
+.loc-search-submit i,
+.loc-search-scan i{
+  font-size:27px;
+}
+.loc-search-scan{
+  width:74px;
+  min-width:74px;
+  padding:0;
+}
+.locations-screen .locResultBox{
+  position:relative;
+  display:flex;
+  align-items:stretch;
+  justify-content:center;
+  min-height:360px;
+  padding:32px;
+  margin-top:22px;
+  border-radius:34px;
+  border:1px solid #dbecc9;
+  background:linear-gradient(180deg,#ffffff 0%,#fcfffb 100%);
+  overflow:hidden;
+}
+.locations-screen .locResultBox::before,
+.locations-screen .locResultBox::after{
+  content:"";
+  position:absolute;
+  width:120px;
+  height:120px;
+  background:radial-gradient(circle, rgba(214,236,194,.75) 18%, transparent 19%) 0 0/12px 12px;
+  opacity:.7;
+  pointer-events:none;
+}
+.locations-screen .locResultBox::before{
+  top:-8px;
+  right:-4px;
+}
+.locations-screen .locResultBox::after{
+  bottom:-8px;
+  left:-4px;
+}
+.locResultShell{
+  position:relative;
+  z-index:1;
+  width:100%;
+  display:grid;
+  grid-template-columns:160px 1fr;
+  gap:30px;
+  align-items:center;
+  direction:ltr;
+}
+.locResultIcon{
+  width:148px;
+  height:148px;
+  border-radius:50%;
+  border:2px solid #e7f0db;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.9);
+}
+.locResultIcon i{
+  font-size:74px;
+  color:#ff6a00;
+}
+.locResultDetails{
+  direction:rtl;
+  text-align:right;
+}
+.loc-result-state{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 18px;
+  border-radius:999px;
+  background:#ecf9e5;
+  color:#2f9a44;
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:22px;
+}
+.loc-result-state i{
+  font-size:16px;
+}
+.locResultLocation{
+  font-size:clamp(58px,16vw,112px);
+  line-height:.94;
+  letter-spacing:-.05em;
+  font-weight:800;
+  color:#ff6a00;
+}
+.locResultLabel{
+  margin-top:8px;
+  font-size:18px;
+  color:#707070;
+}
+.locResultDivider{
+  height:1px;
+  background:#ece7e1;
+  margin:24px 0;
+}
+.locResultSkuValue{
+  font-size:clamp(38px,9vw,62px);
+  line-height:1;
+  font-weight:700;
+  color:#111;
+}
+.locResultSkuLabel{
+  margin-top:6px;
+  font-size:18px;
+  color:#909090;
+}
+.locations-screen .locResultBox.is-empty{
+  border-color:#ece7e1;
+  background:linear-gradient(180deg,#ffffff 0%,#fcfbf8 100%);
+}
+.locations-screen .locResultBox.is-empty .loc-result-state{
+  background:#f7f4ef;
+  color:#968f88;
+}
+.locations-screen .locResultBox.is-empty .locResultLocation,
+.locations-screen .locResultBox.is-empty .locResultSkuValue{
+  color:#b8b2ab;
+}
+.locations-screen .locResultBox[data-state="missing"]{
+  border-color:#ffd7c2;
+  background:linear-gradient(180deg,#ffffff 0%,#fff7f1 100%);
+}
+.locations-screen .locResultBox[data-state="missing"] .loc-result-state{
+  background:#fff0e6;
+  color:#d86b1b;
+}
+.loc-form-card,
+.loc-list-card{
+  padding:24px;
+}
+.loc-form-card h3{
+  margin:0 0 18px;
+  font-size:31px;
+  color:#111;
+  letter-spacing:-.03em;
+}
+.loc-form-card input{
+  width:100%;
+  height:66px;
+  padding:0 22px;
+  font-size:18px;
+  margin-bottom:12px;
+}
+.loc-save-btn{
+  width:100%;
+  height:70px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  font-size:22px;
+}
+.loc-save-btn i{
+  font-size:23px;
+}
+.loc-collapse-header{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:14px;
+  direction:ltr;
+  padding:16px 18px;
+}
+.loc-collapse-toggle,
+.loc-collapse-icon{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  border:1px solid #ece7e1;
+  background:#fff;
+  color:#1e1e1e;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+.loc-collapse-copy{
+  direction:rtl;
+  text-align:right;
+}
+.loc-collapse-copy strong{
+  display:block;
+  font-size:30px;
+  color:#111;
+  letter-spacing:-.03em;
+}
+.loc-collapse-copy span{
+  display:block;
+  margin-top:4px;
+  font-size:17px;
+  color:#94908a;
+}
+.loc-collapse-header .chev{
+  transition:transform .2s;
+}
+.loc-collapse-header.collapsed .chev{
+  transform:rotate(180deg);
+}
+.bc-collapse-header{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:14px;
+  direction:ltr;
+  padding:16px 18px;
+}
+.bc-collapse-toggle,
+.bc-collapse-icon{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  border:1px solid #ece7e1;
+  background:#fff;
+  color:#1e1e1e;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+.bc-collapse-copy{
+  direction:rtl;
+  text-align:right;
+}
+.bc-collapse-copy strong{
+  display:block;
+  font-size:24px;
+  color:#111;
+  letter-spacing:-.03em;
+}
+.bc-collapse-copy span{
+  display:block;
+  margin-top:4px;
+  font-size:14px;
+  color:#94908a;
+}
+.bc-collapse-header .chev{
+  transition:transform .2s;
+}
+.bc-collapse-header.collapsed .chev{
+  transform:rotate(180deg);
+}
+.barcode-list-card{
+  padding:18px;
+}
+.bc-table-wrap{
+  overflow-x:auto;
+  border:1px solid var(--border);
+  border-radius:18px;
+}
+.bc-table-wrap table{
+  margin:0;
+}
+body.app-dark #appScreen .bc-collapse-toggle,
+body.app-dark #appScreen .bc-collapse-icon{
+  background:#101010;
+  border-color:rgba(255,255,255,.08);
+}
+body.app-dark #appScreen .bc-collapse-copy span{
+  color:#b0ada8;
+}
+.locations-screen #locCollapseContent{
+  margin-top:18px;
+}
+.locations-screen #locCollapseContent .actions{
+  justify-content:flex-end;
+}
+.locations-screen #locCollapseContent .card{
+  border-radius:28px;
+}
+.locations-screen #locCollapseContent label{
+  font-size:14px;
+  font-weight:600;
+  color:#7b7b7b;
+  margin-bottom:8px;
+}
+.locations-screen #locCollapseContent input{
+  height:58px;
+  padding:0 18px;
+  font-size:16px;
+}
+.locations-screen #locCollapseContent .scanbox{
+  direction:ltr;
+}
+.locations-screen #locCollapseContent .scanbox input{
+  text-align:right;
+}
+.locations-screen #locCollapseContent table{
+  margin-top:16px;
+  border-radius:28px;
+}
+.locations-screen #locCollapseContent th,
+.locations-screen #locCollapseContent td{
+  font-size:15px;
+}
+body.app-dark #appScreen .header-brand i{
+  color:#f0b35c;
+}
+body.app-dark #appScreen .branch-badge,
+body.app-dark #appScreen .header-icon-btn{
+  background:#141414;
+  border-color:rgba(255,255,255,.08);
+  color:#f4f4f1;
+}
+body.app-dark #appScreen .tab.active::after{
+  background:#ff6a00;
+}
+body.app-dark #appScreen .locations-screen .loc-screen-head p,
+body.app-dark #appScreen .locations-screen .loc-collapse-copy span,
+body.app-dark #appScreen .locations-screen .locResultLabel,
+body.app-dark #appScreen .locations-screen .locResultSkuLabel{
+  color:#b0ada8;
+}
+body.app-dark #appScreen .locations-screen .loc-search-scan,
+body.app-dark #appScreen .locations-screen .loc-collapse-toggle,
+body.app-dark #appScreen .locations-screen .loc-collapse-icon{
+  background:#101010;
+  border-color:rgba(255,255,255,.08);
+}
+body.app-dark #appScreen .locations-screen .locResultBox{
+  background:linear-gradient(180deg,#181818 0%,#121212 100%);
+  border-color:rgba(127,226,154,.18);
+}
+body.app-dark #appScreen .locations-screen .locResultBox.is-empty{
+  border-color:rgba(255,255,255,.08);
+}
+body.app-dark #appScreen .locations-screen .locResultDivider{
+  background:rgba(255,255,255,.08);
+}
 @media(max-width:640px){
   .authBox{
     border-radius:28px;
@@ -631,6 +1181,202 @@ body.app-dark #appScreen .queue-box{
   .col{
     border-radius:26px;
     padding:14px;
+  }
+  #appScreen .wrap{
+    padding:12px 8px 98px;
+  }
+  .screen-credit#indexCredit{
+    bottom:72px;
+    font-size:11px;
+  }
+  .app-header{
+    gap:10px;
+    margin-bottom:12px;
+    padding:0 2px;
+  }
+  .header-actions{
+    gap:6px;
+  }
+  .header-icon-btn{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    font-size:18px;
+    box-shadow:0 6px 16px rgba(17,17,17,.04);
+  }
+  .header-icon-btn .icon{
+    font-size:18px;
+  }
+  .header-brand{
+    gap:6px;
+    font-size:18px;
+  }
+  .header-brand i{
+    font-size:18px;
+  }
+  .branch-badge{
+    min-width:0;
+    gap:6px;
+    padding:8px 12px;
+    font-size:13px;
+    border-radius:16px;
+  }
+  .tabs{
+    width:calc(100vw - 28px);
+    max-width:360px;
+    bottom:8px;
+    padding:7px 7px calc(7px + env(safe-area-inset-bottom, 0px));
+    gap:4px;
+    border-radius:22px;
+  }
+  .tab{
+    min-height:48px;
+    font-size:9.5px;
+    padding:6px 4px 8px;
+    gap:3px;
+    border-radius:16px;
+  }
+  .tab span{
+    line-height:1.05;
+  }
+  .tab-icon{
+    font-size:16px;
+  }
+  .tab.active::after{
+    bottom:4px;
+    width:18px;
+    height:3px;
+  }
+  .locations-screen .col{
+    padding:16px;
+    border-radius:28px;
+  }
+  .locations-screen .divider{
+    margin:16px -16px;
+  }
+  .loc-screen-head h2,
+  .loc-form-card h3,
+  .loc-collapse-copy strong{
+    font-size:16px;
+  }
+  .loc-screen-head p{
+    font-size:11px;
+  }
+  .loc-search-bar{
+    gap:6px;
+    display:grid;
+    grid-template-columns:84px minmax(0,1fr) 48px;
+    align-items:center;
+  }
+  .loc-search-submit,
+  .loc-search-scan,
+  .loc-search-bar input{
+    height:46px;
+  }
+  .loc-search-submit{
+    min-width:0;
+    width:100%;
+    padding:0 10px;
+    font-size:16px;
+    box-shadow:none;
+  }
+  .loc-search-submit i,
+  .loc-search-scan i{
+    font-size:17px;
+  }
+  .loc-search-scan{
+    width:48px;
+    min-width:48px;
+  }
+  .loc-search-bar input{
+    min-width:0;
+    padding:0 14px;
+    font-size:14px;
+  }
+  .locations-screen .locResultBox{
+    min-height:0;
+    padding:18px;
+    margin-top:14px;
+    border-radius:26px;
+  }
+  .locResultShell{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .locResultIcon{
+    width:88px;
+    height:88px;
+    margin:0 auto;
+  }
+  .locResultIcon i{
+    font-size:42px;
+  }
+  .locResultDetails{
+    text-align:center;
+  }
+  .loc-result-state{
+    padding:7px 12px;
+    font-size:11px;
+    margin-bottom:12px;
+  }
+  .loc-result-state i{
+    font-size:11px;
+  }
+  .locResultLocation{
+    font-size:50px;
+  }
+  .locResultLabel,
+  .locResultSkuLabel{
+    font-size:12px;
+  }
+  .locResultSkuValue{
+    font-size:28px;
+  }
+  .locResultDivider{
+    margin:12px 0;
+  }
+  .loc-form-card,
+  .loc-list-card{
+    padding:16px;
+  }
+  .loc-collapse-header{
+    gap:8px;
+    padding:12px;
+  }
+  .bc-collapse-header{
+    gap:8px;
+    padding:12px;
+  }
+  .loc-collapse-toggle,
+  .loc-collapse-icon,
+  .bc-collapse-toggle,
+  .bc-collapse-icon{
+    width:38px;
+    height:38px;
+  }
+  .loc-collapse-copy span,
+  .bc-collapse-copy span{
+    font-size:11px;
+  }
+  .bc-collapse-copy strong{
+    font-size:16px;
+  }
+  .barcode-list-card{
+    padding:16px;
+  }
+  .loc-form-card input{
+    height:50px;
+    padding:0 14px;
+    font-size:14px;
+    margin-bottom:10px;
+  }
+  .loc-save-btn{
+    height:52px;
+    font-size:18px;
+    gap:8px;
+  }
+  .loc-save-btn i{
+    font-size:18px;
   }
 }
 
@@ -667,32 +1413,32 @@ body.app-dark #appScreen .queue-box{
 <div class="screen-credit" id="indexCredit">&copy; כל הזכויות שמורות ליאיר קרשיגייב</div>
 <div id="appScreen">
 <div class="wrap">
-  <header>
-    <b style="font-size:20px">📦 L2F</b>
+  <header class="app-header">
+    <div class="header-brand"><span class="header-brand-text">L2F</span><i class="bi bi-box-seam-fill" aria-hidden="true"></i></div>
     <div class="header-actions">
-      <span class="badge" id="branchBadge">—</span>
-      <span id="rtIndicator" title="חיבור Realtime" aria-label="חיבור Realtime"><span class="rtdot off"></span></span>
-      <button class="btn-ghost header-icon-btn" id="alwaysConnectedBtn" type="button" onclick="toggleAlwaysConnected()" title="שמירת התחברות במכשיר הזה" aria-label="שמירת התחברות במכשיר הזה">
-        <span class="icon" aria-hidden="true">⏳</span>
+      <button class="btn-ghost header-icon-btn" type="button" onclick="doLogout()" title="יציאה" aria-label="יציאה">
+        <i class="bi bi-x-lg icon" aria-hidden="true"></i>
       </button>
       <button class="btn-ghost header-icon-btn" id="workThemeBtn" type="button" onclick="toggleWorkTheme()" title="מצב עבודה">
-        <span class="icon" aria-hidden="true">☀</span>
+        <i class="bi bi-brightness-high-fill icon" aria-hidden="true"></i>
       </button>
-      <button class="btn-ghost header-icon-btn" type="button" onclick="doLogout()" title="יציאה" aria-label="יציאה">
-        <span class="icon" aria-hidden="true">✕</span>
+      <button class="btn-ghost header-icon-btn" id="alwaysConnectedBtn" type="button" onclick="toggleAlwaysConnected()" title="שמירת התחברות במכשיר הזה" aria-label="שמירת התחברות במכשיר הזה">
+        <i class="bi bi-hourglass-split icon" aria-hidden="true"></i>
       </button>
+      <span id="rtIndicator" class="rt-indicator" title="חיבור Realtime" aria-label="חיבור Realtime"><span class="rtdot off"></span></span>
+      <span class="badge branch-badge" id="branchBadge">—</span>
     </div>
   </header>
 
   <nav class="tabs">
-    <div class="tab active" data-tab="t1"><span class="tab-icon-sun">☀</span> השלמות בוקר</div>
-    <div class="tab" data-tab="t2"><span class="tab-icon-receipt" aria-hidden="true"><svg viewBox="0 0 210.68 210.68" xmlns="http://www.w3.org/2000/svg"><path d="M67.869 65.313h39.476c4.143 0 7.5-3.358 7.5-7.5 0-4.142-3.357-7.5-7.5-7.5H67.869c-4.142 0-7.5 3.358-7.5 7.5 0 4.141 3.358 7.5 7.5 7.5z"/><path d="M142.81 81.994H67.869c-4.142 0-7.5 3.358-7.5 7.5 0 4.142 3.358 7.5 7.5 7.5h74.941c4.143 0 7.5-3.358 7.5-7.5 0-4.142-3.357-7.5-7.5-7.5z"/><path d="M67.869 128.682h53.367c4.143 0 7.5-3.358 7.5-7.5 0-4.142-3.357-7.5-7.5-7.5H67.869c-4.142 0-7.5 3.358-7.5 7.5 0 4.142 3.358 7.5 7.5 7.5z"/><path d="M142.81 145.367H67.869c-4.142 0-7.5 3.358-7.5 7.5 0 4.142 3.358 7.5 7.5 7.5h74.941c4.143 0 7.5-3.358 7.5-7.5 0-4.142-3.357-7.5-7.5-7.5z"/><path d="M174.423 18.144 158.477 2.197C157.071.79 155.163 0 153.174 0c-1.989 0-3.897.79-5.304 2.197L137.228 12.84 126.585 2.197C125.178.79 123.27 0 121.281 0c-1.989 0-3.897.79-5.304 2.197l-10.641 10.642L94.697 2.197C93.29.79 91.382 0 89.392 0c-1.989 0-3.897.79-5.304 2.198L73.451 12.839 62.809 2.197C61.403.79 59.495 0 57.506 0s-3.897.79-5.304 2.197L36.257 18.144c-1.406 1.406-2.196 3.314-2.196 5.303v163.79c0 1.989.791 3.897 2.197 5.304l15.945 15.942c2.928 2.929 7.676 2.928 10.605 0l10.644-10.642 10.645 10.642c1.407 1.406 3.315 2.196 5.304 2.196 1.989 0 3.897-.791 5.303-2.198l10.634-10.638 10.641 10.639c2.928 2.929 7.676 2.928 10.605 0l10.645-10.641 10.643 10.641c1.464 1.464 3.384 2.196 5.303 2.196 1.919 0 3.839-.732 5.303-2.196l15.945-15.942c1.407-1.406 2.197-3.314 2.197-5.304V23.447c0-1.989-.79-3.896-2.196-5.303zm-12.804 165.986-8.445 8.444-10.643-10.641c-2.93-2.929-7.676-2.928-10.605 0l-10.644 10.641-10.642-10.641c-1.407-1.407-3.314-2.197-5.304-2.196-1.989 0-3.897.79-5.303 2.198l-10.634 10.638-10.643-10.64c-2.929-2.928-7.676-2.928-10.605 0l-10.644 10.641-8.445-8.444V26.554l8.445-8.447L68.149 28.75c1.407 1.407 3.315 2.197 5.304 2.197 1.99 0 3.897-.791 5.304-2.198l10.637-10.641 10.639 10.642c1.406 1.407 3.314 2.197 5.304 2.197 1.99 0 3.897-.79 5.304-2.197l10.641-10.643 10.644 10.643c1.407 1.407 3.314 2.197 5.304 2.197 1.989 0 3.897-.79 5.304-2.197l10.642-10.643 8.445 8.446V184.13z"/></svg></span>השלמות מכר</div>
-    <div class="tab" data-tab="t3">📍 מיקומים</div>
-    <div class="tab" data-tab="t4"><span class="tab-icon-barcode" aria-hidden="true"></span>ברקודים</div>
+    <div class="tab" data-tab="t1"><i class="bi bi-brightness-high-fill tab-icon tab-icon-sun" aria-hidden="true"></i><span>השלמות בוקר</span></div>
+    <div class="tab" data-tab="t2"><i class="bi bi-receipt-cutoff tab-icon" aria-hidden="true"></i><span>השלמות מכר</span></div>
+    <div class="tab active" data-tab="t3"><i class="bi bi-pin-map-fill tab-icon" aria-hidden="true"></i><span>מיקומים</span></div>
+    <div class="tab" data-tab="t4"><i class="bi bi-upc-scan tab-icon" aria-hidden="true"></i><span>ברקודים</span></div>
   </nav>
 
   <!-- ═══ TAB 1 — Morning Sessions ═══ -->
-  <section id="t1">
+  <section id="t1" hidden>
     <div class="row">
       <div class="col" style="flex:2 1 640px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -715,7 +1461,7 @@ body.app-dark #appScreen .queue-box{
         </div>
       </div>
 
-      <div class="col sticky">
+      <div class="col">
         <h2>סרוק ברקוד (בוקר)</h2>
         <div class="scanbox">
           <input id="scanInput1" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
@@ -819,24 +1565,54 @@ body.app-dark #appScreen .queue-box{
   </section>
 
   <!-- ═══ TAB 3 — Locations ═══ -->
-  <section id="t3" hidden>
+  <section id="t3" class="locations-screen">
     <div class="row">
-      <div class="col" style="flex:1 1 640px">
-        <h2>מיקומים במחסן</h2>
-        <div class="card">
-          <label>חיפוש לפי מק״ט</label>
-          <div class="scanbox">
-            <input id="locSearchSku" placeholder="מק״ט..." inputmode="tel" pattern="[0-9]*"/>
-            <button class="btn-accent" onclick="doLocSearch()">חפש</button>
+      <div class="col loc-shell" style="flex:1 1 640px">
+        <div class="loc-screen-head">
+          <h2>מיקומים במחסן</h2>
+          <p>חפש מק״ט או סרוק ברקוד כדי למצוא את המיקום</p>
+        </div>
+        <div class="card loc-search-card">
+          <div class="loc-search-bar">
+            <button class="btn-primary loc-search-submit" type="button" onclick="doLocSearch()"><span>חפש</span><i class="bi bi-search" aria-hidden="true"></i></button>
+            <input id="locSearchSku" placeholder="חיפוש לפי מק״ט או ברקוד" autocomplete="off" inputmode="tel" pattern="[0-9]*"/>
+            <button class="btn-ghost loc-search-scan" type="button" onclick="openCameraInputScanner('locSearchSku')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
           </div>
-          <div id="locSearchResult" class="locResultBox"><span class="locText"></span></div>
+          <div id="locSearchResult" class="locResultBox is-empty" data-state="empty">
+            <div class="locResultShell">
+              <div class="locResultIcon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></div>
+              <div class="locResultDetails">
+                <div class="loc-result-state"><i id="locResultStateIcon" class="bi bi-search" aria-hidden="true"></i><span id="locResultStateText">ממתין לחיפוש</span></div>
+                <div class="locResultLocation" id="locResultLocation">—</div>
+                <div class="locResultLabel" id="locResultLocationLabel">מיקום במחסן</div>
+                <div class="locResultDivider"></div>
+                <div class="locResultSkuValue" id="locResultSku">—</div>
+                <div class="locResultSkuLabel">מק״ט</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="divider"></div>
 
-        <div class="card">
-          <div id="locCollapseHeader" class="collapse-header collapsed">
-            <strong>רשימת מיקומים</strong><span class="chev">▼</span>
+        <div class="card loc-form-card">
+          <h3>הוספה / עדכון</h3>
+          <input id="locFormSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
+          <input id="locFormLoc" placeholder="מיקום (לדוגמה: A1-03)" style="width:100%;margin-bottom:6px"/>
+          <div class="actions"><button class="btn-primary loc-save-btn" type="button" onclick="upsertLocation()"><span>שמור</span><i class="bi bi-floppy-fill" aria-hidden="true"></i></button></div>
+          <div id="locFormMsg" class="hint" style="display:none"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="card loc-list-card">
+          <div id="locCollapseHeader" class="collapse-header collapsed loc-collapse-header">
+            <span class="chev loc-collapse-toggle"><i class="bi bi-chevron-down" aria-hidden="true"></i></span>
+            <div class="loc-collapse-copy">
+              <strong>רשימת מיקומים</strong>
+              <span>צפה בכל המיקומים במלאי</span>
+            </div>
+            <span class="loc-collapse-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
           </div>
           <div id="locCollapseContent" class="collapse-content" style="display:none">
             <div class="actions" style="justify-content:flex-end;margin-top:8px">
@@ -849,21 +1625,19 @@ body.app-dark #appScreen .queue-box{
               <div class="actions"><button class="btn-accent" onclick="importLocations()">ייבוא JSON</button></div>
               <div id="locImportMsg" class="hint" style="display:none"></div>
             </div>
+            <div class="card" style="margin-top:10px">
+              <label>חיפוש ברשימת המיקומים</label>
+              <div class="scanbox">
+                <input id="locListSearch" placeholder="חפש לפי מק״ט או מיקום..." inputmode="search"/>
+                <button class="btn-ghost" type="button" onclick="clearLocListSearch()">נקה</button>
+              </div>
+              <div class="small" id="locListCount" style="margin-top:6px"></div>
+            </div>
             <table style="margin-top:8px">
               <thead><tr><th>מק״ט</th><th>מיקום</th><th>פעולות</th></tr></thead>
               <tbody id="locTbody"></tbody>
             </table>
           </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="card">
-          <h3>הוספה / עדכון</h3>
-          <input id="locFormSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
-          <input id="locFormLoc" placeholder="מיקום (לדוגמה: A1-03)" style="width:100%;margin-bottom:6px"/>
-          <div class="actions"><button class="btn-primary" onclick="upsertLocation()">שמור</button></div>
-          <div id="locFormMsg" class="hint" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -872,30 +1646,7 @@ body.app-dark #appScreen .queue-box{
   <!-- ═══ TAB 4 — Barcode Manager ═══ -->
   <section id="t4" hidden>
     <div class="row">
-      <div class="col" style="flex:2 1 640px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">קטלוג ברקודים <span class="small">(גלובלי — משותף לכל הסניפים)</span></h2>
-          <div class="actions" style="margin:0">
-            <a class="btn-accent" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid #c7d2fe;font-size:14px;color:#1e40af" href="/api/barcodes/export/csv" download="barcodes.csv">ייצוא CSV</a>
-          </div>
-        </div>
-
-        <div class="scanbox" style="margin-bottom:8px">
-          <input id="bcSearch" placeholder="חיפוש לפי ברקוד / מק״ט / צבע..." oninput="renderBarcodeTable()"/>
-          <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה">📷</button>
-          <button class="btn-ghost" onclick="document.getElementById('bcSearch').value='';renderBarcodeTable()">נקה</button>
-        </div>
-
-        <div style="max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:10px">
-          <table>
-            <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th><th>פעולות</th></tr></thead>
-            <tbody id="bcTbody"></tbody>
-          </table>
-        </div>
-        <div class="small" style="margin-top:6px" id="bcCount"></div>
-      </div>
-
-      <div class="col sticky">
+      <div class="col">
         <h2>הוספת ברקוד</h2>
         <div class="card">
           <div class="scanbox">
@@ -927,6 +1678,40 @@ body.app-dark #appScreen .queue-box{
         <h2>סטטוס</h2>
         <div class="kv"><div>סה״כ ברקודים</div><div class="num" id="stat4Total">—</div></div>
         <div class="kv"><div>מק״טים שונים</div><div class="num" id="stat4Skus">—</div></div>
+
+        <div class="divider"></div>
+        <div class="card barcode-list-card">
+          <div id="bcCollapseHeader" class="collapse-header collapsed bc-collapse-header">
+            <span class="chev bc-collapse-toggle"><i class="bi bi-chevron-down" aria-hidden="true"></i></span>
+            <div class="bc-collapse-copy">
+              <strong>קטלוג ברקודים</strong>
+              <span>הצג או הסתר את רשימת הברקודים המלאה</span>
+            </div>
+            <span class="bc-collapse-icon"><i class="bi bi-upc-scan" aria-hidden="true"></i></span>
+          </div>
+          <div id="bcCollapseContent" class="collapse-content" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h2 style="margin:0">קטלוג ברקודים <span class="small">(גלובלי — משותף לכל הסניפים)</span></h2>
+              <div class="actions" style="margin:0">
+                <a class="btn-accent" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid #c7d2fe;font-size:14px;color:#1e40af" href="/api/barcodes/export/csv" download="barcodes.csv">ייצוא CSV</a>
+              </div>
+            </div>
+
+            <div class="scanbox" style="margin-bottom:8px">
+              <input id="bcSearch" placeholder="חיפוש לפי ברקוד / מק״ט / צבע..." oninput="renderBarcodeTable()"/>
+              <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה">📷</button>
+              <button class="btn-ghost" onclick="document.getElementById('bcSearch').value='';renderBarcodeTable()">נקה</button>
+            </div>
+
+            <div class="bc-table-wrap">
+              <table>
+                <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th><th>פעולות</th></tr></thead>
+                <tbody id="bcTbody"></tbody>
+              </table>
+            </div>
+            <div class="small" style="margin-top:6px" id="bcCount"></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1147,12 +1932,12 @@ function loadAlwaysConnectedPreference(){
 function updateAlwaysConnectedBtn(){
   const btn=$('alwaysConnectedBtn');
   if(!btn) return;
-  btn.innerHTML='<span class="icon" aria-hidden="true">⏳</span>';
+  btn.innerHTML=`<i class="bi ${_alwaysConnected ? 'bi-hourglass-split' : 'bi-hourglass'} icon" aria-hidden="true"></i>`;
   const label = _alwaysConnected ? 'תמיד מחובר פעיל' : 'תמיד מחובר כבוי';
   btn.title = label;
   btn.setAttribute('aria-label', label);
-  btn.classList.toggle('btn-sticky-on', !_alwaysConnected);
-  btn.classList.toggle('btn-ghost', _alwaysConnected);
+  btn.classList.toggle('btn-sticky-on', _alwaysConnected);
+  btn.classList.toggle('btn-ghost', !_alwaysConnected);
 }
 
 function setAlwaysConnected(enabled){
@@ -1294,7 +2079,7 @@ async function enterApp(branch){
   hideAuthNotice();
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
-  $('branchBadge').textContent='🏪 '+branch.name;
+  $('branchBadge').innerHTML=`<span class="branch-badge-text">${esc(branch.name)}</span><i class="bi bi-shop" aria-hidden="true"></i>`;
   initSocketIO();
   loadAll();
 }
@@ -1430,7 +2215,7 @@ function applyWorkTheme(){
   document.body.classList.toggle('app-dark', dark);
   const btn=$('workThemeBtn');
   if(btn){
-    btn.innerHTML = `<span class="icon" aria-hidden="true">${dark ? '☾' : '☀'}</span>`;
+    btn.innerHTML = `<i class="bi ${dark ? 'bi-moon-stars-fill' : 'bi-brightness-high-fill'} icon" aria-hidden="true"></i>`;
     btn.title = dark ? 'מצב כהה פעיל' : 'מצב בהיר פעיל';
     btn.setAttribute('aria-label', dark ? 'מעבר למצב בהיר' : 'מעבר למצב כהה');
   }
@@ -1513,6 +2298,9 @@ async function fillCameraTargetInput(inputId, code){
   }
   if(inputId==='bcSearch'){
     renderBarcodeTable();
+  }
+  if(inputId==='locSearchSku'){
+    setTimeout(()=>{ doLocSearch(); }, 60);
   }
   setCameraStatus(`הברקוד ${code} הוזן לשדה.`);
   await closeCameraScanner();
@@ -2154,14 +2942,46 @@ window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopHeartbeat(); }
 // TAB 3 — LOCATIONS
 // ══════════════════════════════════════════════════════════
 async function doLocSearch(){
-  const sku=$('locSearchSku').value.trim(); if(!sku)return;
-  const res=await GET(`/api/locations/search?sku=${encodeURIComponent(sku)}`);
-  const box=$('locSearchResult'),span=box.querySelector('.locText');
-  if(res.error){
-    span.textContent=`לא נמצא מק״ט ${sku}`;
-  }else{
-    span.innerHTML=`<span class="locSku">${esc(sku)}</span><span class="locSep">:</span><span class="locLocation">${esc(res.location)}</span>`;
+  const rawValue=$('locSearchSku').value.trim(); if(!rawValue)return;
+  const box=$('locSearchResult');
+  const stateText=$('locResultStateText');
+  const stateIcon=$('locResultStateIcon');
+  const locationValue=$('locResultLocation');
+  const locationLabel=$('locResultLocationLabel');
+  const skuValue=$('locResultSku');
+
+  let resolvedSku=rawValue;
+  let foundViaBarcode=false;
+  let locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+
+  if(locationRes.error){
+    const barcodeRes=await GET(`/api/barcodes/${encodeURIComponent(rawValue)}`);
+    if(!barcodeRes.error && barcodeRes.sku){
+      resolvedSku=String(barcodeRes.sku).trim();
+      foundViaBarcode=true;
+      locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+    }
   }
+
+  skuValue.textContent=resolvedSku;
+  if(locationRes.error){
+    box.dataset.state='missing';
+    stateIcon.className='bi bi-exclamation-circle-fill';
+    locationValue.textContent='לא נמצא';
+    locationLabel.textContent='תוצאה לחיפוש';
+    stateText.textContent=foundViaBarcode
+      ? 'הברקוד זוהה, אבל למק״ט אין מיקום'
+      : 'לא נמצא במחסן';
+  }else{
+    box.dataset.state='found';
+    stateIcon.className='bi bi-check-circle-fill';
+    locationValue.textContent=locationRes.location;
+    locationLabel.textContent='מיקום במחסן';
+    stateText.textContent=foundViaBarcode
+      ? 'נמצא דרך הברקוד'
+      : 'נמצא במחסן';
+  }
+  box.classList.remove('is-empty');
   box.style.display='flex';
 }
 $('locSearchSku').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLocSearch();}});
@@ -2174,22 +2994,74 @@ $('locCollapseHeader').addEventListener('click',()=>{
   if(hidden)loadLocTable();
 });
 
-async function loadLocTable(){
-  const rows=await GET('/api/locations');
+$('bcCollapseHeader').addEventListener('click',()=>{
+  const c=$('bcCollapseContent');
+  const hidden=!c.style.display||c.style.display==='none';
+  c.style.display=hidden?'block':'none';
+  $('bcCollapseHeader').classList.toggle('collapsed',!hidden);
+  if(hidden && !_allBarcodes.length) loadBarcodes();
+});
+
+let _locRows=[];
+
+function fillLocationForm(sku, location){
+  $('locFormSku').value=sku;
+  $('locFormLoc').value=location;
+  $('locFormLoc').focus();
+  $('locFormLoc').select();
+  $('locFormLoc').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function clearLocListSearch(){
+  $('locListSearch').value='';
+  renderLocTable();
+  $('locListSearch').focus();
+}
+
+function renderLocTable(){
   const tbody=$('locTbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="3" class="small">אין נתונים</td></tr>';return;}
+  const q=($('locListSearch').value||'').trim().toLowerCase();
+  const rows=q
+    ?_locRows.filter(r=>
+        String(r.sku||'').toLowerCase().includes(q)||
+        String(r.location||'').toLowerCase().includes(q))
+    :_locRows;
+
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="3" class="small">${q?'לא נמצאו תוצאות':'אין נתונים'}</td></tr>`;
+    $('locListCount').textContent=_locRows.length && q ? `0 תוצאות מתוך ${_locRows.length}` : '';
+    return;
+  }
+
   tbody.innerHTML=rows.map(r=>`
     <tr>
       <td><b>${esc(r.sku)}</b></td>
       <td>${esc(r.location)}</td>
       <td>
         <button class="btn-ghost" style="padding:4px 8px;font-size:12px"
-                onclick="navigator.clipboard.writeText('${esc(r.location)}').then(()=>toast('הועתק'))">העתק</button>
+                onclick='fillLocationForm(${JSON.stringify(String(r.sku||''))}, ${JSON.stringify(String(r.location||''))})'>ערוך</button>
+        <button class="btn-ghost" style="padding:4px 8px;font-size:12px"
+                onclick='navigator.clipboard.writeText(${JSON.stringify(String(r.location||''))}).then(()=>toast("הועתק"))'>העתק</button>
         <button class="btn-danger" style="padding:4px 8px;font-size:12px"
-                onclick="deleteLoc('${esc(r.sku)}')">מחק</button>
+                onclick='deleteLoc(${JSON.stringify(String(r.sku||''))})'>מחק</button>
       </td>
     </tr>`).join('');
+
+  $('locListCount').textContent=q ? `${rows.length} תוצאות מתוך ${_locRows.length}` : `${_locRows.length} פריטים`;
 }
+
+async function loadLocTable(){
+  _locRows=await GET('/api/locations');
+  renderLocTable();
+}
+
+$('locListSearch').addEventListener('input',renderLocTable);
+$('locListSearch').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    e.preventDefault();
+    clearLocListSearch();
+  }
+});
 
 async function upsertLocation(){
   const sku=$('locFormSku').value.trim(),location=$('locFormLoc').value.trim();

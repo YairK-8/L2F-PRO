@@ -18,6 +18,7 @@ from backend.missing_warehouse import missing_warehouse_bp
 from backend.locations import locations_bp
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
+PWA_ASSET_DIR = "static"
 
 
 def _load_secret_key():
@@ -88,6 +89,40 @@ def admin_panel():
 @app.route("/health")
 def health():
     return {"status": "ok", "version": "4.0"}
+
+
+@app.route("/manifest.json")
+def manifest():
+    response = send_from_directory(PWA_ASSET_DIR, "manifest.json", mimetype="application/manifest+json")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.route("/sw.js")
+def service_worker():
+    response = send_from_directory(PWA_ASSET_DIR, "sw.js", mimetype="application/javascript")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.route("/APP-icon.png")
+def app_icon():
+    return send_from_directory(PWA_ASSET_DIR, "APP-icon.png", mimetype="image/png")
+
+
+@app.route("/icon-512.png")
+def app_icon_512():
+    return send_from_directory(PWA_ASSET_DIR, "icon-512.png", mimetype="image/png")
+
+
+@app.route("/icon-192.png")
+def app_icon_192():
+    return send_from_directory(PWA_ASSET_DIR, "icon-192.png", mimetype="image/png")
+
+
+@app.route("/apple-touch-icon.png")
+def apple_touch_icon():
+    return send_from_directory(PWA_ASSET_DIR, "apple-touch-icon.png", mimetype="image/png")
 
 
 if __name__ == "__main__":
