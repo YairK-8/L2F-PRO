@@ -248,6 +248,25 @@ tr:hover td{background:rgba(255,255,255,.24)}
   color:rgba(255,255,255,.92);
 }
 .camera-shell.ticket-mode .camera-guide{display:block}
+.camera-capture{
+  display:none;
+  position:absolute;
+  inset:auto auto 86px 50%;
+  transform:translateX(-50%);
+  z-index:3;
+  min-width:132px;
+  height:48px;
+  padding:0 18px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.34);
+  background:rgba(255,255,255,.96);
+  color:#111;
+  font-weight:800;
+  font-size:17px;
+  box-shadow:0 14px 28px rgba(0,0,0,.24);
+}
+.camera-capture[disabled]{opacity:.68}
+.camera-shell.ticket-mode .camera-capture{display:inline-flex;align-items:center;justify-content:center}
 .camera-status{
   display:none;
   position:absolute;
@@ -284,6 +303,12 @@ tr:hover td{background:rgba(255,255,255,.24)}
   }
   .camera-guide small{
     font-size:12px;
+  }
+  .camera-capture{
+    bottom:78px;
+    min-width:118px;
+    height:44px;
+    font-size:16px;
   }
   .camera-status{
     right:12px;
@@ -1712,7 +1737,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
             <input id="bcNewBarcode" placeholder="ברקוד" inputmode="numeric"/>
             <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="סריקת טיקט חיה">📷</button>
           </div>
-          <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה.</div>
+          <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="bcNewColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="bcNewSize" style="width:100%">
@@ -1826,6 +1851,9 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
       </div>
       <div id="cameraGuide" class="camera-guide"><span id="cameraGuideMain">מקם את כל הטיקט בתוך המסגרת</span><small id="cameraGuideSub">המערכת תזהה לבד את הברקוד ופרטי המוצר</small></div>
       <div id="cameraFrame" class="camera-frame"></div>
+      <button id="cameraCaptureBtn" class="camera-capture btn-ghost" type="button" onclick="captureTicketStill()" aria-label="צילום טיקט">
+        <span id="cameraCaptureLabel">צילום</span>
+      </button>
     </div>
     <div id="cameraStatus" class="camera-status"></div>
   </div>
@@ -2290,7 +2318,7 @@ function updateCameraModeUi(){
   $('cameraShell').classList.toggle('ticket-mode', ticketMode);
   $('cameraFrame').classList.toggle('ticket-mode', ticketMode);
   if(ticketMode){
-    setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'המערכת תחפש ברקוד, ואז תקרא את פרטי המוצר');
+    setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'אפשר להמתין לזיהוי אוטומטי או ללחוץ צילום');
   }else{
     setCameraGuide('מרכז את הפסים בתוך המסגרת', 'הסריקה מתבצעת ברצף וללא צילום');
   }
@@ -2300,6 +2328,7 @@ function createEmptyTicketScanState(){
   return {
     barcode: '',
     barcodeKnown: false,
+    captureBusy: false,
     lastOcrAt: 0,
     ocrBusy: false,
     completedBarcode: '',
@@ -2315,6 +2344,16 @@ function createEmptyTicketScanState(){
 
 function resetTicketScanState(){
   _ticketScanState = createEmptyTicketScanState();
+  updateCameraCaptureButton();
+}
+
+function updateCameraCaptureButton(){
+  const btn = $('cameraCaptureBtn');
+  const label = $('cameraCaptureLabel');
+  if(!btn || !label) return;
+  const busy = !!_ticketScanState?.captureBusy;
+  btn.disabled = busy;
+  label.textContent = busy ? 'מעבד...' : 'צילום';
 }
 
 function normalizeTicketSize(raw){
@@ -2455,6 +2494,16 @@ function fillBarcodeManagerForm(data, opts={}){
   }
 }
 
+function scaleCanvasCopy(sourceCanvas, factor){
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.min(2200, Math.round(sourceCanvas.width * factor)));
+  out.height = Math.max(1, Math.min(2200, Math.round(sourceCanvas.height * factor)));
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+  return out;
+}
+
 function getCameraFrameRectOnCanvas(canvasWidth, canvasHeight){
   const video = $('cameraVideo');
   const frame = $('cameraFrame');
@@ -2567,6 +2616,50 @@ function buildTicketOcrCanvas(frameCanvas){
   return out;
 }
 
+function buildTicketBarcodeStripCanvas(frameCanvas){
+  const labelRect = findBrightLabelRect(frameCanvas);
+  if(!labelRect) return null;
+  const stripRect = {
+    x: labelRect.x,
+    y: Math.min(frameCanvas.height - 1, labelRect.y + Math.round(labelRect.height * 0.46)),
+    width: labelRect.width,
+    height: Math.max(1, Math.round(labelRect.height * 0.4)),
+  };
+  return createCanvasRegionCopy(frameCanvas, stripRect);
+}
+
+async function decodeBarcodeFromCanvas(canvas, opts={}){
+  const imageData = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+  const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
+    formats: ['Code128','Code39','EAN-13','EAN-8','UPC-A','UPC-E','ITF','Codabar'],
+    maxNumberOfSymbols: 1,
+    tryHarder: true,
+    tryRotate: true,
+    tryInvert: true,
+    downscaleThreshold: opts.downscaleThreshold || 2800,
+  });
+  return results?.[0]?.text?.trim() || '';
+}
+
+async function detectTicketBarcode(frameCanvas, opts={}){
+  const candidates = [frameCanvas];
+  if(opts.aggressive){
+    candidates.push(scaleCanvasCopy(frameCanvas, 1.4));
+    const stripCanvas = buildTicketBarcodeStripCanvas(frameCanvas);
+    if(stripCanvas){
+      candidates.push(stripCanvas);
+      candidates.push(scaleCanvasCopy(stripCanvas, 1.8));
+    }
+  }
+  for(const candidate of candidates){
+    const barcode = await decodeBarcodeFromCanvas(candidate, {
+      downscaleThreshold: opts.aggressive ? 3600 : 2800,
+    });
+    if(barcode) return barcode;
+  }
+  return '';
+}
+
 async function ensureTicketOcrWorker(){
   if(_ticketOcrWorker) return _ticketOcrWorker;
   if(_ticketOcrWorkerInit) return _ticketOcrWorkerInit;
@@ -2597,6 +2690,19 @@ function buildTicketFrameCanvas(){
   return createCanvasRegionCopy(_cameraCanvas, rect);
 }
 
+function buildTicketCaptureCanvas(){
+  const video = $('cameraVideo');
+  const width = Math.max(1, video.videoWidth || 1280);
+  const height = Math.max(1, video.videoHeight || 720);
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = width;
+  sourceCanvas.height = height;
+  const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, width, height);
+  const rect = getCameraFrameRectOnCanvas(width, height);
+  return createCanvasRegionCopy(sourceCanvas, rect);
+}
+
 async function handleKnownTicketBarcode(barcode, row){
   fillBarcodeManagerForm({
     barcode,
@@ -2610,6 +2716,69 @@ async function handleKnownTicketBarcode(barcode, row){
   setCameraStatus(`הברקוד ${barcode} כבר קיים. השדות מולאו אוטומטית.`);
   await closeCameraScanner();
   return true;
+}
+
+async function processCapturedTicketFrame(frameCanvas){
+  if(!_ticketScanState) return false;
+  setCameraStatus('מעבד את הצילום...');
+  let barcode = _ticketScanState.barcode || '';
+  if(!barcode){
+    barcode = await detectTicketBarcode(frameCanvas, { aggressive:true });
+    if(!barcode){
+      setCameraStatus('לא זיהיתי ברקוד מהצילום. נסה לצלם מקרוב יותר או בתאורה חזקה יותר.', true);
+      popup('לא זוהה ברקוד','error',1200);
+      return false;
+    }
+    _ticketScanState.barcode = barcode;
+    fillBarcodeManagerForm({ barcode }, { focusField:'bcNewSku' });
+    const existing = await GET(`/api/barcodes/${encodeURIComponent(barcode)}`);
+    if(!existing?.error){
+      _ticketScanState.barcodeKnown = true;
+      return handleKnownTicketBarcode(barcode, existing);
+    }
+    $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
+  }
+  const fields = await recognizeTicketFieldsFromCanvas(frameCanvas);
+  if(!(fields.sku && fields.color && fields.size)){
+    setCameraStatus('לא הצלחתי לקרוא מספיק פרטים מהצילום. נסה צילום קרוב וחד יותר.', true);
+    popup('הצילום לא הספיק','error',1200);
+    return false;
+  }
+  fillBarcodeManagerForm({
+    barcode,
+    sku: fields.sku,
+    color: fields.color,
+    size: fields.size,
+  }, { focusField:'bcNewColor' });
+  $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהצילום`;
+  soundOk();
+  popup('הצילום פוענח ✓','success',1200);
+  setCameraStatus('הצילום פוענח. אפשר לבדוק את השדות וללחוץ הוסף.');
+  await closeCameraScanner();
+  return true;
+}
+
+async function captureTicketStill(){
+  if(!isTicketCameraMode() || !_ticketScanState || _ticketScanState.captureBusy) return;
+  const video = $('cameraVideo');
+  if(!_cameraStream || !video || video.readyState < 2){
+    setCameraStatus('המצלמה עדיין נטענת. נסה שוב בעוד רגע.', true);
+    return;
+  }
+  _ticketScanState.captureBusy = true;
+  updateCameraCaptureButton();
+  if(navigator.vibrate) navigator.vibrate(36);
+  try{
+    const frameCanvas = buildTicketCaptureCanvas();
+    await processCapturedTicketFrame(frameCanvas);
+  }catch(_err){
+    setCameraStatus('לא הצלחתי לעבד את הצילום. נסה שוב.', true);
+  }finally{
+    if(_ticketScanState){
+      _ticketScanState.captureBusy = false;
+    }
+    updateCameraCaptureButton();
+  }
 }
 
 function updateTicketGuidance(){
@@ -2660,19 +2829,11 @@ async function applyTicketOcrResult(fields){
 
 async function scanTicketFrame(){
   if(!_cameraCanvas || !_ticketScanState) return false;
+  if(_ticketScanState.captureBusy) return false;
   const frameCanvas = buildTicketFrameCanvas();
   if(!_ticketScanState.barcode){
     updateTicketGuidance();
-    const imageData = frameCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, frameCanvas.width, frameCanvas.height);
-    const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
-      formats: ['Code128','Code39','EAN-13','EAN-8','UPC-A','UPC-E','ITF','Codabar'],
-      maxNumberOfSymbols: 1,
-      tryHarder: true,
-      tryRotate: true,
-      tryInvert: true,
-      downscaleThreshold: 2800,
-    });
-    const barcode = results?.[0]?.text?.trim();
+    const barcode = await detectTicketBarcode(frameCanvas);
     if(!barcode) return false;
 
     _ticketScanState.barcode = barcode;
@@ -2993,7 +3154,7 @@ async function openCameraScanner(mode){
   $('cameraOverlay').setAttribute('aria-hidden','false');
   setCameraStatus(
     ticketMode
-      ? 'פותח מצלמה לסריקת טיקט...'
+      ? 'פותח מצלמה לסריקת טיקט... אפשר גם ללחוץ צילום'
       : (_cameraFacing === 'environment' ? 'פותח מצלמה אחורית...' : 'פותח מצלמה קדמית...')
   );
 
