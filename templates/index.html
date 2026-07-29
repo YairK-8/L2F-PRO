@@ -1715,7 +1715,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
             <select id="man1Size" style="width:100%">
               <option value="">מידה</option>
-              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+              <option>y</option><option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
             </select>
           <div class="actions"><button class="btn-primary" onclick="manualScan1()">הוסף לסשן</button></div>
         </div>
@@ -1729,7 +1729,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <input id="manualMissingColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
             <select id="manualMissingSize" style="width:100%">
               <option value="">מידה</option>
-              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+              <option>y</option><option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
             </select>
           <div class="actions"><button class="btn-warn" onclick="addManualMissing()">הוסף לקבוצת בוקר</button></div>
         </div>
@@ -1784,7 +1784,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           </div>
           <select id="man2Size" style="width:100%">
             <option value="">מידה</option>
-            <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+            <option>y</option><option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
           </select>
           <div class="actions"><button class="btn-primary" onclick="manualScan2()">הוסף</button></div>
         </div>
@@ -1890,7 +1890,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <input id="bcNewColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="bcNewSize" style="width:100%">
             <option value="">מידה</option>
-            <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+            <option>y</option><option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
           </select>
           <div class="actions"><button class="btn-primary" onclick="addBarcode()">הוסף</button></div>
           <div id="ticketCameraMount" class="ticket-camera-mount" hidden></div>
@@ -1961,7 +1961,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     <input id="editColor" placeholder="צבע" style="width:100%;margin-bottom:8px"/>
     <select id="editSize" style="width:100%;margin-bottom:16px">
       <option value="">מידה</option>
-      <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+      <option>y</option><option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
     </select>
     <div class="actions">
       <button class="btn-primary" onclick="saveEdit()">שמור</button>
@@ -2131,7 +2131,7 @@ const CAMERA_DECODE_MAX_WIDTH = 720;
 const TICKET_OCR_INTERVAL_MS = 900;
 const TICKET_OCR_STABLE_HITS = 2;
 const TICKET_FRAME_TIMEOUT_MS = 18000;
-const BASE_VALID_TICKET_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
+const BASE_VALID_TICKET_SIZES = ['y','xs','s','m','l','xl','xxl'];
 let VALID_TICKET_SIZES = BASE_VALID_TICKET_SIZES.slice();
 let BARCODE_COLOR_CODE_MAP = Object.freeze({
   '0001':'לבן','0002':'אבן','0003':'מוקה','0004':'שחור','0005':'אפור','0006':'אפור כהה','0007':'בורדו',
@@ -2150,7 +2150,7 @@ let BARCODE_COLOR_CODE_MAP = Object.freeze({
   '0097':'כחול כהה ווש','0100':'חמרה ווש',
 });
 let BARCODE_SIZE_CODE_MAP = Object.freeze({
-  '01':'y','02':'xs','03':'xs-s','04':'s','06':'m','07':'m-l','08':'l','10':'xl','11':'xxl',
+  '01':'y','02':'xs','03':'xs','04':'s','06':'m','07':'m','08':'l','10':'xl','11':'xxl',
 });
 let _barcodeScaleLoadPromise = null;
 const DEVICE_ID_KEY = 'l2f_device_id';
@@ -2698,13 +2698,13 @@ function normalizeTicketSize(raw){
     'X5': 'XS',
     'XS': 'XS',
     'ХS': 'XS',
-    'XS-5': 'XS-S',
-    'XSS': 'XS-S',
-    'XS-S': 'XS-S',
-    'XS S': 'XS-S',
-    'ML': 'M-L',
-    'M-L': 'M-L',
-    'M L': 'M-L',
+    'XS-5': 'XS',
+    'XSS': 'XS',
+    'XS-S': 'XS',
+    'XS S': 'XS',
+    'ML': 'M',
+    'M-L': 'M',
+    'M L': 'M',
     'XXL': 'XXL',
   };
   const normalized = replacements[v] || replacements[compact] || v;

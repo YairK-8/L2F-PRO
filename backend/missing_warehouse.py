@@ -5,6 +5,7 @@ Emits realtime updates via SocketIO.
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
 from backend.auth_utils import require_branch
+from backend.barcodes import normalize_size_label
 from backend.realtime import emit_update
 from backend.utils import today as _today, normalize_barcode as _normalize_barcode
 
@@ -22,6 +23,7 @@ def _load_item_with_location(conn, item_id):
     if not row:
         return None
     item = dict(row)
+    item["size"] = normalize_size_label(item.get("size", ""))
     item["location_hint"] = row["location_hint"] or ""
     return item
 
@@ -80,6 +82,7 @@ def _load_missing_floor_item(conn, item_id):
     if not row:
         return None
     item = dict(row)
+    item["size"] = normalize_size_label(item.get("size", ""))
     item["location_hint"] = row["location_hint"] or ""
     return item
 
@@ -104,6 +107,7 @@ def list_pending(branch_id):
     result = []
     for r in rows:
         item = dict(r)
+        item["size"] = normalize_size_label(item.get("size", ""))
         item["location_hint"] = r["location_hint"] or ""
         result.append(item)
     return jsonify(result)
@@ -130,11 +134,11 @@ def scan_sold(branch_id):
                 "barcode_received": str(barcode_raw),
                 "barcode_normalized": barcode
             }), 404
-        sku, color, size = meta["sku"], meta["color"], meta["size"]
+        sku, color, size = meta["sku"], meta["color"], normalize_size_label(meta["size"])
     else:
         sku = str(data.get("sku", "")).strip()
         color = str(data.get("color", "")).strip()
-        size = str(data.get("size", "")).strip().lower()
+        size = normalize_size_label(data.get("size", ""))
         if not all([sku, color, size]):
             conn.close()
             return jsonify({"error": "missing_fields"}), 400

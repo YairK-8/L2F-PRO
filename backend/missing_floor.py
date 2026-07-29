@@ -4,6 +4,7 @@ from backend.auth_utils import require_branch
 from backend.barcodes import (
     get_catalog_sizes_for_sku_color,
     normalize_barcode as _normalize_catalog_barcode,
+    normalize_size_label,
     resolve_barcode_catalog_entry,
 )
 from backend.realtime import emit_update
@@ -12,14 +13,19 @@ from backend.utils import today as _today
 missing_floor_bp = Blueprint("missing_floor", __name__, url_prefix="/api/missing-floor")
 
 def _sizes_list(s: str) -> list:
-    return [x for x in s.split(",") if x] if s else []
+    result = []
+    for value in str(s or "").split(","):
+        normalized = normalize_size_label(value)
+        if normalized:
+            result.append(normalized)
+    return result
 
 
 def _sizes_str(lst: list) -> str:
     seen = set()
     ordered = []
     for value in lst or []:
-        cleaned = str(value or "").strip().lower()
+        cleaned = normalize_size_label(value)
         if not cleaned or cleaned in seen:
             continue
         seen.add(cleaned)
@@ -196,7 +202,7 @@ def tick_size(branch_id):
     """Manually tick/untick a size in a morning session."""
     data = request.get_json(silent=True) or {}
     session_id = data.get("session_id")
-    size = str(data.get("size", "")).strip()
+    size = normalize_size_label(data.get("size", ""))
     found = bool(data.get("found", True))
 
     conn = get_connection()
@@ -308,7 +314,7 @@ def add_manual_missing(branch_id):
     data = request.get_json(silent=True) or {}
     sku = str(data.get("sku", "")).strip()
     color = str(data.get("color", "")).strip()
-    size = str(data.get("size", "")).strip().lower()
+    size = normalize_size_label(data.get("size", ""))
 
     if not all([sku, color, size]):
         return jsonify({"error": "missing_fields"}), 400
@@ -359,6 +365,7 @@ def list_missing(branch_id):
     result = []
     for r in rows:
         item = dict(r)
+        item["size"] = normalize_size_label(item.get("size", ""))
         item["location_hint"] = r["location_hint"] or ""
         result.append(item)
     return jsonify(result)
@@ -394,6 +401,7 @@ def clear_missing(branch_id):
 # ── Internal helper ───────────────────────────────────────────
 
 def _upsert_session(conn, branch_id, sku, color, size):
+    size = normalize_size_label(size)
     today = _today()
     row = conn.execute(
         """SELECT * FROM morning_sessions
@@ -442,6 +450,7 @@ def _upsert_session(conn, branch_id, sku, color, size):
 
 
 def _upsert_manual_session(conn, branch_id, sku, color, size):
+    size = normalize_size_label(size)
     today = _today()
     row = conn.execute(
         """SELECT * FROM morning_sessions

@@ -48,6 +48,14 @@ from database.db import get_connection
 barcodes_bp = Blueprint("barcodes", __name__, url_prefix="/api/barcodes")
 
 STRUCTURED_BARCODE_RE = re.compile(r"^([A-Z])(\d{5})(\d{4})(\d{2})$")
+SIZE_ALIAS_MAP = {
+    "xs-s": "xs",
+    "xs s": "xs",
+    "xss": "xs",
+    "m-l": "m",
+    "m l": "m",
+    "ml": "m",
+}
 
 
 def parse_structured_barcode(value):
@@ -80,6 +88,20 @@ def normalize_scale_code(value, expected_length):
     return padded if len(padded) == expected_length else ""
 
 
+def normalize_size_label(value):
+    cleaned = str(value or "").strip().lower()
+    if not cleaned:
+        return ""
+    normalized = re.sub(r"\s*-\s*", "-", cleaned)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    compact = re.sub(r"[^a-z0-9]+", "", normalized)
+    if normalized in SIZE_ALIAS_MAP:
+        return SIZE_ALIAS_MAP[normalized]
+    if compact in SIZE_ALIAS_MAP:
+        return SIZE_ALIAS_MAP[compact]
+    return normalized
+
+
 def fetch_barcode_scale(conn):
     colors = conn.execute(
         "SELECT code, color FROM barcode_color_scale ORDER BY code"
@@ -97,7 +119,7 @@ def _clean_size_values(values):
     seen = set()
     result = []
     for value in values or []:
-        cleaned = str(value or "").strip().lower()
+        cleaned = normalize_size_label(value)
         if not cleaned or cleaned in seen:
             continue
         seen.add(cleaned)
@@ -179,7 +201,7 @@ def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
             parsed["barcode"],
             parsed["sku"],
             str(color_row["color"]).strip(),
-            str(size_row["size"]).strip().lower(),
+            normalize_size_label(size_row["size"]),
         ),
     )
     created = conn.total_changes > before
@@ -201,7 +223,7 @@ def learn_structured_scale_mappings(conn, barcode, color="", size=""):
 
     learned = {"color_added": False, "size_added": False}
     color_value = str(color or "").strip()
-    size_value = str(size or "").strip().lower()
+    size_value = normalize_size_label(size)
 
     if color_value:
         before = conn.total_changes
@@ -367,7 +389,7 @@ def delete_barcode_color_scale_entry(code):
 def create_barcode_size_scale_entry():
     data = request.get_json(silent=True) or {}
     code = normalize_scale_code(data.get("code", ""), 2)
-    size = str(data.get("size", "")).strip().lower()
+    size = normalize_size_label(data.get("size", ""))
     if not code or not size:
         return jsonify({"error": "missing_fields"}), 400
 
@@ -394,7 +416,7 @@ def update_barcode_size_scale_entry(code):
     original_code = normalize_scale_code(code, 2)
     data = request.get_json(silent=True) or {}
     next_code = normalize_scale_code(data.get("code", original_code), 2)
-    size = str(data.get("size", "")).strip().lower()
+    size = normalize_size_label(data.get("size", ""))
     if not original_code or not next_code or not size:
         return jsonify({"error": "missing_fields"}), 400
 
@@ -465,7 +487,7 @@ def add_barcode(branch_id):
     barcode = normalize_barcode(data.get("barcode", ""))
     sku = str(data.get("sku", "")).strip()
     color = str(data.get("color", "")).strip()
-    size = str(data.get("size", "")).strip().lower()
+    size = normalize_size_label(data.get("size", ""))
     if not all([barcode, sku, color, size]):
         return jsonify({"error": "missing_fields"}), 400
 
@@ -508,7 +530,7 @@ def update_barcode(barcode):
     data = request.get_json(silent=True) or {}
     sku = str(data.get("sku", "")).strip()
     color = str(data.get("color", "")).strip()
-    size = str(data.get("size", "")).strip().lower()
+    size = normalize_size_label(data.get("size", ""))
     if not all([sku, color, size]):
         return jsonify({"error": "missing_fields"}), 400
 
@@ -591,7 +613,7 @@ def import_csv(branch_id):
         barcode = normalize_barcode(row.get("barcode", ""))
         sku = str(row.get("sku", "")).strip()
         color = str(row.get("color", "")).strip()
-        size = str(row.get("size", "")).strip().lower()
+        size = normalize_size_label(row.get("size", ""))
 
         if not all([barcode, sku, color, size]):
             skipped_error += 1
@@ -638,7 +660,7 @@ def import_csv_admin():
         barcode = normalize_barcode(row.get("barcode", ""))
         sku = str(row.get("sku", "")).strip()
         color = str(row.get("color", "")).strip()
-        size = str(row.get("size", "")).strip().lower()
+        size = normalize_size_label(row.get("size", ""))
 
         if not all([barcode, sku, color, size]):
             skipped_error += 1

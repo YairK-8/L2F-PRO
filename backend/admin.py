@@ -14,7 +14,7 @@ Super-Admin API:
 from flask import Blueprint, request, jsonify, session
 from database.db import get_connection
 from backend.auth_utils import require_admin
-from backend.barcodes import get_catalog_sizes_for_sku_color
+from backend.barcodes import get_catalog_sizes_for_sku_color, normalize_size_label
 from backend.realtime import (
     disconnect_branch_devices,
     disconnect_single_device,
@@ -790,8 +790,8 @@ def admin_get_sessions(branch_id):
     result = []
     for r in rows:
         d = dict(r)
-        stored_sizes = [x for x in d["sizes_all"].split(",") if x]
-        found_sizes = [x for x in d["sizes_found"].split(",") if x]
+        stored_sizes = [normalize_size_label(x) for x in d["sizes_all"].split(",") if normalize_size_label(x)]
+        found_sizes = [normalize_size_label(x) for x in d["sizes_found"].split(",") if normalize_size_label(x)]
         all_sizes = get_catalog_sizes_for_sku_color(
             conn,
             d["sku"],

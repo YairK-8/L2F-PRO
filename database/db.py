@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "l2f.db")
@@ -92,14 +93,23 @@ BARCODE_COLOR_SCALE_SEED = [
 BARCODE_SIZE_SCALE_SEED = [
     ("01", "y"),
     ("02", "xs"),
-    ("03", "xs-s"),
+    ("03", "xs"),
     ("04", "s"),
     ("06", "m"),
-    ("07", "m-l"),
+    ("07", "m"),
     ("08", "l"),
     ("10", "xl"),
     ("11", "xxl"),
 ]
+
+SIZE_ALIAS_MAP = {
+    "xs-s": "xs",
+    "xs s": "xs",
+    "xss": "xs",
+    "m-l": "m",
+    "m l": "m",
+    "ml": "m",
+}
 
 
 def get_connection():
@@ -150,6 +160,61 @@ def _seed_structured_barcode_scales(cur):
         )
 
 
+def _normalize_size_label(value):
+    cleaned = str(value or "").strip().lower()
+    if not cleaned:
+        return ""
+    normalized = re.sub(r"\s*-\s*", "-", cleaned)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    compact = re.sub(r"[^a-z0-9]+", "", normalized)
+    if normalized in SIZE_ALIAS_MAP:
+        return SIZE_ALIAS_MAP[normalized]
+    if compact in SIZE_ALIAS_MAP:
+        return SIZE_ALIAS_MAP[compact]
+    return normalized
+
+
+def _normalize_size_csv(value):
+    seen = set()
+    ordered = []
+    for part in str(value or "").split(","):
+        normalized = _normalize_size_label(part)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(normalized)
+    return ",".join(ordered)
+
+
+def _normalize_table_size_column(cur, table_name):
+    rows = cur.execute(f"SELECT rowid AS row_id, size FROM {table_name}").fetchall()
+    for row in rows:
+        current = str(row["size"] or "").strip()
+        normalized = _normalize_size_label(current)
+        if normalized and normalized != current:
+            cur.execute(
+                f"UPDATE {table_name} SET size=? WHERE rowid=?",
+                (normalized, row["row_id"]),
+            )
+
+
+def _normalize_legacy_size_values(cur):
+    for table_name in ("barcodes", "missing_floor", "missing_warehouse", "barcode_size_scale"):
+        _normalize_table_size_column(cur, table_name)
+
+    rows = cur.execute(
+        "SELECT id, sizes_all, sizes_found FROM morning_sessions"
+    ).fetchall()
+    for row in rows:
+        sizes_all = _normalize_size_csv(row["sizes_all"])
+        sizes_found = _normalize_size_csv(row["sizes_found"])
+        if sizes_all != str(row["sizes_all"] or "") or sizes_found != str(row["sizes_found"] or ""):
+            cur.execute(
+                "UPDATE morning_sessions SET sizes_all=?, sizes_found=? WHERE id=?",
+                (sizes_all, sizes_found, row["id"]),
+            )
+
+
 def _migrate():
     conn = get_connection()
     cur = conn.cursor()
@@ -192,6 +257,7 @@ def _migrate():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
     _ensure_structured_barcode_scale_tables(cur)
     _seed_structured_barcode_scales(cur)
+    _normalize_legacy_size_values(cur)
 
     conn.commit()
     conn.close()
