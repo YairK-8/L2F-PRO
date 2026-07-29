@@ -4230,12 +4230,20 @@ async function processTab1Barcode(code, opts={}){
     return false;
   }
   const i=res.session;
-  $('lastScan1').textContent=`נסרק: ${i.sku}/${i.color}`;
+  $('lastScan1').textContent = res.catalog_created
+    ? `נסרק ונוסף לקטלוג: ${i.sku}/${i.color}`
+    : `נסרק: ${i.sku}/${i.color}`;
   soundOk();
-  popup('נסרק ✓','success',900);
+  popup(res.catalog_created ? 'נוסף לקטלוג ✓' : 'נסרק ✓','success',900);
   upsertSessionCard(res.session);
   loadMissingFloor();
-  if(opts.fromCamera) setCameraStatus(`הברקוד ${code} נקלט בהצלחה.`);
+  if(opts.fromCamera){
+    setCameraStatus(
+      res.catalog_created
+        ? `הברקוד ${code} פוענח, נוסף לקטלוג, והוכנס לקבוצת הבוקר.`
+        : `הברקוד ${code} נקלט בהצלחה.`
+    );
+  }
   return true;
 }
 

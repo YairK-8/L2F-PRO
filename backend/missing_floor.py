@@ -1,8 +1,13 @@
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
 from backend.auth_utils import require_branch
+from backend.barcodes import (
+    get_catalog_sizes_for_sku_color,
+    normalize_barcode as _normalize_catalog_barcode,
+    resolve_barcode_catalog_entry,
+)
 from backend.realtime import emit_update
-from backend.utils import today as _today, normalize_barcode as _normalize_barcode
+from backend.utils import today as _today
 
 missing_floor_bp = Blueprint("missing_floor", __name__, url_prefix="/api/missing-floor")
 
@@ -11,7 +16,62 @@ def _sizes_list(s: str) -> list:
 
 
 def _sizes_str(lst: list) -> str:
-    return ",".join(sorted(set(lst)))
+    seen = set()
+    ordered = []
+    for value in lst or []:
+        cleaned = str(value or "").strip().lower()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        ordered.append(cleaned)
+    return ",".join(ordered)
+
+
+def _order_found_sizes(all_sizes, found_sizes):
+    normalized_found = _sizes_list(_sizes_str(found_sizes))
+    found_set = set(normalized_found)
+    ordered = [size for size in all_sizes if size in found_set]
+    for size in normalized_found:
+        if size not in ordered:
+            ordered.append(size)
+    return ordered
+
+
+def _get_session_catalog_sizes(conn, sku, color, extra_sizes=None):
+    return get_catalog_sizes_for_sku_color(
+        conn,
+        sku,
+        color,
+        include_sizes=extra_sizes,
+    )
+
+
+def _normalize_session_row(conn, row, persist=False):
+    session_data = dict(row)
+    stored_sizes = _sizes_list(session_data.get("sizes_all", ""))
+    found_sizes = _sizes_list(session_data.get("sizes_found", ""))
+    all_sizes = _get_session_catalog_sizes(
+        conn,
+        session_data["sku"],
+        session_data["color"],
+        extra_sizes=[*stored_sizes, *found_sizes],
+    )
+    ordered_found = _order_found_sizes(all_sizes, found_sizes)
+    all_sizes_str = _sizes_str(all_sizes)
+    found_sizes_str = _sizes_str(ordered_found)
+
+    if persist and session_data.get("id") and (
+        session_data.get("sizes_all", "") != all_sizes_str
+        or session_data.get("sizes_found", "") != found_sizes_str
+    ):
+        conn.execute(
+            "UPDATE morning_sessions SET sizes_all=?, sizes_found=? WHERE id=?",
+            (all_sizes_str, found_sizes_str, session_data["id"]),
+        )
+
+    session_data["sizes_all"] = all_sizes
+    session_data["sizes_found"] = ordered_found
+    return session_data
 
 def _location_for_sku(conn, branch_id, sku):
     row = conn.execute(
@@ -63,7 +123,6 @@ def get_sessions(branch_id):
     """Return all open (unapproved) morning sessions for today, with location hint."""
     conn = get_connection()
     _clear_stale_morning_sessions(conn, branch_id, _today())
-    conn.commit()
     rows = conn.execute(
         """SELECT ms.*, wl.location AS location_hint
            FROM morning_sessions ms
@@ -73,16 +132,13 @@ def get_sessions(branch_id):
            ORDER BY ms.created_at""",
         (branch_id, _today())
     ).fetchall()
-    conn.close()
-
     result = []
     for r in rows:
-        result.append({
-            **dict(r),
-            "sizes_all": _sizes_list(r["sizes_all"]),
-            "sizes_found": _sizes_list(r["sizes_found"]),
-            "location_hint": r["location_hint"] or "",
-        })
+        session_data = _normalize_session_row(conn, r, persist=True)
+        session_data["location_hint"] = r["location_hint"] or ""
+        result.append(session_data)
+    conn.commit()
+    conn.close()
     return jsonify(result)
 
 
@@ -96,7 +152,7 @@ def scan(branch_id):
     """
     data = request.get_json(silent=True) or {}
     barcode_raw = data.get("barcode", "")
-    barcode = _normalize_barcode(barcode_raw)
+    barcode = _normalize_catalog_barcode(barcode_raw)
 
     if not barcode:
         return jsonify({"error": "missing_barcode"}), 400
@@ -104,10 +160,11 @@ def scan(branch_id):
     conn = get_connection()
     _clear_stale_morning_sessions(conn, branch_id, _today())
 
-    meta = conn.execute(
-        "SELECT sku,color,size FROM barcodes WHERE barcode=?",
-        (barcode,)
-    ).fetchone()
+    meta, catalog_created = resolve_barcode_catalog_entry(
+        conn,
+        barcode,
+        autocreate_structured=True,
+    )
 
     if not meta:
         conn.close()
@@ -126,7 +183,11 @@ def scan(branch_id):
     conn.close()
 
     emit_update(branch_id, "tab1_update", session_data)
-    return jsonify({"ok": True, "session": session_data})
+    return jsonify({
+        "ok": True,
+        "session": session_data,
+        "catalog_created": bool(catalog_created),
+    })
 
 
 @missing_floor_bp.route("/sessions/tick", methods=["POST"])
@@ -154,17 +215,26 @@ def tick_size(branch_id):
     else:
         sizes_found.discard(size)
 
-    new_found = _sizes_str(list(sizes_found))
+    stored_sizes = _sizes_list(row["sizes_all"])
+    all_sizes = _get_session_catalog_sizes(
+        conn,
+        row["sku"],
+        row["color"],
+        extra_sizes=[*stored_sizes, *sizes_found],
+    )
+    ordered_found = _order_found_sizes(all_sizes, sizes_found)
+    all_sizes_str = _sizes_str(all_sizes)
+    new_found = _sizes_str(ordered_found)
     conn.execute(
-        "UPDATE morning_sessions SET sizes_found=? WHERE id=?",
-        (new_found, session_id)
+        "UPDATE morning_sessions SET sizes_found=?, sizes_all=? WHERE id=?",
+        (new_found, all_sizes_str, session_id)
     )
     conn.commit()
 
     session_data = {
         **dict(row),
-        "sizes_all": _sizes_list(row["sizes_all"]),
-        "sizes_found": _sizes_list(new_found),
+        "sizes_all": all_sizes,
+        "sizes_found": ordered_found,
         "location_hint": _location_for_sku(conn, branch_id, row["sku"]),
     }
     conn.close()
@@ -190,13 +260,14 @@ def approve_session(branch_id, session_id):
         conn.close()
         return jsonify({"error": "not_found"}), 404
 
-    sizes_all = set(_sizes_list(row["sizes_all"]))
-    sizes_found = set(_sizes_list(row["sizes_found"]))
-    missing = sizes_all - sizes_found
+    session_data = _normalize_session_row(conn, row, persist=True)
+    sizes_all = session_data["sizes_all"]
+    sizes_found = set(session_data["sizes_found"])
+    missing = [size for size in sizes_all if size not in sizes_found]
     location_hint = _location_for_sku(conn, branch_id, row["sku"])
     _clear_stale_manual_missing(conn, branch_id, row["session_date"])
 
-    for size in sizes_found:
+    for size in session_data["sizes_found"]:
         _resolve_missing_floor_item(conn, branch_id, row["sku"], row["color"], size)
 
     for size in missing:
@@ -226,7 +297,7 @@ def approve_session(branch_id, session_id):
     })
     return jsonify({
         "ok": True,
-        "missing_sizes": list(missing),
+        "missing_sizes": missing,
         "location_hint": location_hint,
     })
 
@@ -330,36 +401,42 @@ def _upsert_session(conn, branch_id, sku, color, size):
         (branch_id, today, sku, color)
     ).fetchone()
 
-    cat_sizes = conn.execute(
-        "SELECT DISTINCT size FROM barcodes WHERE sku=? AND color=? ORDER BY size",
-        (sku, color)
-    ).fetchall()
-    all_sizes = _sizes_str([r["size"] for r in cat_sizes])
+    stored_sizes = _sizes_list(row["sizes_all"]) if row else []
+    found_sizes = _sizes_list(row["sizes_found"]) if row else []
+    all_sizes_list = _get_session_catalog_sizes(
+        conn,
+        sku,
+        color,
+        extra_sizes=[*stored_sizes, *found_sizes, size],
+    )
+    all_sizes = _sizes_str(all_sizes_list)
 
     if row:
         found = set(_sizes_list(row["sizes_found"]))
         found.add(size)
-        new_found = _sizes_str(list(found))
+        ordered_found = _order_found_sizes(all_sizes_list, found)
+        new_found = _sizes_str(ordered_found)
         conn.execute(
             "UPDATE morning_sessions SET sizes_found=?, sizes_all=? WHERE id=?",
             (new_found, all_sizes, row["id"])
         )
         return {
             "id": row["id"], "sku": sku, "color": color,
-            "sizes_all": _sizes_list(all_sizes),
-            "sizes_found": _sizes_list(new_found),
+            "sizes_all": all_sizes_list,
+            "sizes_found": ordered_found,
             "approved": 0
         }
     else:
+        ordered_found = _order_found_sizes(all_sizes_list, [size])
         cur = conn.execute(
             """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
                VALUES (?,?,?,?,?,?)""",
-            (branch_id, today, sku, color, all_sizes, size)
+            (branch_id, today, sku, color, all_sizes, _sizes_str(ordered_found))
         )
         return {
             "id": cur.lastrowid, "sku": sku, "color": color,
-            "sizes_all": _sizes_list(all_sizes),
-            "sizes_found": [size],
+            "sizes_all": all_sizes_list,
+            "sizes_found": ordered_found,
             "approved": 0
         }
 
@@ -372,24 +449,26 @@ def _upsert_manual_session(conn, branch_id, sku, color, size):
         (branch_id, today, sku, color)
     ).fetchone()
 
-    cat_sizes = conn.execute(
-        "SELECT DISTINCT size FROM barcodes WHERE sku=? AND color=? ORDER BY size",
-        (sku, color)
-    ).fetchall()
-    all_sizes = set(r["size"] for r in cat_sizes)
-    all_sizes.add(size)
-    all_sizes_str = _sizes_str(list(all_sizes))
+    stored_sizes = _sizes_list(row["sizes_all"]) if row else []
+    found_sizes = _sizes_list(row["sizes_found"]) if row else []
+    all_sizes_list = _get_session_catalog_sizes(
+        conn,
+        sku,
+        color,
+        extra_sizes=[*stored_sizes, *found_sizes, size],
+    )
+    all_sizes_str = _sizes_str(all_sizes_list)
 
     if row:
-        found = set(_sizes_list(row["sizes_found"]))
+        ordered_found = _order_found_sizes(all_sizes_list, _sizes_list(row["sizes_found"]))
         conn.execute(
-            "UPDATE morning_sessions SET sizes_all=? WHERE id=?",
-            (all_sizes_str, row["id"])
+            "UPDATE morning_sessions SET sizes_all=?, sizes_found=? WHERE id=?",
+            (all_sizes_str, _sizes_str(ordered_found), row["id"])
         )
         return {
             "id": row["id"], "sku": sku, "color": color,
-            "sizes_all": _sizes_list(all_sizes_str),
-            "sizes_found": _sizes_list(row["sizes_found"]),
+            "sizes_all": all_sizes_list,
+            "sizes_found": ordered_found,
             "approved": 0
         }
 
@@ -400,7 +479,7 @@ def _upsert_manual_session(conn, branch_id, sku, color, size):
     )
     return {
         "id": cur.lastrowid, "sku": sku, "color": color,
-        "sizes_all": _sizes_list(all_sizes_str),
+        "sizes_all": all_sizes_list,
         "sizes_found": [],
         "approved": 0
     }

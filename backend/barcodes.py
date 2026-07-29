@@ -93,6 +93,107 @@ def fetch_barcode_scale(conn):
     }
 
 
+def _clean_size_values(values):
+    seen = set()
+    result = []
+    for value in values or []:
+        cleaned = str(value or "").strip().lower()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        result.append(cleaned)
+    return result
+
+
+def get_barcode_scale_sizes(conn):
+    rows = conn.execute(
+        "SELECT size FROM barcode_size_scale ORDER BY code"
+    ).fetchall()
+    return _clean_size_values([row["size"] for row in rows])
+
+
+def order_sizes_by_scale(values, scale_sizes):
+    cleaned = _clean_size_values(values)
+    if not scale_sizes:
+        return cleaned
+    order_map = {size: index for index, size in enumerate(scale_sizes)}
+    return sorted(cleaned, key=lambda size: (order_map.get(size, len(order_map)), size))
+
+
+def get_catalog_sizes_for_sku_color(conn, sku, color, include_sizes=None):
+    rows = conn.execute(
+        "SELECT DISTINCT size FROM barcodes WHERE sku=? AND color=? ORDER BY size",
+        (sku, color),
+    ).fetchall()
+    barcode_sizes = _clean_size_values([row["size"] for row in rows])
+    scale_sizes = get_barcode_scale_sizes(conn)
+
+    merged_sizes = []
+    if barcode_sizes:
+        merged_sizes.extend(scale_sizes or barcode_sizes)
+        merged_sizes.extend(barcode_sizes)
+
+    if include_sizes is not None:
+        if isinstance(include_sizes, (list, tuple, set)):
+            merged_sizes.extend(include_sizes)
+        else:
+            merged_sizes.append(include_sizes)
+
+    return order_sizes_by_scale(merged_sizes, scale_sizes)
+
+
+def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
+    normalized = normalize_barcode(barcode)
+    row = conn.execute(
+        "SELECT * FROM barcodes WHERE barcode=?",
+        (normalized,),
+    ).fetchone()
+    if row:
+        return dict(row), False
+
+    if not autocreate_structured:
+        return None, False
+
+    parsed = parse_structured_barcode(normalized)
+    if not parsed:
+        return None, False
+
+    color_row = conn.execute(
+        "SELECT color FROM barcode_color_scale WHERE code=?",
+        (parsed["color_code"],),
+    ).fetchone()
+    size_row = conn.execute(
+        "SELECT size FROM barcode_size_scale WHERE code=?",
+        (parsed["size_code"],),
+    ).fetchone()
+    if not color_row or not size_row:
+        return None, False
+
+    before = conn.total_changes
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO barcodes (barcode, sku, color, size)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            parsed["barcode"],
+            parsed["sku"],
+            str(color_row["color"]).strip(),
+            str(size_row["size"]).strip().lower(),
+        ),
+    )
+    created = conn.total_changes > before
+
+    row = conn.execute(
+        "SELECT * FROM barcodes WHERE barcode=?",
+        (parsed["barcode"],),
+    ).fetchone()
+    if not row:
+        return None, created
+
+    return dict(row), created
+
+
 def learn_structured_scale_mappings(conn, barcode, color="", size=""):
     parsed = parse_structured_barcode(barcode)
     if not parsed:
@@ -168,12 +269,9 @@ def sizes_for_sku_color(branch_id):
     if not sku or not color:
         return jsonify([])
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT DISTINCT size FROM barcodes WHERE sku=? AND color=? ORDER BY size",
-        (sku, color),
-    ).fetchall()
+    rows = get_catalog_sizes_for_sku_color(conn, sku, color)
     conn.close()
-    return jsonify([r["size"] for r in rows])
+    return jsonify(rows)
 
 
 @barcodes_bp.route("/scale", methods=["GET"])

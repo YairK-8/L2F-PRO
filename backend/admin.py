@@ -14,6 +14,7 @@ Super-Admin API:
 from flask import Blueprint, request, jsonify, session
 from database.db import get_connection
 from backend.auth_utils import require_admin
+from backend.barcodes import get_catalog_sizes_for_sku_color
 from backend.realtime import (
     disconnect_branch_devices,
     disconnect_single_device,
@@ -786,11 +787,23 @@ def admin_get_sessions(branch_id):
         "SELECT * FROM morning_sessions WHERE branch_id=? AND session_date=? ORDER BY created_at",
         (branch_id, today)
     ).fetchall()
-    conn.close()
     result = []
     for r in rows:
         d = dict(r)
-        d["sizes_all"]   = [x for x in d["sizes_all"].split(",")   if x]
-        d["sizes_found"] = [x for x in d["sizes_found"].split(",") if x]
+        stored_sizes = [x for x in d["sizes_all"].split(",") if x]
+        found_sizes = [x for x in d["sizes_found"].split(",") if x]
+        all_sizes = get_catalog_sizes_for_sku_color(
+            conn,
+            d["sku"],
+            d["color"],
+            include_sizes=[*stored_sizes, *found_sizes],
+        )
+        found_set = set(found_sizes)
+        d["sizes_all"] = all_sizes
+        d["sizes_found"] = [size for size in all_sizes if size in found_set]
+        for size in found_sizes:
+            if size not in d["sizes_found"]:
+                d["sizes_found"].append(size)
         result.append(d)
+    conn.close()
     return jsonify(result)
