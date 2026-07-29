@@ -239,13 +239,13 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-ticket-zone-label,
 .camera-ticket-col-label{
   position:absolute;
-  display:inline-flex;
+  display:flex;
   align-items:center;
   justify-content:center;
-  padding:4px 9px;
-  border-radius:999px;
-  background:rgba(17,17,17,.45);
-  border:1px solid rgba(255,255,255,.2);
+  padding:0 10px;
+  border-radius:16px;
+  background:rgba(17,17,17,.28);
+  border:1px solid rgba(255,255,255,.26);
   color:#fff;
   font-weight:800;
   line-height:1;
@@ -253,11 +253,13 @@ tr:hover td{background:rgba(255,255,255,.24)}
   backdrop-filter:blur(4px);
   -webkit-backdrop-filter:blur(4px);
 }
-.camera-ticket-zone-label{font-size:11px}
+.camera-ticket-zone-label,
+.camera-ticket-col-label{font-size:12px}
 .camera-ticket-zone-label-center{
-  inset:50% auto auto 50%;
-  transform:translate(-50%, -50%);
-  min-width:84px;
+  inset:0;
+  transform:none;
+  min-width:0;
+  border-radius:16px;
 }
 .camera-ticket-top{
   inset:6% 4% auto 4%;
@@ -278,10 +280,16 @@ tr:hover td{background:rgba(255,255,255,.24)}
   border-left:2px dashed rgba(255,255,255,.62);
 }
 .camera-ticket-col-label{
-  position:static;
-  padding:6px 10px;
-  font-size:11px;
-  background:rgba(255,255,255,.16);
+  inset:0;
+  padding:0 8px;
+  border-radius:0;
+  background:rgba(255,255,255,.08);
+}
+.camera-ticket-cell:first-child .camera-ticket-col-label{
+  border-radius:16px 0 0 16px;
+}
+.camera-ticket-cell:last-child .camera-ticket-col-label{
+  border-radius:0 16px 16px 0;
 }
 .camera-ticket-bottom{
   inset:auto 4% 6% 4%;
@@ -383,9 +391,9 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .camera-frame.ticket-mode{inset:40% auto auto 50%;width:min(86vw,330px);height:min(28vh,200px);max-height:200px}
   .camera-ticket-layout{inset:8px}
   .camera-ticket-zone{border-radius:15px}
-  .camera-ticket-zone-label{font-size:10px;padding:3px 7px}
-  .camera-ticket-zone-label-center{min-width:72px}
-  .camera-ticket-col-label{font-size:10px;padding:5px 8px}
+  .camera-ticket-zone-label,
+  .camera-ticket-col-label{font-size:11px}
+  .camera-ticket-zone-label-center{min-width:0}
   .camera-ticket-top{inset:5% 3% auto 3%;height:43%}
   .camera-ticket-bottom{inset:auto 3% 5% 3%;height:43%}
   .camera-guide{
@@ -2545,13 +2553,11 @@ function createEmptyTicketScanState(){
     captureBusy: false,
     lastOcrAt: 0,
     ocrBusy: false,
-    completedBarcode: '',
     fieldVotes: {
       sku: new Map(),
       color: new Map(),
       size: new Map(),
     },
-    hintsAt: 0,
     startedAt: Date.now(),
   };
 }
@@ -2606,29 +2612,10 @@ function normalizeTicketColor(raw){
     'נשחור': 'שחור',
     'השחור': 'שחור',
     'הלבן': 'לבן',
+    'שחוו': 'שחור',
+    'לבנן': 'לבן',
   };
   return corrections[cleaned] || cleaned;
-}
-
-function extractSkuFromText(text){
-  const normalizedText = normalizeTicketOcrText(text)
-    .replace(/\b[A-Z]?\d{8,13}\b/g, ' ');
-  const directMatch = normalizedText.match(/\b\d{5}\b/);
-  if(directMatch) return directMatch[0];
-  const tokens = normalizedText.match(/[A-Z0-9|]{4,8}/gi) || [];
-  for(const token of tokens){
-    const normalizedToken = token.toUpperCase()
-      .replace(/[OQ]/g, '0')
-      .replace(/[I|L]/g, '1')
-      .replace(/S/g, '5')
-      .replace(/B/g, '8')
-      .replace(/Z/g, '2')
-      .replace(/[^0-9]/g, '');
-    if(normalizedToken.length === 5){
-      return normalizedToken;
-    }
-  }
-  return '';
 }
 
 function deriveSkuFromBarcode(barcode){
@@ -2700,51 +2687,243 @@ async function applyDerivedBarcodeFields(barcode, opts={}){
   return derived;
 }
 
-function extractColorFromText(text){
-  const normalizedText = normalizeTicketOcrText(text);
-  const lines = normalizedText
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
-  const bestLine = lines
-    .map(line => ({
-      line,
-      score:
-        (/[\u0590-\u05FF]/.test(line) ? 4 : 0) +
-        (/\b\d{5}\b/.test(line) ? 1 : 0) -
-        (/\b\d{8,13}\b/.test(line) ? 4 : 0),
-    }))
-    .sort((a,b)=>b.score-a.score)[0]?.line || '';
-  const source = bestLine || normalizedText;
-  const phrases = source.match(/[\u0590-\u05FF]{2,}(?:\s+[\u0590-\u05FF]{2,})*/g)
-    || normalizedText.match(/[\u0590-\u05FF]{2,}(?:\s+[\u0590-\u05FF]{2,})*/g)
-    || [];
-  return normalizeTicketColor(
-    phrases
-      .map(phrase => phrase.trim())
-      .sort((a,b)=>b.length-a.length)[0] || ''
-  );
-}
-
-function pickTicketFieldValue(values, normalizer){
-  const counts = new Map();
-  values.forEach((value, index) => {
-    const normalized = normalizer(value);
-    if(!normalized) return;
-    const current = counts.get(normalized) || { value: normalized, count: 0, firstIndex: index };
-    current.count += 1;
-    counts.set(normalized, current);
+function getKnownTicketSkus(){
+  const skus = new Set();
+  (_allBarcodes || []).forEach(row => {
+    const sku = String(row?.sku || '').trim();
+    if(/^\d{5}$/.test(sku)) skus.add(sku);
   });
-  return Array.from(counts.values())
-    .sort((a,b)=>(b.count-a.count) || (a.firstIndex-b.firstIndex))[0]?.value || '';
+  return skus;
 }
 
-function mergeTicketFieldSets(fieldSets){
-  return {
-    sku: pickTicketFieldValue(fieldSets.map(set => set?.sku || ''), value => String(value || '').trim()),
-    color: pickTicketFieldValue(fieldSets.map(set => set?.color || ''), normalizeTicketColor),
-    size: pickTicketFieldValue(fieldSets.map(set => set?.size || ''), normalizeTicketSize),
-  };
+function getKnownTicketColors(){
+  const colors = new Map();
+  Object.values(BARCODE_COLOR_CODE_MAP || {}).forEach(color => {
+    const normalized = normalizeTicketColor(color);
+    if(normalized) colors.set(normalized.toLowerCase(), normalized);
+  });
+  (_allBarcodes || []).forEach(row => {
+    const normalized = normalizeTicketColor(row?.color || '');
+    if(normalized) colors.set(normalized.toLowerCase(), normalized);
+  });
+  return Array.from(colors.values());
+}
+
+function levenshteinDistance(a, b){
+  const left = String(a || '');
+  const right = String(b || '');
+  if(left === right) return 0;
+  if(!left.length) return right.length;
+  if(!right.length) return left.length;
+
+  const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for(let i = 1; i <= left.length; i++){
+    let prev = i - 1;
+    row[0] = i;
+    for(let j = 1; j <= right.length; j++){
+      const current = row[j];
+      row[j] = left[i - 1] === right[j - 1]
+        ? prev
+        : Math.min(prev, row[j - 1], current) + 1;
+      prev = current;
+    }
+  }
+  return row[right.length];
+}
+
+function scoreTicketTextSimilarity(source, target){
+  const left = String(source || '').trim();
+  const right = String(target || '').trim();
+  if(!left || !right) return 0;
+  const distance = levenshteinDistance(left, right);
+  return 1 - (distance / Math.max(left.length, right.length, 1));
+}
+
+function matchTicketColor(raw){
+  const normalized = normalizeTicketColor(raw);
+  if(!normalized) return '';
+  const knownColors = getKnownTicketColors();
+  if(!knownColors.length) return normalized;
+
+  const direct = knownColors.find(color => color === normalized);
+  if(direct) return direct;
+
+  let best = null;
+  knownColors.forEach(color => {
+    const score = scoreTicketTextSimilarity(normalized, color);
+    if(!best || score > best.score){
+      best = { value: color, score };
+    }
+  });
+
+  if(best && best.score >= 0.58) return best.value;
+  return normalized;
+}
+
+function normalizeTicketSkuToken(token){
+  return String(token || '')
+    .toUpperCase()
+    .replace(/[OQ]/g, '0')
+    .replace(/[I|L]/g, '1')
+    .replace(/S/g, '5')
+    .replace(/B/g, '8')
+    .replace(/Z/g, '2')
+    .replace(/[^0-9]/g, '');
+}
+
+function getTicketBarcodeBlacklist(barcode){
+  const blocked = new Set();
+  const normalized = String(barcode || '').trim().toUpperCase().replace(/\s+/g, '');
+  const digitsOnly = normalized.replace(/[^0-9]/g, '');
+  if(digitsOnly) blocked.add(digitsOnly);
+  const structured = parseStructuredBarcode(normalized);
+  if(structured){
+    if(structured.sku) blocked.add(structured.sku);
+    if(structured.colorCode) blocked.add(structured.colorCode);
+    if(structured.sizeCode) blocked.add(structured.sizeCode);
+  }
+  return blocked;
+}
+
+function extractTicketSkuValues(text, barcode){
+  const blocked = getTicketBarcodeBlacklist(barcode);
+  const values = new Set();
+  const normalizedText = normalizeTicketOcrText(text).replace(/\b[A-Z]\d{11}\b/g, ' ');
+  (normalizedText.match(/\b\d{5}\b/g) || []).forEach(match => {
+    if(!blocked.has(match)) values.add(match);
+  });
+  (normalizedText.match(/[A-Z0-9|]{4,10}/gi) || []).forEach(token => {
+    const normalized = normalizeTicketSkuToken(token);
+    if(normalized.length === 5 && !blocked.has(normalized)) values.add(normalized);
+  });
+  return Array.from(values);
+}
+
+function extractTicketSizeValues(text){
+  const normalized = normalizeTicketOcrText(text)
+    .toUpperCase()
+    .replace(/[־–—]/g, '-');
+  const values = new Set();
+  ['XS-S', 'M-L', 'XXL', 'XL', 'XS', 'Y', 'S', 'M', 'L'].forEach(candidate => {
+    const pattern = candidate.length === 1
+      ? new RegExp(`(?:^|\\s)${candidate}(?:\\s|$)`)
+      : new RegExp(candidate.replace('-', '\\s*-\\s*'));
+    if(pattern.test(normalized)){
+      const size = normalizeTicketSize(candidate);
+      if(size) values.add(size);
+    }
+  });
+  (normalized.match(/[A-Z0-9\- ]{1,6}/g) || []).forEach(token => {
+    const size = normalizeTicketSize(token);
+    if(size) values.add(size);
+  });
+  return Array.from(values);
+}
+
+function extractTicketColorPhrases(text){
+  const normalized = normalizeTicketOcrText(text);
+  const phrases = normalized.match(/[\u0590-\u05FF]{2,}(?:\s+[\u0590-\u05FF]{2,})*/g) || [];
+  return Array.from(new Set(
+    phrases
+      .map(phrase => normalizeTicketColor(phrase))
+      .filter(Boolean)
+  ));
+}
+
+function registerTicketCandidate(store, value, score){
+  const cleanValue = String(value || '').trim();
+  if(!cleanValue) return;
+  const key = cleanValue.toLowerCase();
+  const current = store.get(key) || { value: cleanValue, score: 0, hits: 0 };
+  current.score += Math.max(0, Number(score) || 0);
+  current.hits += 1;
+  if(cleanValue.length > current.value.length) current.value = cleanValue;
+  store.set(key, current);
+}
+
+function mergeTicketCandidateStore(target, source){
+  source.forEach(entry => {
+    registerTicketCandidate(target, entry.value, entry.score + (entry.hits * 0.15));
+  });
+}
+
+function getBestTicketCandidate(store){
+  return Array.from(store.values()).sort((a, b) => {
+    return (b.score - a.score) || (b.hits - a.hits) || (b.value.length - a.value.length);
+  })[0] || null;
+}
+
+function collectTicketTextUnits(result){
+  const units = [];
+  if(result?.text){
+    units.push({
+      text: result.text,
+      confidence: Number.isFinite(result.confidence) ? result.confidence : 0,
+      source: 'text',
+    });
+  }
+  (Array.isArray(result?.lines) ? result.lines : []).forEach(line => {
+    if(!line?.text) return;
+    units.push({
+      text: line.text,
+      confidence: Number.isFinite(line.confidence) ? line.confidence : (result.confidence || 0),
+      source: 'line',
+    });
+  });
+  (Array.isArray(result?.words) ? result.words : []).forEach(word => {
+    if(!word?.text) return;
+    units.push({
+      text: word.text,
+      confidence: Number.isFinite(word.confidence) ? word.confidence : (result.confidence || 0),
+      source: 'word',
+    });
+  });
+  return units;
+}
+
+function collectTicketSkuCandidates(result, barcode){
+  const store = new Map();
+  const knownSkus = getKnownTicketSkus();
+  collectTicketTextUnits(result).forEach(unit => {
+    extractTicketSkuValues(unit.text, barcode).forEach(value => {
+      let score = 1.1 + ((unit.confidence || 0) / 38);
+      if(unit.source === 'word') score += 0.9;
+      if(unit.source === 'line') score += 0.5;
+      if(knownSkus.has(value)) score += 2.4;
+      registerTicketCandidate(store, value, score);
+    });
+  });
+  return store;
+}
+
+function collectTicketColorCandidates(result){
+  const store = new Map();
+  const knownColorSet = new Set(getKnownTicketColors().map(color => color.toLowerCase()));
+  collectTicketTextUnits(result).forEach(unit => {
+    extractTicketColorPhrases(unit.text).forEach(value => {
+      const matched = matchTicketColor(value);
+      if(!matched) return;
+      const similarity = scoreTicketTextSimilarity(normalizeTicketColor(value), matched);
+      let score = 0.9 + ((unit.confidence || 0) / 44) + (similarity * 2.8);
+      if(unit.source === 'word') score += 0.5;
+      if(knownColorSet.has(matched.toLowerCase())) score += 1.1;
+      registerTicketCandidate(store, matched, score);
+    });
+  });
+  return store;
+}
+
+function collectTicketSizeCandidates(result){
+  const store = new Map();
+  collectTicketTextUnits(result).forEach(unit => {
+    extractTicketSizeValues(unit.text).forEach(value => {
+      let score = 1 + ((unit.confidence || 0) / 40);
+      if(unit.source === 'word') score += 0.7;
+      if(unit.source === 'line') score += 0.3;
+      registerTicketCandidate(store, value, score);
+    });
+  });
+  return store;
 }
 
 function normalizeTicketOcrText(text){
@@ -2755,62 +2934,6 @@ function normalizeTicketOcrText(text){
     .replace(/[^\S\r\n]+/g, ' ')
     .replace(/\r/g, '')
     .trim();
-}
-
-function scoreTicketLine(line){
-  if(!line) return -999;
-  let score = 0;
-  if(/\b\d{5}\b/.test(line)) score += 4;
-  if(/[\u0590-\u05FF]/.test(line)) score += 3;
-  if(extractSizeFromLine(line)) score += 3;
-  if(/\b\d{12,13}\b/.test(line)) score -= 4;
-  if(/ITAY|BRANDS/i.test(line)) score -= 3;
-  return score;
-}
-
-function extractSizeFromLine(line){
-  const candidates = [
-    'XS-S','M-L','XXL','XL','XS','Y','S','M','L'
-  ];
-  const normalized = String(line || '')
-    .toUpperCase()
-    .replace(/[־–—]/g, '-')
-    .replace(/\s+/g, ' ');
-  for(const candidate of candidates){
-    const pattern = candidate.length === 1
-      ? new RegExp(`(?:^|\\s)${candidate}(?:\\s|$)`)
-      : new RegExp(candidate.replace('-', '\\s*-\\s*'));
-    if(pattern.test(normalized)){
-      return normalizeTicketSize(candidate);
-    }
-  }
-  const tokenMatch = normalized.match(/\b[XYMLS0-9\- ]{1,5}\b/g) || [];
-  for(const token of tokenMatch){
-    const size = normalizeTicketSize(token);
-    if(size) return size;
-  }
-  return '';
-}
-
-function parseTicketFieldsFromOcrText(text){
-  const normalizedText = normalizeTicketOcrText(text);
-  const lines = normalizedText
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
-  const bestLine = lines
-    .map(line => ({ line, score: scoreTicketLine(line) }))
-    .sort((a,b)=>b.score-a.score)[0]?.line || '';
-
-  const sku = extractSkuFromText(bestLine) || extractSkuFromText(normalizedText);
-  const size = extractSizeFromLine(bestLine) || extractSizeFromLine(normalizedText);
-  const color = extractColorFromText(bestLine) || extractColorFromText(normalizedText);
-
-  return {
-    sku,
-    color,
-    size,
-  };
 }
 
 function voteTicketField(field, value){
@@ -2873,7 +2996,7 @@ function previewDerivedBarcodeFields(opts={}){
   return derived;
 }
 
-function scaleCanvasCopy(sourceCanvas, factor){
+function resizeTicketCanvas(sourceCanvas, factor){
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.min(2200, Math.round(sourceCanvas.width * factor)));
   out.height = Math.max(1, Math.min(2200, Math.round(sourceCanvas.height * factor)));
@@ -2923,61 +3046,6 @@ function createCanvasRegionCopy(sourceCanvas, rect){
   return out;
 }
 
-function findBrightLabelRect(sourceCanvas){
-  const sampleSize = 96;
-  const probe = document.createElement('canvas');
-  probe.width = sampleSize;
-  probe.height = sampleSize;
-  const pctx = probe.getContext('2d', { willReadFrequently: true });
-  pctx.drawImage(sourceCanvas, 0, 0, sampleSize, sampleSize);
-  const data = pctx.getImageData(0, 0, sampleSize, sampleSize).data;
-  let minX = sampleSize, minY = sampleSize, maxX = -1, maxY = -1;
-  for(let y = 0; y < sampleSize; y++){
-    for(let x = 0; x < sampleSize; x++){
-      const i = (y * sampleSize + x) * 4;
-      const brightness = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
-      if(brightness >= 176){
-        if(x < minX) minX = x;
-        if(y < minY) minY = y;
-        if(x > maxX) maxX = x;
-        if(y > maxY) maxY = y;
-      }
-    }
-  }
-  if(maxX < 0 || maxY < 0) return null;
-
-  const scaleX = sourceCanvas.width / sampleSize;
-  const scaleY = sourceCanvas.height / sampleSize;
-  let rect = {
-    x: Math.max(0, Math.floor(minX * scaleX)),
-    y: Math.max(0, Math.floor(minY * scaleY)),
-    width: Math.min(sourceCanvas.width, Math.ceil((maxX - minX + 1) * scaleX)),
-    height: Math.min(sourceCanvas.height, Math.ceil((maxY - minY + 1) * scaleY)),
-  };
-
-  if(rect.width < sourceCanvas.width * 0.22 || rect.height < sourceCanvas.height * 0.12){
-    return null;
-  }
-
-  const padX = Math.round(rect.width * 0.08);
-  const padY = Math.round(rect.height * 0.14);
-  rect.x = Math.max(0, rect.x - padX);
-  rect.y = Math.max(0, rect.y - padY);
-  rect.width = Math.min(sourceCanvas.width - rect.x, rect.width + padX * 2);
-  rect.height = Math.min(sourceCanvas.height - rect.y, rect.height + padY * 2);
-  return rect;
-}
-
-function buildTicketLabelCanvas(frameCanvas){
-  const labelRect = findBrightLabelRect(frameCanvas) || {
-    x: 0,
-    y: Math.round(frameCanvas.height * 0.18),
-    width: frameCanvas.width,
-    height: Math.round(frameCanvas.height * 0.64),
-  };
-  return createCanvasRegionCopy(frameCanvas, labelRect);
-}
-
 function createRelativeRegionCopy(sourceCanvas, rect){
   return createCanvasRegionCopy(sourceCanvas, {
     x: Math.max(0, Math.round(sourceCanvas.width * rect.x)),
@@ -2987,128 +3055,197 @@ function createRelativeRegionCopy(sourceCanvas, rect){
   });
 }
 
-function prepareTicketOcrCanvas(sourceCanvas, opts={}){
-  const out = document.createElement('canvas');
-  out.width = Math.min(opts.maxWidth || 1600, Math.max(320, Math.round(sourceCanvas.width * (opts.scale || 2))));
-  out.height = Math.min(opts.maxHeight || 1200, Math.max(140, Math.round(sourceCanvas.height * (opts.scale || 2))));
-  const ctx = out.getContext('2d', { willReadFrequently: true });
-  ctx.filter = `grayscale(1) contrast(${opts.contrast || 1.55}) brightness(${opts.brightness || 1.1})`;
-  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
-  ctx.filter = 'none';
-  if(opts.binary !== false){
-    const image = ctx.getImageData(0, 0, out.width, out.height);
-    const threshold = Number.isFinite(opts.threshold) ? opts.threshold : 168;
-    for(let i = 0; i < image.data.length; i += 4){
-      const value = image.data[i];
-      const binary = value > threshold ? 255 : 0;
-      image.data[i] = binary;
-      image.data[i + 1] = binary;
-      image.data[i + 2] = binary;
+function getTicketFallbackLabelRect(sourceCanvas){
+  return {
+    x: Math.round(sourceCanvas.width * 0.06),
+    y: Math.round(sourceCanvas.height * 0.22),
+    width: Math.round(sourceCanvas.width * 0.88),
+    height: Math.round(sourceCanvas.height * 0.54),
+  };
+}
+
+function findTicketLabelRect(sourceCanvas){
+  const probeWidth = 120;
+  const probeHeight = Math.max(72, Math.round((sourceCanvas.height / Math.max(sourceCanvas.width, 1)) * probeWidth));
+  const probe = document.createElement('canvas');
+  probe.width = probeWidth;
+  probe.height = probeHeight;
+  const ctx = probe.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(sourceCanvas, 0, 0, probeWidth, probeHeight);
+
+  const data = ctx.getImageData(0, 0, probeWidth, probeHeight).data;
+  let minX = probeWidth;
+  let minY = probeHeight;
+  let maxX = -1;
+  let maxY = -1;
+
+  for(let y = 0; y < probeHeight; y++){
+    for(let x = 0; x < probeWidth; x++){
+      const index = (y * probeWidth + x) * 4;
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const brightness = (r * 0.2126) + (g * 0.7152) + (b * 0.0722);
+      const spread = Math.max(r, g, b) - Math.min(r, g, b);
+      if(brightness >= 178 && spread <= 78){
+        if(x < minX) minX = x;
+        if(y < minY) minY = y;
+        if(x > maxX) maxX = x;
+        if(y > maxY) maxY = y;
+      }
     }
-    ctx.putImageData(image, 0, 0);
   }
+
+  if(maxX < 0 || maxY < 0) return null;
+
+  const scaleX = sourceCanvas.width / probeWidth;
+  const scaleY = sourceCanvas.height / probeHeight;
+  const rect = {
+    x: Math.max(0, Math.floor(minX * scaleX)),
+    y: Math.max(0, Math.floor(minY * scaleY)),
+    width: Math.max(1, Math.ceil((maxX - minX + 1) * scaleX)),
+    height: Math.max(1, Math.ceil((maxY - minY + 1) * scaleY)),
+  };
+
+  if(rect.width < sourceCanvas.width * 0.34 || rect.height < sourceCanvas.height * 0.16){
+    return null;
+  }
+
+  const padX = Math.round(rect.width * 0.08);
+  const padY = Math.round(rect.height * 0.12);
+  return {
+    x: Math.max(0, rect.x - padX),
+    y: Math.max(0, rect.y - padY),
+    width: Math.min(sourceCanvas.width - Math.max(0, rect.x - padX), rect.width + (padX * 2)),
+    height: Math.min(sourceCanvas.height - Math.max(0, rect.y - padY), rect.height + (padY * 2)),
+  };
+}
+
+function buildTicketLabelCanvas(frameCanvas){
+  const rect = findTicketLabelRect(frameCanvas) || getTicketFallbackLabelRect(frameCanvas);
+  return createCanvasRegionCopy(frameCanvas, rect);
+}
+
+function preprocessTicketCanvas(sourceCanvas, opts={}){
+  const scale = Number.isFinite(opts.scale) ? opts.scale : 2.6;
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.min(opts.maxWidth || 1700, Math.round(sourceCanvas.width * scale)));
+  out.height = Math.max(1, Math.min(opts.maxHeight || 1200, Math.round(sourceCanvas.height * scale)));
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+
+  const contrast = Number.isFinite(opts.contrast) ? opts.contrast : 1.45;
+  const brightness = Number.isFinite(opts.brightness) ? opts.brightness : 1.04;
+  const threshold = Number.isFinite(opts.threshold) ? opts.threshold : null;
+  const image = ctx.getImageData(0, 0, out.width, out.height);
+
+  for(let i = 0; i < image.data.length; i += 4){
+    const r = image.data[i];
+    const g = image.data[i + 1];
+    const b = image.data[i + 2];
+    let value = ((r * 0.299) + (g * 0.587) + (b * 0.114)) * brightness;
+    value = ((value - 128) * contrast) + 128;
+    value = Math.max(0, Math.min(255, value));
+    if(threshold !== null){
+      value = value >= threshold ? 255 : 0;
+    }
+    image.data[i] = value;
+    image.data[i + 1] = value;
+    image.data[i + 2] = value;
+  }
+
+  ctx.putImageData(image, 0, 0);
   return out;
 }
 
-function buildTicketOcrCanvas(frameCanvas){
-  return prepareTicketOcrCanvas(buildTicketLabelCanvas(frameCanvas));
+function buildTicketOcrVariants(zoneCanvas, field, mode='live'){
+  const variants = [];
+  if(field === 'sku'){
+    variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.1, contrast: 1.76, brightness: 1.08, threshold: 166, maxWidth: 1100, maxHeight: 760 }));
+    if(mode === 'capture') variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.35, contrast: 1.34, brightness: 1.03, maxWidth: 1200, maxHeight: 820 }));
+    return variants;
+  }
+  if(field === 'color'){
+    variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.05, contrast: 1.28, brightness: 1.1, maxWidth: 1200, maxHeight: 760 }));
+    if(mode === 'capture') variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.25, contrast: 1.52, brightness: 1.06, threshold: 180, maxWidth: 1260, maxHeight: 820 }));
+    return variants;
+  }
+  if(field === 'size'){
+    variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.15, contrast: 1.68, brightness: 1.08, threshold: 164, maxWidth: 980, maxHeight: 760 }));
+    if(mode === 'capture') variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3.35, contrast: 1.3, brightness: 1.04, maxWidth: 1040, maxHeight: 820 }));
+    return variants;
+  }
+  variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 2.8, contrast: 1.42, brightness: 1.06, maxWidth: 1600, maxHeight: 980 }));
+  if(mode === 'capture') variants.push(preprocessTicketCanvas(zoneCanvas, { scale: 3, contrast: 1.58, brightness: 1.04, threshold: 170, maxWidth: 1700, maxHeight: 1040 }));
+  return variants;
 }
 
-function buildTicketOcrZones(frameCanvas){
-  const labelCanvas = buildTicketLabelCanvas(frameCanvas);
-  const topHalfRect = { x: 0.04, y: 0.06, width: 0.92, height: 0.42 };
-  const thirdWidth = topHalfRect.width / 3;
-  const barcodeHalfRect = { x: 0.04, y: 0.52, width: 0.92, height: 0.40 };
+function getTicketOcrSettings(field){
+  if(field === 'sku'){
+    return { psm: '7', whitelist: '0123456789OQILSZB|' };
+  }
+  if(field === 'size'){
+    return { psm: '7', whitelist: 'XSMYL-0123456789 ' };
+  }
+  return { psm: field === 'color' ? '7' : '6', whitelist: '' };
+}
+
+function measureTicketCanvasQuality(sourceCanvas){
+  const sample = document.createElement('canvas');
+  sample.width = 56;
+  sample.height = Math.max(42, Math.round((sourceCanvas.height / Math.max(sourceCanvas.width, 1)) * 56));
+  const ctx = sample.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(sourceCanvas, 0, 0, sample.width, sample.height);
+  const data = ctx.getImageData(0, 0, sample.width, sample.height).data;
+  let sum = 0;
+  let sumSquares = 0;
+  const pixels = sample.width * sample.height;
+  for(let i = 0; i < data.length; i += 4){
+    const value = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+    sum += value;
+    sumSquares += value * value;
+  }
+  const mean = sum / Math.max(1, pixels);
+  const variance = Math.max(0, (sumSquares / Math.max(1, pixels)) - (mean * mean));
   return {
-    full: prepareTicketOcrCanvas(labelCanvas, { scale: 2, maxWidth: 1500, maxHeight: 1100, threshold: 168 }),
-    detail: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, topHalfRect),
-      { scale: 3, maxWidth: 1500, maxHeight: 760, threshold: 170, contrast: 1.68, brightness: 1.08 }
-    ),
-    detailSoft: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, topHalfRect),
-      { scale: 3.1, maxWidth: 1500, maxHeight: 760, binary: false, contrast: 1.92, brightness: 1.04 }
-    ),
-    sku: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x,
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.2, maxWidth: 1040, maxHeight: 760, threshold: 164, contrast: 1.78, brightness: 1.08 }
-    ),
-    skuSoft: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x,
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.25, maxWidth: 1040, maxHeight: 760, binary: false, contrast: 2.02, brightness: 1.03 }
-    ),
-    color: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x + thirdWidth,
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.15, maxWidth: 1100, maxHeight: 760, threshold: 162, contrast: 1.72, brightness: 1.08 }
-    ),
-    colorSoft: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x + thirdWidth,
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.2, maxWidth: 1180, maxHeight: 760, binary: false, contrast: 1.92, brightness: 1.03 }
-    ),
-    size: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x + (thirdWidth * 2),
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.25, maxWidth: 920, maxHeight: 760, threshold: 164, contrast: 1.82, brightness: 1.08 }
-    ),
-    sizeSoft: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, {
-        x: topHalfRect.x + (thirdWidth * 2),
-        y: topHalfRect.y,
-        width: thirdWidth,
-        height: topHalfRect.height,
-      }),
-      { scale: 3.3, maxWidth: 920, maxHeight: 760, binary: false, contrast: 2.02, brightness: 1.02 }
-    ),
-    barcodeText: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, barcodeHalfRect),
-      { scale: 2.75, maxWidth: 1500, maxHeight: 820, threshold: 154, contrast: 1.78, brightness: 1.06 }
-    ),
-    barcodeTextSoft: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, barcodeHalfRect),
-      { scale: 2.85, maxWidth: 1500, maxHeight: 820, binary: false, contrast: 1.96, brightness: 1.02 }
-    ),
+    brightness: mean,
+    contrast: Math.sqrt(variance),
   };
 }
 
-async function readTicketOcrText(worker, canvas){
-  const result = await worker.recognize(canvas);
-  return normalizeTicketOcrText(result?.data?.text || '');
-}
-
-function buildTicketBarcodeStripCanvas(frameCanvas){
-  const labelRect = findBrightLabelRect(frameCanvas);
-  if(!labelRect) return null;
-  const stripRect = {
-    x: labelRect.x,
-    y: Math.min(frameCanvas.height - 1, labelRect.y + Math.round(labelRect.height * 0.46)),
-    width: labelRect.width,
-    height: Math.max(1, Math.round(labelRect.height * 0.4)),
+function buildTicketOcrRegions(frameCanvas){
+  const labelCanvas = buildTicketLabelCanvas(frameCanvas);
+  const topBand = { x: 0.04, y: 0.08, width: 0.92, height: 0.36 };
+  const cellWidth = topBand.width / 3;
+  return {
+    label: labelCanvas,
+    topBand: createRelativeRegionCopy(labelCanvas, topBand),
+    sku: createRelativeRegionCopy(labelCanvas, {
+      x: topBand.x,
+      y: topBand.y,
+      width: cellWidth,
+      height: topBand.height,
+    }),
+    color: createRelativeRegionCopy(labelCanvas, {
+      x: topBand.x + cellWidth,
+      y: topBand.y,
+      width: cellWidth,
+      height: topBand.height,
+    }),
+    size: createRelativeRegionCopy(labelCanvas, {
+      x: topBand.x + (cellWidth * 2),
+      y: topBand.y,
+      width: cellWidth,
+      height: topBand.height,
+    }),
+    barcode: createRelativeRegionCopy(labelCanvas, {
+      x: 0.04,
+      y: 0.50,
+      width: 0.92,
+      height: 0.40,
+    }),
   };
-  return createCanvasRegionCopy(frameCanvas, stripRect);
 }
 
 async function decodeBarcodeFromCanvas(canvas, opts={}){
@@ -3125,14 +3262,16 @@ async function decodeBarcodeFromCanvas(canvas, opts={}){
 }
 
 async function detectTicketBarcode(frameCanvas, opts={}){
-  const candidates = [frameCanvas];
+  const regions = buildTicketOcrRegions(frameCanvas);
+  const candidates = [
+    regions.barcode,
+    resizeTicketCanvas(regions.barcode, 1.65),
+    frameCanvas,
+  ];
   if(opts.aggressive){
-    candidates.push(scaleCanvasCopy(frameCanvas, 1.4));
-    const stripCanvas = buildTicketBarcodeStripCanvas(frameCanvas);
-    if(stripCanvas){
-      candidates.push(stripCanvas);
-      candidates.push(scaleCanvasCopy(stripCanvas, 1.8));
-    }
+    candidates.unshift(resizeTicketCanvas(regions.barcode, 1.95));
+    candidates.push(regions.label);
+    candidates.push(resizeTicketCanvas(frameCanvas, 1.32));
   }
   for(const candidate of candidates){
     const barcode = await decodeBarcodeFromCanvas(candidate, {
@@ -3161,76 +3300,97 @@ async function ensureTicketOcrWorker(){
   }
 }
 
+async function recognizeTicketCanvas(worker, canvas, settings={}){
+  await worker.setParameters({
+    preserve_interword_spaces: '1',
+    tessedit_pageseg_mode: settings.psm || '6',
+    tessedit_char_whitelist: settings.whitelist || '',
+  });
+  const result = await worker.recognize(canvas);
+  const data = result?.data || {};
+  return {
+    text: normalizeTicketOcrText(data.text || ''),
+    confidence: Number.isFinite(data.confidence) ? data.confidence : 0,
+    words: Array.isArray(data.words) ? data.words.map(word => ({
+      text: normalizeTicketOcrText(word?.text || ''),
+      confidence: Number.isFinite(word?.confidence) ? word.confidence : (Number.isFinite(data.confidence) ? data.confidence : 0),
+    })).filter(entry => entry.text) : [],
+    lines: Array.isArray(data.lines) ? data.lines.map(line => ({
+      text: normalizeTicketOcrText(line?.text || ''),
+      confidence: Number.isFinite(line?.confidence) ? line.confidence : (Number.isFinite(data.confidence) ? data.confidence : 0),
+    })).filter(entry => entry.text) : [],
+  };
+}
+
 async function recognizeTicketFieldsFromCanvas(frameCanvas, opts={}){
+  const barcode = String(opts.barcode || '').trim();
+  const derived = getBarcodeDerivedFields(barcode);
+  if(derived.complete){
+    return {
+      sku: derived.sku,
+      color: derived.color,
+      size: derived.size,
+    };
+  }
+
   const worker = await ensureTicketOcrWorker();
   const mode = opts.mode === 'capture' ? 'capture' : 'live';
-  const zones = buildTicketOcrZones(frameCanvas);
-
-  const candidates = [];
-  const hasField = (field) => candidates.some(set => set?.[field]);
-  const barcodeFields = getBarcodeDerivedFields(opts.barcode || '');
-  if(barcodeFields.sku || barcodeFields.color || barcodeFields.size){
-    candidates.push(barcodeFields);
+  const regions = buildTicketOcrRegions(frameCanvas);
+  const quality = measureTicketCanvasQuality(regions.topBand);
+  if(mode !== 'capture' && (quality.brightness < 55 || quality.contrast < 16)){
+    return {
+      sku: derived.sku || '',
+      color: derived.color || '',
+      size: derived.size || '',
+    };
   }
 
-  const detailText = await readTicketOcrText(worker, zones.detail);
-  candidates.push(parseTicketFieldsFromOcrText(detailText));
+  const skuStore = new Map();
+  const colorStore = new Map();
+  const sizeStore = new Map();
 
-  if(mode === 'capture' || !(hasField('sku') && hasField('color') && hasField('size'))){
-    const detailSoftText = await readTicketOcrText(worker, zones.detailSoft);
-    candidates.push(parseTicketFieldsFromOcrText(detailSoftText));
+  for(const variant of buildTicketOcrVariants(regions.topBand, 'top', mode)){
+    const result = await recognizeTicketCanvas(worker, variant, getTicketOcrSettings('top'));
+    if(!derived.sku) mergeTicketCandidateStore(skuStore, collectTicketSkuCandidates(result, barcode));
+    if(!derived.color) mergeTicketCandidateStore(colorStore, collectTicketColorCandidates(result));
+    if(!derived.size) mergeTicketCandidateStore(sizeStore, collectTicketSizeCandidates(result));
   }
 
-  if(mode === 'capture' || !hasField('sku')){
-    const skuText = await readTicketOcrText(worker, zones.sku);
-    candidates.push({ sku: extractSkuFromText(skuText), color: '', size: '' });
-    const skuSoftText = await readTicketOcrText(worker, zones.skuSoft);
-    candidates.push({
-      sku: extractSkuFromText(skuSoftText) || deriveSkuFromBarcode(skuSoftText),
-      color: '',
-      size: '',
-    });
-  }
-  if(mode === 'capture' || !hasField('color')){
-    const colorText = await readTicketOcrText(worker, zones.color);
-    candidates.push({ sku: '', color: extractColorFromText(colorText), size: '' });
-    const colorSoftText = await readTicketOcrText(worker, zones.colorSoft);
-    candidates.push({ sku: '', color: extractColorFromText(colorSoftText), size: '' });
-  }
-  if(mode === 'capture' || !hasField('size')){
-    const sizeText = await readTicketOcrText(worker, zones.size);
-    candidates.push({ sku: '', color: '', size: extractSizeFromLine(sizeText) });
-    const sizeSoftText = await readTicketOcrText(worker, zones.sizeSoft);
-    candidates.push({ sku: '', color: '', size: extractSizeFromLine(sizeSoftText) });
-  }
-  if(mode === 'capture' || !hasField('sku')){
-    const barcodeText = await readTicketOcrText(worker, zones.barcodeText);
-    candidates.push({
-      sku: extractSkuFromText(barcodeText) || deriveSkuFromBarcode(barcodeText),
-      color: '',
-      size: '',
-    });
-    if(mode === 'capture'){
-      const barcodeTextSoft = await readTicketOcrText(worker, zones.barcodeTextSoft);
-      candidates.push({
-        sku: extractSkuFromText(barcodeTextSoft) || deriveSkuFromBarcode(barcodeTextSoft),
-        color: '',
-        size: '',
-      });
+  if(!derived.sku){
+    for(const variant of buildTicketOcrVariants(regions.sku, 'sku', mode)){
+      const result = await recognizeTicketCanvas(worker, variant, getTicketOcrSettings('sku'));
+      mergeTicketCandidateStore(skuStore, collectTicketSkuCandidates(result, barcode));
     }
   }
 
-  if(mode === 'capture' || !(hasField('sku') && hasField('color') && hasField('size'))){
-    const fullText = await readTicketOcrText(worker, zones.full);
-    candidates.push(parseTicketFieldsFromOcrText(fullText));
+  if(!derived.color){
+    for(const variant of buildTicketOcrVariants(regions.color, 'color', mode)){
+      const result = await recognizeTicketCanvas(worker, variant, getTicketOcrSettings('color'));
+      mergeTicketCandidateStore(colorStore, collectTicketColorCandidates(result));
+    }
   }
 
-  const barcodeSku = deriveSkuFromBarcode(opts.barcode || '');
-  if(barcodeSku){
-    candidates.push({ sku: barcodeSku, color: '', size: '' });
+  if(!derived.size){
+    for(const variant of buildTicketOcrVariants(regions.size, 'size', mode)){
+      const result = await recognizeTicketCanvas(worker, variant, getTicketOcrSettings('size'));
+      mergeTicketCandidateStore(sizeStore, collectTicketSizeCandidates(result));
+    }
   }
 
-  return mergeTicketFieldSets(candidates);
+  if(mode === 'capture' && (!derived.sku || !derived.color || !derived.size)){
+    for(const variant of buildTicketOcrVariants(regions.label, 'full', 'capture')){
+      const result = await recognizeTicketCanvas(worker, variant, getTicketOcrSettings('full'));
+      if(!derived.sku) mergeTicketCandidateStore(skuStore, collectTicketSkuCandidates(result, barcode));
+      if(!derived.color) mergeTicketCandidateStore(colorStore, collectTicketColorCandidates(result));
+      if(!derived.size) mergeTicketCandidateStore(sizeStore, collectTicketSizeCandidates(result));
+    }
+  }
+
+  return {
+    sku: derived.sku || (getBestTicketCandidate(skuStore)?.value || ''),
+    color: derived.color || (getBestTicketCandidate(colorStore)?.value || ''),
+    size: derived.size || (getBestTicketCandidate(sizeStore)?.value || ''),
+  };
 }
 
 function buildTicketFrameCanvas(){
@@ -3266,6 +3426,20 @@ async function handleKnownTicketBarcode(barcode, row){
   return true;
 }
 
+function mergeTicketFieldsFromBarcodeAndOcr(barcode, fields){
+  const derived = getBarcodeDerivedFields(barcode);
+  return {
+    barcode: derived.barcode || String(barcode || '').trim(),
+    sku: derived.sku || String(fields?.sku || '').trim(),
+    color: derived.color || normalizeTicketColor(fields?.color || ''),
+    size: derived.size || normalizeTicketSize(fields?.size || ''),
+  };
+}
+
+function isCompleteTicketFields(fields){
+  return !!(fields?.sku && fields?.color && fields?.size);
+}
+
 async function processCapturedTicketFrame(frameCanvas){
   if(!_ticketScanState) return false;
   setCameraStatus('מעבד את הצילום...');
@@ -3293,20 +3467,13 @@ async function processCapturedTicketFrame(frameCanvas){
       await closeCameraScanner();
       return true;
     }
-    $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
+    $('lastScan4').textContent=`נסרק: ${barcode} · קורא את פרטי הטיקט`;
   }
-  const derivedFromBarcode = getBarcodeDerivedFields(barcode);
-  if(derivedFromBarcode.complete){
-    await applyDerivedBarcodeFields(barcode, { focusField:'bcNewColor' });
-    $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
-    soundOk();
-    popup('הברקוד פוענח ✓','success',1200);
-    setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
-    await closeCameraScanner();
-    return true;
-  }
-  const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'capture', barcode });
-  if(!(fields.sku && fields.color && fields.size)){
+  const fields = mergeTicketFieldsFromBarcodeAndOcr(
+    barcode,
+    await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'capture', barcode })
+  );
+  if(!isCompleteTicketFields(fields)){
     setCameraStatus('לא הצלחתי לקרוא מספיק פרטים מהצילום. נסה צילום קרוב וחד יותר.', true);
     popup('הצילום לא הספיק','error',1200);
     return false;
@@ -3419,12 +3586,22 @@ async function scanTicketFrame(){
       await closeCameraScanner();
       return true;
     }
-    $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
+    $('lastScan4').textContent=`נסרק: ${barcode} · קורא את פרטי הטיקט`;
     setCameraStatus('הברקוד זוהה, קורא את פרטי הטיקט...');
     return false;
   }
 
   if(_ticketScanState.barcodeKnown) return true;
+  const derivedFromBarcode = getBarcodeDerivedFields(_ticketScanState.barcode);
+  if(derivedFromBarcode.complete){
+    await applyDerivedBarcodeFields(_ticketScanState.barcode, { focusField:'bcNewColor' });
+    $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהברקוד`;
+    soundOk();
+    popup('הברקוד פוענח ✓','success',1200);
+    setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
+    await closeCameraScanner();
+    return true;
+  }
   const now = Date.now();
   if(_ticketScanState.ocrBusy || (now - _ticketScanState.lastOcrAt) < TICKET_OCR_INTERVAL_MS){
     updateTicketGuidance();
@@ -3435,7 +3612,10 @@ async function scanTicketFrame(){
   _ticketScanState.lastOcrAt = now;
   try{
     setCameraStatus('קורא פרטי מוצר...');
-    const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'live', barcode: _ticketScanState.barcode });
+    const fields = mergeTicketFieldsFromBarcodeAndOcr(
+      _ticketScanState.barcode,
+      await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'live', barcode: _ticketScanState.barcode })
+    );
     if(fields.sku || fields.color || fields.size){
       return await applyTicketOcrResult(fields);
     }
