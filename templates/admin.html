@@ -1805,9 +1805,9 @@ async function createAdminBarcode(){
   const size=$('barcodeNewSize').value;
   if(!barcode||!sku||!color||!size) return toast('מלא את כל שדות הברקוד');
   const r=await POST('/api/barcodes',{barcode,sku,color,size});
-  if(r.error) return toast('לא הצלחתי להוסיף ברקוד');
+  if(r.error) return toast('לא הצלחתי לשמור ברקוד');
   ['barcodeNewValue','barcodeNewSku','barcodeNewColor','barcodeNewSize'].forEach(id=>$(id).value='');
-  toast('ברקוד נוסף');
+  toast(r.action==='updated' ? 'ברקוד עודכן' : 'ברקוד נוסף');
   loadAdminBarcodes();
 }
 function openAdminBarcodeEdit(barcode,sku,color,size){

@@ -113,7 +113,7 @@ def get_barcode(branch_id, barcode):
 @barcodes_bp.route("", methods=["POST"])
 @require_branch_or_admin
 def add_barcode(branch_id):
-    """Branch or admin can add a single barcode manually."""
+    """Branch or admin can add a barcode, or update it if it already exists."""
     data = request.get_json(silent=True) or {}
     barcode = normalize_barcode(data.get("barcode", ""))
     sku = str(data.get("sku", "")).strip()
@@ -124,16 +124,28 @@ def add_barcode(branch_id):
 
     conn = get_connection()
     try:
-        conn.execute(
-            "INSERT INTO barcodes (barcode,sku,color,size) VALUES (?,?,?,?)",
-            (barcode, sku, color, size),
-        )
+        existing = conn.execute(
+            "SELECT 1 FROM barcodes WHERE barcode=?",
+            (barcode,),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE barcodes SET sku=?, color=?, size=? WHERE barcode=?",
+                (sku, color, size, barcode),
+            )
+            action = "updated"
+        else:
+            conn.execute(
+                "INSERT INTO barcodes (barcode,sku,color,size) VALUES (?,?,?,?)",
+                (barcode, sku, color, size),
+            )
+            action = "created"
         conn.commit()
     except Exception as e:
         conn.close()
         return jsonify({"error": str(e)}), 409
     conn.close()
-    return jsonify({"ok": True}), 201
+    return jsonify({"ok": True, "action": action}), 201 if action == "created" else 200
 
 
 # ── Admin-only write endpoints ────────────────────────────────
