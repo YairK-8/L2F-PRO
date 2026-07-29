@@ -48,14 +48,6 @@ from database.db import get_connection
 barcodes_bp = Blueprint("barcodes", __name__, url_prefix="/api/barcodes")
 
 STRUCTURED_BARCODE_RE = re.compile(r"^([A-Z])(\d{5})(\d{4})(\d{2})$")
-SIZE_ALIAS_MAP = {
-    "xs-s": "xs",
-    "xs s": "xs",
-    "xss": "xs",
-    "m-l": "m",
-    "m l": "m",
-    "ml": "m",
-}
 
 
 def parse_structured_barcode(value):
@@ -89,17 +81,7 @@ def normalize_scale_code(value, expected_length):
 
 
 def normalize_size_label(value):
-    cleaned = str(value or "").strip().lower()
-    if not cleaned:
-        return ""
-    normalized = re.sub(r"\s*-\s*", "-", cleaned)
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    compact = re.sub(r"[^a-z0-9]+", "", normalized)
-    if normalized in SIZE_ALIAS_MAP:
-        return SIZE_ALIAS_MAP[normalized]
-    if compact in SIZE_ALIAS_MAP:
-        return SIZE_ALIAS_MAP[compact]
-    return normalized
+    return str(value or "").strip().lower()
 
 
 def fetch_barcode_scale(conn):
@@ -150,10 +132,7 @@ def get_catalog_sizes_for_sku_color(conn, sku, color, include_sizes=None):
     barcode_sizes = _clean_size_values([row["size"] for row in rows])
     scale_sizes = get_barcode_scale_sizes(conn)
 
-    merged_sizes = []
-    if barcode_sizes:
-        merged_sizes.extend(scale_sizes or barcode_sizes)
-        merged_sizes.extend(barcode_sizes)
+    merged_sizes = list(barcode_sizes)
 
     if include_sizes is not None:
         if isinstance(include_sizes, (list, tuple, set)):
