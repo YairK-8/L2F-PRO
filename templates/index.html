@@ -17,6 +17,7 @@
 <meta name="apple-mobile-web-app-title" content="L2F">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -222,9 +223,51 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-reader section{padding:0 !important}
 .camera-reader section > div:not(:first-child){display:none !important}
 .camera-frame{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(88vw,390px);height:min(34vw,190px);max-height:190px;border:3px solid rgba(255,255,255,.92);border-radius:20px;box-shadow:0 0 0 9999px rgba(0,0,0,.12);pointer-events:none}
+.camera-frame.ticket-mode{width:min(84vw,360px);height:min(62vh,440px);max-height:440px;border-radius:28px}
 .camera-frame.success{border-color:#22c55e;box-shadow:0 0 0 9999px rgba(34,197,94,.12)}
 .camera-frame.error{border-color:#ef4444;box-shadow:0 0 0 9999px rgba(239,68,68,.14)}
-.camera-status{display:none}
+.camera-shell.ticket-mode{width:min(94vw,470px);height:min(78vh,700px);min-height:420px}
+.camera-guide{
+  display:none;
+  position:absolute;
+  inset:auto 20px 88px 20px;
+  z-index:2;
+  text-align:center;
+  color:#fff;
+  font-weight:800;
+  font-size:18px;
+  line-height:1.3;
+  text-shadow:0 2px 12px rgba(0,0,0,.55);
+  pointer-events:none;
+}
+.camera-guide small{
+  display:block;
+  margin-top:6px;
+  font-size:13px;
+  font-weight:600;
+  color:rgba(255,255,255,.92);
+}
+.camera-shell.ticket-mode .camera-guide{display:block}
+.camera-status{
+  display:none;
+  position:absolute;
+  right:16px;
+  left:16px;
+  bottom:16px;
+  z-index:2;
+  padding:10px 14px;
+  border-radius:16px;
+  background:rgba(17,17,17,.58);
+  color:#fff;
+  text-align:center;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.4;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.camera-shell.ticket-mode .camera-status,
+.camera-status.error{display:block}
 .camera-status.error{color:#fecaca;background:#450a0a}
 
 @media(max-width:640px){
@@ -232,7 +275,23 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .col{min-width:100%}
   .camera-overlay{padding:18px 14px 5vh}
   .camera-shell{width:min(94vw,410px);height:min(40vh,300px);min-height:250px;border-radius:22px}
+  .camera-shell.ticket-mode{width:min(96vw,420px);height:min(76vh,620px);min-height:400px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
+  .camera-frame.ticket-mode{width:min(84vw,320px);height:min(58vh,400px);max-height:400px}
+  .camera-guide{
+    inset:auto 14px 82px 14px;
+    font-size:16px;
+  }
+  .camera-guide small{
+    font-size:12px;
+  }
+  .camera-status{
+    right:12px;
+    left:12px;
+    bottom:12px;
+    font-size:13px;
+    padding:9px 12px;
+  }
 }
 
 /* route app refresh */
@@ -1481,10 +1540,10 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <div class="small hint" style="margin-bottom:6px">או מלא ישירות:</div>
           <input id="man1Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
-          <select id="man1Size" style="width:100%">
-            <option value="">מידה</option>
-            <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
-          </select>
+            <select id="man1Size" style="width:100%">
+              <option value="">מידה</option>
+              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+            </select>
           <div class="actions"><button class="btn-primary" onclick="manualScan1()">הוסף לסשן</button></div>
         </div>
 
@@ -1495,10 +1554,10 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <div class="small hint" style="margin-bottom:6px">אם פריט חסר ברשימת הליקוט, אפשר להוסיף אותו ידנית לקבוצת הבוקר ואז לסמן אם נמצא.</div>
           <input id="manualMissingSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="manualMissingColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
-          <select id="manualMissingSize" style="width:100%">
-            <option value="">מידה</option>
-            <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
-          </select>
+            <select id="manualMissingSize" style="width:100%">
+              <option value="">מידה</option>
+              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
+            </select>
           <div class="actions"><button class="btn-warn" onclick="addManualMissing()">הוסף לקבוצת בוקר</button></div>
         </div>
 
@@ -1552,7 +1611,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           </div>
           <select id="man2Size" style="width:100%">
             <option value="">מידה</option>
-            <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+            <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
           </select>
           <div class="actions"><button class="btn-primary" onclick="manualScan2()">הוסף</button></div>
         </div>
@@ -1651,14 +1710,14 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
         <div class="card">
           <div class="scanbox">
             <input id="bcNewBarcode" placeholder="ברקוד" inputmode="numeric"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t4')" title="סריקה מהמצלמה">📷</button>
+            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="סריקת טיקט חיה">📷</button>
           </div>
-          <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקה.</div>
+          <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
           <input id="bcNewColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="bcNewSize" style="width:100%">
             <option value="">מידה</option>
-            <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+            <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
           </select>
           <div class="actions"><button class="btn-primary" onclick="addBarcode()">הוסף</button></div>
         </div>
@@ -1728,7 +1787,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     <input id="editColor" placeholder="צבע" style="width:100%;margin-bottom:8px"/>
     <select id="editSize" style="width:100%;margin-bottom:16px">
       <option value="">מידה</option>
-      <option>xs</option><option>s</option><option>m</option><option>l</option><option>xl</option><option>xxl</option>
+      <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
     </select>
     <div class="actions">
       <button class="btn-primary" onclick="saveEdit()">שמור</button>
@@ -1754,7 +1813,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
 <div id="toast"></div>
 <div id="scanModal"></div>
 <div id="cameraOverlay" class="camera-overlay" aria-hidden="true">
-  <div class="camera-shell">
+  <div id="cameraShell" class="camera-shell">
     <div class="camera-head">
       <div class="camera-actions">
         <button class="camera-close btn-ghost" type="button" onclick="closeCameraScanner()" title="סגור" aria-label="סגור">×</button>
@@ -1765,6 +1824,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
       <div id="cameraReader" class="camera-reader">
         <video id="cameraVideo" playsinline muted autoplay></video>
       </div>
+      <div id="cameraGuide" class="camera-guide"><span id="cameraGuideMain">מקם את כל הטיקט בתוך המסגרת</span><small id="cameraGuideSub">המערכת תזהה לבד את הברקוד ופרטי המוצר</small></div>
       <div id="cameraFrame" class="camera-frame"></div>
     </div>
     <div id="cameraStatus" class="camera-status"></div>
@@ -1873,10 +1933,16 @@ let _cameraCanvas=null, _cameraCtx=null;
 let _cameraFacing='environment';
 let _cameraDecodeBusy=false;
 let _cameraSessionToken=0;
+let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
+let _ticketScanState=null;
 let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
 const CAMERA_DECODE_MAX_WIDTH = 720;
+const TICKET_OCR_INTERVAL_MS = 900;
+const TICKET_OCR_STABLE_HITS = 2;
+const TICKET_FRAME_TIMEOUT_MS = 18000;
+const VALID_TICKET_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
@@ -2210,6 +2276,445 @@ function setCameraStatus(msg, isError=false){
   el.classList.toggle('error', !!isError);
 }
 
+function setCameraGuide(title, subtitle=''){
+  $('cameraGuideMain').textContent=title || '';
+  $('cameraGuideSub').textContent=subtitle || '';
+}
+
+function isTicketCameraMode(){
+  return !!(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='ticket-fill' && _cameraMode.target==='t4');
+}
+
+function updateCameraModeUi(){
+  const ticketMode = isTicketCameraMode();
+  $('cameraShell').classList.toggle('ticket-mode', ticketMode);
+  $('cameraFrame').classList.toggle('ticket-mode', ticketMode);
+  if(ticketMode){
+    setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'המערכת תחפש ברקוד, ואז תקרא את פרטי המוצר');
+  }else{
+    setCameraGuide('מרכז את הפסים בתוך המסגרת', 'הסריקה מתבצעת ברצף וללא צילום');
+  }
+}
+
+function createEmptyTicketScanState(){
+  return {
+    barcode: '',
+    barcodeKnown: false,
+    lastOcrAt: 0,
+    ocrBusy: false,
+    completedBarcode: '',
+    fieldVotes: {
+      sku: new Map(),
+      color: new Map(),
+      size: new Map(),
+    },
+    hintsAt: 0,
+    startedAt: Date.now(),
+  };
+}
+
+function resetTicketScanState(){
+  _ticketScanState = createEmptyTicketScanState();
+}
+
+function normalizeTicketSize(raw){
+  const v = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[Хх]/g, 'X')
+    .replace(/[־–—]/g, '-')
+    .replace(/[^\u0590-\u05FFA-Z0-9\- ]+/g, '')
+    .replace(/\s+/g, ' ');
+  const compact = v.replace(/\s+/g, '');
+  const replacements = {
+    'X5': 'XS',
+    'XS': 'XS',
+    'ХS': 'XS',
+    'XS-5': 'XS-S',
+    'XSS': 'XS-S',
+    'XS-S': 'XS-S',
+    'XS S': 'XS-S',
+    'ML': 'M-L',
+    'M-L': 'M-L',
+    'M L': 'M-L',
+    'XXL': 'XXL',
+  };
+  const normalized = replacements[v] || replacements[compact] || v;
+  const lowered = normalized.toLowerCase();
+  return VALID_TICKET_SIZES.includes(lowered) ? lowered : '';
+}
+
+function normalizeTicketColor(raw){
+  return String(raw || '')
+    .replace(/[^\u0590-\u05FFA-Za-z ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeTicketOcrText(text){
+  return String(text || '')
+    .replace(/[׳`´]/g, "'")
+    .replace(/[|]/g, 'I')
+    .replace(/[“”"]/g, ' ')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .replace(/\r/g, '')
+    .trim();
+}
+
+function scoreTicketLine(line){
+  if(!line) return -999;
+  let score = 0;
+  if(/\b\d{5}\b/.test(line)) score += 4;
+  if(/[\u0590-\u05FF]/.test(line)) score += 3;
+  if(extractSizeFromLine(line)) score += 3;
+  if(/\b\d{12,13}\b/.test(line)) score -= 4;
+  if(/ITAY|BRANDS/i.test(line)) score -= 3;
+  return score;
+}
+
+function extractSizeFromLine(line){
+  const candidates = [
+    'XS-S','M-L','XXL','XL','XS','Y','S','M','L'
+  ];
+  const normalized = String(line || '')
+    .toUpperCase()
+    .replace(/[־–—]/g, '-')
+    .replace(/\s+/g, ' ');
+  for(const candidate of candidates){
+    const pattern = candidate.length === 1
+      ? new RegExp(`(?:^|\\s)${candidate}(?:\\s|$)`)
+      : new RegExp(candidate.replace('-', '\\s*-\\s*'));
+    if(pattern.test(normalized)){
+      return normalizeTicketSize(candidate);
+    }
+  }
+  const tokenMatch = normalized.match(/\b[XYMLS0-9\- ]{1,5}\b/g) || [];
+  for(const token of tokenMatch){
+    const size = normalizeTicketSize(token);
+    if(size) return size;
+  }
+  return '';
+}
+
+function parseTicketFieldsFromOcrText(text){
+  const normalizedText = normalizeTicketOcrText(text);
+  const lines = normalizedText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+  const bestLine = lines
+    .map(line => ({ line, score: scoreTicketLine(line) }))
+    .sort((a,b)=>b.score-a.score)[0]?.line || '';
+
+  const sku = (bestLine.match(/\b\d{5}\b/) || normalizedText.match(/\b\d{5}\b/))?.[0] || '';
+  const size = extractSizeFromLine(bestLine) || extractSizeFromLine(normalizedText);
+  const colorLine = bestLine || lines.find(line => /[\u0590-\u05FF]/.test(line)) || '';
+  const colorWords = colorLine.match(/[\u0590-\u05FF]{2,}(?:\s+[\u0590-\u05FF]{2,})*/g) || [];
+  const color = normalizeTicketColor(colorWords.join(' '));
+
+  return {
+    sku,
+    color,
+    size,
+  };
+}
+
+function voteTicketField(field, value){
+  if(!_ticketScanState || !value) return;
+  const key = String(value).trim().toLowerCase();
+  if(!key) return;
+  const votes = _ticketScanState.fieldVotes[field];
+  votes.set(key, (votes.get(key) || 0) + 1);
+}
+
+function getStableTicketField(field){
+  if(!_ticketScanState) return '';
+  const votes = _ticketScanState.fieldVotes[field];
+  let bestKey = '';
+  let bestCount = 0;
+  votes.forEach((count, key) => {
+    if(count > bestCount){
+      bestKey = key;
+      bestCount = count;
+    }
+  });
+  return bestCount >= TICKET_OCR_STABLE_HITS ? bestKey : '';
+}
+
+function fillBarcodeManagerForm(data, opts={}){
+  $('bcNewBarcode').value = data.barcode || '';
+  $('bcNewSku').value = data.sku || '';
+  $('bcNewColor').value = data.color || '';
+  $('bcNewSize').value = data.size ? String(data.size).toLowerCase() : '';
+  if(opts.focusField){
+    const el = $(opts.focusField);
+    if(el){
+      el.focus();
+      if(typeof el.select === 'function') el.select();
+    }
+  }
+}
+
+function getCameraFrameRectOnCanvas(canvasWidth, canvasHeight){
+  const video = $('cameraVideo');
+  const frame = $('cameraFrame');
+  const videoRect = video.getBoundingClientRect();
+  const frameRect = frame.getBoundingClientRect();
+  const srcAspect = canvasWidth / Math.max(canvasHeight, 1);
+  const boxAspect = videoRect.width / Math.max(videoRect.height, 1);
+  let renderWidth = videoRect.width;
+  let renderHeight = videoRect.height;
+  let cropOffsetX = 0;
+  let cropOffsetY = 0;
+
+  if(srcAspect > boxAspect){
+    renderHeight = videoRect.height;
+    renderWidth = renderHeight * srcAspect;
+    cropOffsetX = (renderWidth - videoRect.width) / 2;
+  }else{
+    renderWidth = videoRect.width;
+    renderHeight = renderWidth / srcAspect;
+    cropOffsetY = (renderHeight - videoRect.height) / 2;
+  }
+
+  const left = Math.max(0, frameRect.left - videoRect.left + cropOffsetX);
+  const top = Math.max(0, frameRect.top - videoRect.top + cropOffsetY);
+  const x = Math.max(0, Math.round((left / renderWidth) * canvasWidth));
+  const y = Math.max(0, Math.round((top / renderHeight) * canvasHeight));
+  const width = Math.min(canvasWidth - x, Math.round((frameRect.width / renderWidth) * canvasWidth));
+  const height = Math.min(canvasHeight - y, Math.round((frameRect.height / renderHeight) * canvasHeight));
+  return { x, y, width: Math.max(1, width), height: Math.max(1, height) };
+}
+
+function createCanvasRegionCopy(sourceCanvas, rect){
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, rect.width);
+  out.height = Math.max(1, rect.height);
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(sourceCanvas, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+  return out;
+}
+
+function findBrightLabelRect(sourceCanvas){
+  const sampleSize = 96;
+  const probe = document.createElement('canvas');
+  probe.width = sampleSize;
+  probe.height = sampleSize;
+  const pctx = probe.getContext('2d', { willReadFrequently: true });
+  pctx.drawImage(sourceCanvas, 0, 0, sampleSize, sampleSize);
+  const data = pctx.getImageData(0, 0, sampleSize, sampleSize).data;
+  let minX = sampleSize, minY = sampleSize, maxX = -1, maxY = -1;
+  for(let y = 0; y < sampleSize; y++){
+    for(let x = 0; x < sampleSize; x++){
+      const i = (y * sampleSize + x) * 4;
+      const brightness = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
+      if(brightness >= 176){
+        if(x < minX) minX = x;
+        if(y < minY) minY = y;
+        if(x > maxX) maxX = x;
+        if(y > maxY) maxY = y;
+      }
+    }
+  }
+  if(maxX < 0 || maxY < 0) return null;
+
+  const scaleX = sourceCanvas.width / sampleSize;
+  const scaleY = sourceCanvas.height / sampleSize;
+  let rect = {
+    x: Math.max(0, Math.floor(minX * scaleX)),
+    y: Math.max(0, Math.floor(minY * scaleY)),
+    width: Math.min(sourceCanvas.width, Math.ceil((maxX - minX + 1) * scaleX)),
+    height: Math.min(sourceCanvas.height, Math.ceil((maxY - minY + 1) * scaleY)),
+  };
+
+  if(rect.width < sourceCanvas.width * 0.22 || rect.height < sourceCanvas.height * 0.12){
+    return null;
+  }
+
+  const padX = Math.round(rect.width * 0.08);
+  const padY = Math.round(rect.height * 0.14);
+  rect.x = Math.max(0, rect.x - padX);
+  rect.y = Math.max(0, rect.y - padY);
+  rect.width = Math.min(sourceCanvas.width - rect.x, rect.width + padX * 2);
+  rect.height = Math.min(sourceCanvas.height - rect.y, rect.height + padY * 2);
+  return rect;
+}
+
+function buildTicketOcrCanvas(frameCanvas){
+  const labelRect = findBrightLabelRect(frameCanvas) || {
+    x: 0,
+    y: Math.round(frameCanvas.height * 0.18),
+    width: frameCanvas.width,
+    height: Math.round(frameCanvas.height * 0.64),
+  };
+  const labelCanvas = createCanvasRegionCopy(frameCanvas, labelRect);
+  const out = document.createElement('canvas');
+  out.width = Math.min(1600, labelCanvas.width * 2);
+  out.height = Math.min(1200, labelCanvas.height * 2);
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.filter = 'grayscale(1) contrast(1.55) brightness(1.1)';
+  ctx.drawImage(labelCanvas, 0, 0, out.width, out.height);
+  ctx.filter = 'none';
+  const image = ctx.getImageData(0, 0, out.width, out.height);
+  for(let i = 0; i < image.data.length; i += 4){
+    const value = image.data[i];
+    const binary = value > 168 ? 255 : 0;
+    image.data[i] = binary;
+    image.data[i + 1] = binary;
+    image.data[i + 2] = binary;
+  }
+  ctx.putImageData(image, 0, 0);
+  return out;
+}
+
+async function ensureTicketOcrWorker(){
+  if(_ticketOcrWorker) return _ticketOcrWorker;
+  if(_ticketOcrWorkerInit) return _ticketOcrWorkerInit;
+  if(!window.Tesseract?.createWorker){
+    throw new Error('tesseract_unavailable');
+  }
+  _ticketOcrWorkerInit = (async()=>{
+    const worker = await Tesseract.createWorker('eng+heb');
+    _ticketOcrWorker = worker;
+    return worker;
+  })();
+  try{
+    return await _ticketOcrWorkerInit;
+  }finally{
+    _ticketOcrWorkerInit = null;
+  }
+}
+
+async function recognizeTicketFieldsFromCanvas(frameCanvas){
+  const worker = await ensureTicketOcrWorker();
+  const prepared = buildTicketOcrCanvas(frameCanvas);
+  const result = await worker.recognize(prepared);
+  return parseTicketFieldsFromOcrText(result?.data?.text || '');
+}
+
+function buildTicketFrameCanvas(){
+  const rect = getCameraFrameRectOnCanvas(_cameraCanvas.width, _cameraCanvas.height);
+  return createCanvasRegionCopy(_cameraCanvas, rect);
+}
+
+async function handleKnownTicketBarcode(barcode, row){
+  fillBarcodeManagerForm({
+    barcode,
+    sku: row.sku || '',
+    color: row.color || '',
+    size: row.size || '',
+  }, { focusField:'bcNewColor' });
+  $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · הנתונים מולאו מהקטלוג`;
+  soundOk();
+  popup('הטיקט זוהה ✓','success',1200);
+  setCameraStatus(`הברקוד ${barcode} כבר קיים. השדות מולאו אוטומטית.`);
+  await closeCameraScanner();
+  return true;
+}
+
+function updateTicketGuidance(){
+  if(!_ticketScanState) return;
+  const elapsed = Date.now() - _ticketScanState.startedAt;
+  if(elapsed > TICKET_FRAME_TIMEOUT_MS){
+    setCameraStatus('עדיין לא זיהיתי מספיק פרטים. נסה להתקרב לטיקט או לשפר תאורה.', true);
+    setCameraGuide('החזק את המכשיר יציב', 'ודא שכל המדבקה הלבנה נכנסת למסגרת');
+    return;
+  }
+  if(!_ticketScanState.barcode){
+    setCameraStatus('מחפש ברקוד...');
+    if(elapsed > 5000){
+      setCameraGuide('קרב את הטיקט למצלמה', 'נסה למקם את המדבקה הלבנה כולה בתוך המסגרת');
+    }
+    return;
+  }
+  if(_ticketScanState.ocrBusy){
+    setCameraStatus('קורא פרטי מוצר...');
+    return;
+  }
+  setCameraStatus('הברקוד זוהה, קורא את פרטי הטיקט...');
+}
+
+async function applyTicketOcrResult(fields){
+  if(!_ticketScanState) return false;
+  if(fields.sku) voteTicketField('sku', fields.sku);
+  if(fields.color) voteTicketField('color', fields.color);
+  if(fields.size) voteTicketField('size', fields.size);
+  const stableSku = getStableTicketField('sku');
+  const stableColor = getStableTicketField('color');
+  const stableSize = getStableTicketField('size');
+  if(!(stableSku && stableColor && stableSize)) return false;
+
+  fillBarcodeManagerForm({
+    barcode: _ticketScanState.barcode,
+    sku: stableSku,
+    color: stableColor,
+    size: stableSize,
+  }, { focusField:'bcNewColor' });
+  $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהסריקה`;
+  soundOk();
+  popup('הטיקט זוהה ✓','success',1200);
+  setCameraStatus('הטיקט זוהה. השדות מולאו, אפשר לבדוק וללחוץ הוסף.');
+  await closeCameraScanner();
+  return true;
+}
+
+async function scanTicketFrame(){
+  if(!_cameraCanvas || !_ticketScanState) return false;
+  const frameCanvas = buildTicketFrameCanvas();
+  if(!_ticketScanState.barcode){
+    updateTicketGuidance();
+    const imageData = frameCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, frameCanvas.width, frameCanvas.height);
+    const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
+      formats: ['Code128','Code39','EAN-13','EAN-8','UPC-A','UPC-E','ITF','Codabar'],
+      maxNumberOfSymbols: 1,
+      tryHarder: true,
+      tryRotate: true,
+      tryInvert: true,
+      downscaleThreshold: 2800,
+    });
+    const barcode = results?.[0]?.text?.trim();
+    if(!barcode) return false;
+
+    _ticketScanState.barcode = barcode;
+    fillBarcodeManagerForm({ barcode }, { focusField:'bcNewSku' });
+    const existing = await GET(`/api/barcodes/${encodeURIComponent(barcode)}`);
+    if(!existing?.error){
+      _ticketScanState.barcodeKnown = true;
+      return handleKnownTicketBarcode(barcode, existing);
+    }
+    $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
+    setCameraStatus('הברקוד זוהה, קורא את פרטי הטיקט...');
+    return false;
+  }
+
+  if(_ticketScanState.barcodeKnown) return true;
+  const now = Date.now();
+  if(_ticketScanState.ocrBusy || (now - _ticketScanState.lastOcrAt) < TICKET_OCR_INTERVAL_MS){
+    updateTicketGuidance();
+    return false;
+  }
+
+  _ticketScanState.ocrBusy = true;
+  _ticketScanState.lastOcrAt = now;
+  try{
+    setCameraStatus('קורא פרטי מוצר...');
+    const fields = await recognizeTicketFieldsFromCanvas(frameCanvas);
+    if(fields.sku || fields.color || fields.size){
+      return await applyTicketOcrResult(fields);
+    }
+    setCameraStatus('עדיין קורא את הטיקט... החזק את המכשיר יציב.');
+  }catch(err){
+    if(err?.message === 'tesseract_unavailable'){
+      setCameraStatus('מנוע זיהוי הטקסט לא נטען. אפשר להקליד את הפרטים ידנית.', true);
+    }else{
+      setCameraStatus('לא הצלחתי לקרוא מספיק פרטים מהטיקט עדיין. נסה להתקרב מעט.', true);
+    }
+  }finally{
+    _ticketScanState.ocrBusy = false;
+  }
+  return false;
+}
+
 function applyWorkTheme(){
   const dark = localStorage.getItem('l2f_work_theme') === 'dark';
   document.body.classList.toggle('app-dark', dark);
@@ -2232,6 +2737,15 @@ function updateCameraSwitchButton(){
   if(!btn) return;
   btn.textContent = _cameraFacing === 'environment' ? '↺' : '↻';
   $('cameraReader').classList.toggle('mirrored', _cameraFacing === 'user');
+}
+
+function getCameraOpenBlockMessage(){
+  if(!navigator.mediaDevices?.getUserMedia){
+    return window.isSecureContext === false
+      ? 'הדפדפן לא מאפשר לפתוח מצלמה במצב הזה. אם האתר פתוח ב-HTTP צריך להעביר אותו ל-HTTPS.'
+      : 'המצלמה לא זמינה בדפדפן הזה. נסה לפתוח דרך Safari או Chrome מעודכן.';
+  }
+  return '';
 }
 
 function cameraErrorStatus(msg){
@@ -2278,6 +2792,8 @@ async function stopCameraStream(){
 async function closeCameraScanner(){
   await stopCameraStream();
   _cameraMode=null;
+  resetTicketScanState();
+  updateCameraModeUi();
   $('cameraOverlay').classList.remove('open');
   $('cameraOverlay').setAttribute('aria-hidden','true');
 }
@@ -2308,6 +2824,7 @@ async function fillCameraTargetInput(inputId, code){
 }
 
 async function handleDetectedCameraCode(rawValue){
+  if(isTicketCameraMode()) return false;
   const code=String(rawValue||'').trim();
   if(!code) return false;
   const now=Date.now();
@@ -2376,6 +2893,13 @@ async function scanCameraFrame(){
     }
     _cameraCtx.drawImage(video, 0, 0, width, height);
     if(!_cameraLoopActive || sessionToken !== _cameraSessionToken) return;
+    if(isTicketCameraMode()){
+      const done = await scanTicketFrame();
+      if(done){
+        nextDelay = CAMERA_SUCCESS_PAUSE_MS;
+      }
+      return;
+    }
     const imageData=_cameraCtx.getImageData(0, 0, width, height);
     if(!_cameraLoopActive || sessionToken !== _cameraSessionToken) return;
     const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
@@ -2427,9 +2951,13 @@ async function startCameraStream(){
   await optimizeCameraTrack();
   _cameraLoopActive=true;
   setCameraStatus(
-    _cameraFacing === 'environment'
-      ? 'המצלמה האחורית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.'
-      : 'המצלמה הקדמית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.'
+    isTicketCameraMode()
+      ? (_cameraFacing === 'environment'
+          ? 'המצלמה האחורית פעילה. מקם את כל הטיקט בתוך המסגרת.'
+          : 'המצלמה הקדמית פעילה. מקם את כל הטיקט בתוך המסגרת.')
+      : (_cameraFacing === 'environment'
+          ? 'המצלמה האחורית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.'
+          : 'המצלמה הקדמית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.')
   );
   scanCameraFrame();
 }
@@ -2438,27 +2966,55 @@ async function openCameraScanner(mode){
   _cameraMode=mode;
   _cameraLastValue='';
   _cameraCooldownUntil=0;
-  $('cameraOverlay').classList.add('open');
-  $('cameraOverlay').setAttribute('aria-hidden','false');
-  setCameraStatus(_cameraFacing === 'environment' ? 'פותח מצלמה אחורית...' : 'פותח מצלמה קדמית...');
-
-  if(!navigator.mediaDevices?.getUserMedia){
-    cameraErrorStatus('המצלמה לא זמינה בדפדפן הזה. אפשר להמשיך בסריקה הרגילה.');
+  resetTicketScanState();
+  const ticketMode = isTicketCameraMode();
+  if(ticketMode){
+    const cameraBlockMessage = getCameraOpenBlockMessage();
+    if(cameraBlockMessage){
+      soundErr();
+      popup('המצלמה חסומה','error',1400);
+      toast(cameraBlockMessage, 3200);
+      return;
+    }
+  }else if(!navigator.mediaDevices?.getUserMedia){
+    soundErr();
+    toast('המצלמה לא זמינה בדפדפן הזה. אפשר להמשיך בסריקה הרגילה.', 2600);
     return;
   }
   if(!window.ZXingWASM?.readBarcodesFromImageData){
-    cameraErrorStatus('ספריית zxing-wasm לא נטענה. אפשר להמשיך בסריקה הרגילה.');
+    soundErr();
+    popup('שגיאת סריקה','error',1400);
+    toast('ספריית הסריקה לא נטענה. אפשר להמשיך בסריקה הרגילה.', 2600);
     return;
   }
+
+  updateCameraModeUi();
+  $('cameraOverlay').classList.add('open');
+  $('cameraOverlay').setAttribute('aria-hidden','false');
+  setCameraStatus(
+    ticketMode
+      ? 'פותח מצלמה לסריקת טיקט...'
+      : (_cameraFacing === 'environment' ? 'פותח מצלמה אחורית...' : 'פותח מצלמה קדמית...')
+  );
 
   try{
     await startCameraStream();
   }catch(err){
     const denied = err && (err.name==='NotAllowedError' || err.name==='SecurityError');
+    const busy = err && (err.name==='NotReadableError' || err.name==='AbortError');
+    const insecureHint = window.isSecureContext === false;
     cameraErrorStatus(
       denied
-        ? 'לא ניתנה הרשאה למצלמה. אפשר להמשיך לסרוק כרגיל בלי מצלמה.'
-        : 'לא הצלחתי לפתוח את המצלמה. הסריקה הרגילה עדיין זמינה.'
+        ? (ticketMode
+            ? (insecureHint
+                ? 'הדפדפן חסם גישה למצלמה. אם האתר פתוח ב-HTTP צריך להעביר אותו ל-HTTPS או לאשר מחדש את הרשאת המצלמה.'
+                : 'לא ניתנה הרשאה למצלמה. אשר גישת מצלמה בדפדפן ונסה שוב.')
+            : 'לא ניתנה הרשאה למצלמה. אפשר להמשיך לסרוק כרגיל בלי מצלמה.')
+        : busy
+          ? 'המצלמה תפוסה כרגע על ידי אפליקציה אחרת. סגור אותה ונסה שוב.'
+          : (ticketMode
+              ? 'לא הצלחתי לפתוח את המצלמה. נסה שוב, ואם האתר פתוח ב-HTTP נעביר אותו ל-HTTPS.'
+              : 'לא הצלחתי לפתוח את המצלמה. הסריקה הרגילה עדיין זמינה.')
     );
     await stopCameraStream();
     $('cameraOverlay').classList.remove('open');
@@ -2472,7 +3028,11 @@ async function toggleCameraFacing(){
   updateCameraSwitchButton();
   _cameraLastValue='';
   _cameraCooldownUntil=0;
-  setCameraStatus(_cameraFacing === 'environment' ? 'מחליף למצלמה אחורית...' : 'מחליף למצלמה קדמית...');
+  setCameraStatus(
+    isTicketCameraMode()
+      ? (_cameraFacing === 'environment' ? 'מחליף למצלמה אחורית לסריקת טיקט...' : 'מחליף למצלמה קדמית לסריקת טיקט...')
+      : (_cameraFacing === 'environment' ? 'מחליף למצלמה אחורית...' : 'מחליף למצלמה קדמית...')
+  );
   await stopCameraStream();
   try{
     await startCameraStream();
@@ -3131,15 +3691,15 @@ function renderBarcodeTable(){
 async function processTab4Barcode(code, opts={}){
   const value=String(code||'').trim();
   if(!value) return false;
-  $('bcNewBarcode').value=value;
-  $('bcNewSku').value='';
-  $('bcNewColor').value='';
-  $('bcNewSize').value='';
+  fillBarcodeManagerForm({ barcode:value, sku:'', color:'', size:'' });
   const existing=await GET(`/api/barcodes/${encodeURIComponent(value)}`);
   if(!existing?.error){
-    $('bcNewSku').value=existing.sku || '';
-    $('bcNewColor').value=existing.color || '';
-    $('bcNewSize').value=existing.size || '';
+    fillBarcodeManagerForm({
+      barcode: value,
+      sku: existing.sku || '',
+      color: existing.color || '',
+      size: existing.size || '',
+    }, { focusField:'bcNewColor' });
     $('lastScan4').textContent=`נסרק: ${value} · הנתונים מולאו אוטומטית`;
     soundOk();
     popup('נסרק ✓','success',900);
