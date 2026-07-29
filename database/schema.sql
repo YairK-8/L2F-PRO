@@ -28,6 +28,27 @@ CREATE INDEX IF NOT EXISTS idx_barcodes_sku     ON barcodes(sku);
 CREATE INDEX IF NOT EXISTS idx_barcodes_barcode ON barcodes(barcode);
 
 -- ============================================================
+-- STRUCTURED BARCODE SCALES
+-- New-format barcode:
+--   1 letter + 5 SKU digits + 4 color digits + 2 size digits
+-- ============================================================
+CREATE TABLE IF NOT EXISTS barcode_color_scale (
+    code       TEXT PRIMARY KEY,
+    color      TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_barcode_color_scale_color ON barcode_color_scale(color);
+
+CREATE TABLE IF NOT EXISTS barcode_size_scale (
+    code       TEXT PRIMARY KEY,
+    size       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_barcode_size_scale_size ON barcode_size_scale(size);
+
+-- ============================================================
 -- TAB 1 — MORNING SESSIONS
 -- One row per (branch, sku, color) per day = a "work group"
 -- ============================================================

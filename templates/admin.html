@@ -149,6 +149,11 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 
 /* ── TABLE ── */
 .tbl-wrap{overflow-x:auto;border-radius:18px;border:1px solid rgba(255,255,255,.58);background:rgba(255,255,255,.28)}
+.tbl-wrap.fixed-scroll{overflow:auto}
+.tbl-wrap.fixed-scroll table{min-width:100%}
+.tbl-wrap.fixed-scroll th{position:sticky;top:0;z-index:1}
+.tbl-wrap.barcodes-scroll{max-height:420px}
+.tbl-wrap.scale-scroll{max-height:280px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:right;padding:9px 12px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;background:rgba(255,255,255,.58)}
 td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -235,6 +240,8 @@ tr:hover td{background:rgba(255,255,255,.2)}
   .camera-overlay{padding:18px 14px 5vh}
   .camera-shell{width:min(94vw,410px);height:min(40vh,300px);min-height:250px;border-radius:22px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
+  .tbl-wrap.barcodes-scroll{max-height:320px}
+  .tbl-wrap.scale-scroll{max-height:220px}
 }
 
 /* admin dark refresh */
@@ -580,7 +587,7 @@ tr:hover td{
           <div class="input-group">
             <label>ברקוד</label>
             <div class="scan-field">
-              <input class="dark-input" id="barcodeNewValue" inputmode="numeric" />
+              <input class="dark-input" id="barcodeNewValue" inputmode="text" autocapitalize="characters" spellcheck="false" />
               <button class="btn btn-ghost camera-btn" type="button" onclick="openAdminCameraScanner('barcodeNewValue')" title="סריקה מהמצלמה">📷</button>
             </div>
           </div>
@@ -607,13 +614,66 @@ tr:hover td{
           <a class="btn btn-ghost" href="/api/barcodes/export/csv">ייצוא CSV</a>
           <span id="barcodeImportMsg" style="color:var(--muted);font-size:12px"></span>
         </div>
-        <div class="tbl-wrap">
+        <div class="tbl-wrap fixed-scroll barcodes-scroll">
           <table>
             <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th><th>פעולות</th></tr></thead>
             <tbody id="barcodeTbody"></tbody>
           </table>
         </div>
+        <div class="small" style="color:var(--muted);margin:-2px 0 12px">
+          ברקוד בפורמט החדש: אות + 5 ספרות מק"ט + 4 ספרות צבע + 2 ספרות מידה. אם יש התאמה בסרגלים, השדות יתמלאו אוטומטית.
+        </div>
         <div style="color:var(--muted);font-size:12px;margin-top:6px" id="barcodeCount"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:18px">
+          <div style="border:1px solid var(--line);border-radius:18px;padding:16px;background:rgba(255,255,255,.02)">
+            <div class="panel-title" style="margin-bottom:6px">סרגל צבעים</div>
+            <div class="small" style="color:var(--muted);margin-bottom:12px">קודי צבע בני 4 ספרות. אם נשמר פריט חדש עם קוד שלא קיים, המערכת יכולה ללמוד אותו אוטומטית.</div>
+            <input type="hidden" id="colorScaleEditOriginal" />
+            <div class="input-row" style="margin-bottom:10px">
+              <div class="input-group">
+                <label>קוד צבע</label>
+                <input class="dark-input" id="colorScaleCode" inputmode="numeric" placeholder="0001" />
+              </div>
+              <div class="input-group">
+                <label>שם צבע</label>
+                <input class="dark-input" id="colorScaleValue" placeholder="לבן" />
+              </div>
+              <button class="btn btn-primary" onclick="saveColorScaleEntry()">שמור</button>
+              <button class="btn btn-ghost" id="colorScaleCancelBtn" onclick="resetColorScaleForm()" style="display:none">ביטול</button>
+            </div>
+            <div class="tbl-wrap fixed-scroll scale-scroll">
+              <table>
+                <thead><tr><th>קוד</th><th>צבע</th><th>פעולות</th></tr></thead>
+                <tbody id="colorScaleTbody"></tbody>
+              </table>
+            </div>
+            <div class="small" style="color:var(--muted);margin-top:6px" id="colorScaleCount"></div>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:18px;padding:16px;background:rgba(255,255,255,.02)">
+            <div class="panel-title" style="margin-bottom:6px">סרגל מידות</div>
+            <div class="small" style="color:var(--muted);margin-bottom:12px">קודי מידה בני 2 ספרות. כל שינוי כאן ישפיע גם על הרשימות בטפסי הברקודים.</div>
+            <input type="hidden" id="sizeScaleEditOriginal" />
+            <div class="input-row" style="margin-bottom:10px">
+              <div class="input-group">
+                <label>קוד מידה</label>
+                <input class="dark-input" id="sizeScaleCode" inputmode="numeric" placeholder="01" />
+              </div>
+              <div class="input-group">
+                <label>ערך מידה</label>
+                <input class="dark-input" id="sizeScaleValue" placeholder="xs" />
+              </div>
+              <button class="btn btn-primary" onclick="saveSizeScaleEntry()">שמור</button>
+              <button class="btn btn-ghost" id="sizeScaleCancelBtn" onclick="resetSizeScaleForm()" style="display:none">ביטול</button>
+            </div>
+            <div class="tbl-wrap fixed-scroll scale-scroll">
+              <table>
+                <thead><tr><th>קוד</th><th>מידה</th><th>פעולות</th></tr></thead>
+                <tbody id="sizeScaleTbody"></tbody>
+              </table>
+            </div>
+            <div class="small" style="color:var(--muted);margin-top:6px" id="sizeScaleCount"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1113,6 +1173,7 @@ async function applyAdminCameraBarcode(code){
     $('barcodeNewColor').value='';
     $('barcodeNewSize').value='';
     const existing=await GET(`/api/barcodes/${encodeURIComponent(code)}`, {throwOnHttpError:false});
+    previewAdminDerivedBarcodeFields({force:true});
     if(existing && !existing.error){
       $('barcodeNewSku').value=existing.sku || '';
       $('barcodeNewColor').value=existing.color || '';
@@ -1767,8 +1828,272 @@ function renderBranches(list){
   $('branchCount').textContent=`מציג ${list.length} מתוך ${_allBranches.length} סניפים`;
 }
 
+const DEFAULT_ADMIN_BARCODE_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
 let _allAdminBarcodes=[];
+let _barcodeColorScaleEntries=[];
+let _barcodeSizeScaleEntries=[];
+let _barcodeColorCodeMap={};
+let _barcodeSizeCodeMap={};
+let _adminBarcodeSizeOptions=DEFAULT_ADMIN_BARCODE_SIZES.slice();
+
+function normalizeAdminScaleCode(value, expectedLength){
+  const digits=String(value||'').replace(/\D/g,'');
+  if(!digits || digits.length>expectedLength) return '';
+  return digits.padStart(expectedLength, '0');
+}
+
+function fillAdminSizeSelect(selectId, values, placeholder='בחר'){
+  const select=$(selectId);
+  if(!select) return;
+  const current=String(select.value||'').toLowerCase();
+  select.innerHTML='';
+  const empty=document.createElement('option');
+  empty.value='';
+  empty.textContent=placeholder;
+  select.appendChild(empty);
+  values.forEach(value=>{
+    const normalized=String(value||'').trim().toLowerCase();
+    if(!normalized) return;
+    const option=document.createElement('option');
+    option.value=normalized;
+    option.textContent=normalized;
+    if(normalized===current) option.selected=true;
+    select.appendChild(option);
+  });
+  if(current && !values.includes(current)) select.value='';
+}
+
+function refreshAdminSizeSelects(){
+  const values=_adminBarcodeSizeOptions.slice();
+  [
+    ['barcodeNewSize', 'בחר'],
+    ['barcodeEditSize', 'בחר'],
+    ['af_size', 'בחר'],
+    ['aw_size', 'בחר'],
+  ].forEach(([selectId, placeholder])=>fillAdminSizeSelect(selectId, values, placeholder));
+}
+
+function parseAdminStructuredBarcode(barcode){
+  const normalized=String(barcode||'').trim().toUpperCase().replace(/\s+/g,'');
+  const match=normalized.match(/^([A-Z])(\d{5})(\d{4})(\d{2})$/);
+  if(!match) return null;
+  return {
+    prefix:match[1],
+    barcode:normalized,
+    sku:match[2],
+    colorCode:match[3],
+    sizeCode:match[4],
+    color:String(_barcodeColorCodeMap[match[3]]||'').trim(),
+    size:String(_barcodeSizeCodeMap[match[4]]||'').trim().toLowerCase(),
+  };
+}
+
+function getAdminDerivedBarcodeFields(barcode){
+  const structured=parseAdminStructuredBarcode(barcode);
+  if(!structured){
+    return {
+      barcode:String(barcode||'').trim(),
+      sku:'',
+      color:'',
+      size:'',
+      complete:false,
+      structured:false,
+    };
+  }
+  return {
+    barcode:structured.barcode,
+    sku:structured.sku,
+    color:structured.color,
+    size:structured.size,
+    complete:!!(structured.sku && structured.color && structured.size),
+    structured:true,
+    colorCode:structured.colorCode,
+    sizeCode:structured.sizeCode,
+  };
+}
+
+function fillAdminBarcodeForm(data){
+  $('barcodeNewValue').value=data.barcode||'';
+  $('barcodeNewSku').value=data.sku||'';
+  $('barcodeNewColor').value=data.color||'';
+  $('barcodeNewSize').value=data.size ? String(data.size).toLowerCase() : '';
+}
+
+function previewAdminDerivedBarcodeFields(opts={}){
+  const barcode=$('barcodeNewValue')?.value?.trim()||'';
+  if(!barcode) return null;
+  const derived=getAdminDerivedBarcodeFields(barcode);
+  if(!derived.structured) return null;
+  const shouldFill=opts.force || (
+    !$('barcodeNewSku').value.trim() &&
+    !$('barcodeNewColor').value.trim() &&
+    !$('barcodeNewSize').value
+  );
+  if(shouldFill){
+    fillAdminBarcodeForm({
+      barcode:derived.barcode,
+      sku:derived.sku,
+      color:derived.color,
+      size:derived.size,
+    });
+  }
+  return derived;
+}
+
+function renderColorScaleTable(){
+  const tbody=$('colorScaleTbody');
+  if(!_barcodeColorScaleEntries.length){
+    tbody.innerHTML='<tr><td colspan="3" class="empty-state">אין קודי צבע</td></tr>';
+    $('colorScaleCount').textContent='';
+    return;
+  }
+  tbody.innerHTML=_barcodeColorScaleEntries.map(entry=>`
+    <tr>
+      <td style="font-family:monospace">${esc(entry.code)}</td>
+      <td>${esc(entry.color)}</td>
+      <td>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick='editColorScaleEntry(${JSON.stringify(String(entry.code||""))}, ${JSON.stringify(String(entry.color||""))})'>ערוך</button>
+          <button class="btn btn-danger btn-sm" onclick='deleteColorScaleEntry(${JSON.stringify(String(entry.code||""))})'>מחק</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  $('colorScaleCount').textContent=`${_barcodeColorScaleEntries.length} קודי צבע`;
+}
+
+function renderSizeScaleTable(){
+  const tbody=$('sizeScaleTbody');
+  if(!_barcodeSizeScaleEntries.length){
+    tbody.innerHTML='<tr><td colspan="3" class="empty-state">אין קודי מידה</td></tr>';
+    $('sizeScaleCount').textContent='';
+    return;
+  }
+  tbody.innerHTML=_barcodeSizeScaleEntries.map(entry=>`
+    <tr>
+      <td style="font-family:monospace">${esc(entry.code)}</td>
+      <td>${esc(entry.size)}</td>
+      <td>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick='editSizeScaleEntry(${JSON.stringify(String(entry.code||""))}, ${JSON.stringify(String(entry.size||""))})'>ערוך</button>
+          <button class="btn btn-danger btn-sm" onclick='deleteSizeScaleEntry(${JSON.stringify(String(entry.code||""))})'>מחק</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  $('sizeScaleCount').textContent=`${_barcodeSizeScaleEntries.length} קודי מידה`;
+}
+
+function renderBarcodeScaleTables(){
+  renderColorScaleTable();
+  renderSizeScaleTable();
+}
+
+function setAdminBarcodeScale(scale){
+  _barcodeColorScaleEntries=Array.isArray(scale?.colors) ? scale.colors : [];
+  _barcodeSizeScaleEntries=Array.isArray(scale?.sizes) ? scale.sizes : [];
+  _barcodeColorCodeMap={};
+  _barcodeSizeCodeMap={};
+  _barcodeColorScaleEntries.forEach(entry=>{
+    const code=String(entry?.code||'').trim();
+    const color=String(entry?.color||'').trim();
+    if(code && color) _barcodeColorCodeMap[code]=color;
+  });
+  _adminBarcodeSizeOptions=[];
+  _barcodeSizeScaleEntries.forEach(entry=>{
+    const code=String(entry?.code||'').trim();
+    const size=String(entry?.size||'').trim().toLowerCase();
+    if(!code || !size) return;
+    _barcodeSizeCodeMap[code]=size;
+    if(!_adminBarcodeSizeOptions.includes(size)) _adminBarcodeSizeOptions.push(size);
+  });
+  if(!_adminBarcodeSizeOptions.length) _adminBarcodeSizeOptions=DEFAULT_ADMIN_BARCODE_SIZES.slice();
+  refreshAdminSizeSelects();
+  renderBarcodeScaleTables();
+  if($('barcodeNewValue')?.value?.trim()) previewAdminDerivedBarcodeFields();
+}
+
+async function loadAdminBarcodeScale(){
+  const scale=await GET('/api/barcodes/scale');
+  setAdminBarcodeScale(scale);
+  return scale;
+}
+
+function resetColorScaleForm(){
+  $('colorScaleEditOriginal').value='';
+  $('colorScaleCode').value='';
+  $('colorScaleValue').value='';
+  $('colorScaleCancelBtn').style.display='none';
+}
+
+function editColorScaleEntry(code, color){
+  $('colorScaleEditOriginal').value=code;
+  $('colorScaleCode').value=code;
+  $('colorScaleValue').value=color;
+  $('colorScaleCancelBtn').style.display='inline-flex';
+  $('colorScaleCode').focus();
+}
+
+async function saveColorScaleEntry(){
+  const originalCode=$('colorScaleEditOriginal').value.trim();
+  const code=normalizeAdminScaleCode($('colorScaleCode').value, 4);
+  const color=$('colorScaleValue').value.trim();
+  if(!code || !color) return toast('מלא קוד צבע ושם צבע');
+  const res=originalCode
+    ? await PUT(`/api/barcodes/scale/colors/${encodeURIComponent(originalCode)}`, {code, color})
+    : await POST('/api/barcodes/scale/colors', {code, color});
+  if(res.error==='code_exists') return toast('קוד הצבע כבר קיים');
+  if(res.error) return toast('לא הצלחתי לשמור את קוד הצבע');
+  resetColorScaleForm();
+  await loadAdminBarcodeScale();
+  toast(originalCode ? 'קוד הצבע עודכן' : 'קוד הצבע נוסף');
+}
+
+async function deleteColorScaleEntry(code){
+  if(!confirm(`למחוק את קוד הצבע ${code}?`)) return;
+  const res=await DELETE(`/api/barcodes/scale/colors/${encodeURIComponent(code)}`);
+  if(res?.error) return toast('לא הצלחתי למחוק את קוד הצבע');
+  await loadAdminBarcodeScale();
+  toast('קוד הצבע נמחק');
+}
+
+function resetSizeScaleForm(){
+  $('sizeScaleEditOriginal').value='';
+  $('sizeScaleCode').value='';
+  $('sizeScaleValue').value='';
+  $('sizeScaleCancelBtn').style.display='none';
+}
+
+function editSizeScaleEntry(code, size){
+  $('sizeScaleEditOriginal').value=code;
+  $('sizeScaleCode').value=code;
+  $('sizeScaleValue').value=size;
+  $('sizeScaleCancelBtn').style.display='inline-flex';
+  $('sizeScaleCode').focus();
+}
+
+async function saveSizeScaleEntry(){
+  const originalCode=$('sizeScaleEditOriginal').value.trim();
+  const code=normalizeAdminScaleCode($('sizeScaleCode').value, 2);
+  const size=$('sizeScaleValue').value.trim().toLowerCase();
+  if(!code || !size) return toast('מלא קוד מידה וערך מידה');
+  const res=originalCode
+    ? await PUT(`/api/barcodes/scale/sizes/${encodeURIComponent(originalCode)}`, {code, size})
+    : await POST('/api/barcodes/scale/sizes', {code, size});
+  if(res.error==='code_exists') return toast('קוד המידה כבר קיים');
+  if(res.error) return toast('לא הצלחתי לשמור את קוד המידה');
+  resetSizeScaleForm();
+  await loadAdminBarcodeScale();
+  toast(originalCode ? 'קוד המידה עודכן' : 'קוד המידה נוסף');
+}
+
+async function deleteSizeScaleEntry(code){
+  if(!confirm(`למחוק את קוד המידה ${code}?`)) return;
+  const res=await DELETE(`/api/barcodes/scale/sizes/${encodeURIComponent(code)}`);
+  if(res?.error) return toast('לא הצלחתי למחוק את קוד המידה');
+  await loadAdminBarcodeScale();
+  toast('קוד המידה נמחק');
+}
 async function loadAdminBarcodes(){
+  await loadAdminBarcodeScale();
   _allAdminBarcodes=await GET('/api/barcodes');
   renderAdminBarcodes();
 }
@@ -1799,6 +2124,7 @@ function renderAdminBarcodes(){
   $('barcodeCount').textContent=`מציג ${rows.length} מתוך ${_allAdminBarcodes.length} ברקודים`;
 }
 async function createAdminBarcode(){
+  previewAdminDerivedBarcodeFields();
   const barcode=$('barcodeNewValue').value.trim();
   const sku=$('barcodeNewSku').value.trim();
   const color=$('barcodeNewColor').value.trim();
@@ -1806,6 +2132,7 @@ async function createAdminBarcode(){
   if(!barcode||!sku||!color||!size) return toast('מלא את כל שדות הברקוד');
   const r=await POST('/api/barcodes',{barcode,sku,color,size});
   if(r.error) return toast('לא הצלחתי לשמור ברקוד');
+  await loadAdminBarcodeScale();
   ['barcodeNewValue','barcodeNewSku','barcodeNewColor','barcodeNewSize'].forEach(id=>$(id).value='');
   toast(r.action==='updated' ? 'ברקוד עודכן' : 'ברקוד נוסף');
   loadAdminBarcodes();
@@ -1824,6 +2151,7 @@ async function saveAdminBarcodeEdit(){
   const size=$('barcodeEditSize').value;
   if(!sku||!color||!size) return toast('מלא את כל השדות');
   const r=await PUT(`/api/barcodes/${barcode}`,{sku,color,size});
+  await loadAdminBarcodeScale();
   if(r.error) return toast('לא הצלחתי לעדכן ברקוד');
   closeModal('barcodeEditModal');
   toast('ברקוד עודכן');
@@ -1841,8 +2169,11 @@ async function importAdminBarcodes(){
   const fd=new FormData(); fd.append('file',f);
   const res=await fetch('/api/barcodes/import-admin',{method:'POST',body:fd}).then(r=>r.json());
   $('barcodeImportMsg').textContent=`יובאו ${res.inserted||0}, שגיאות ${res.skipped_error||0}`;
-  loadAdminBarcodes();
+  await loadAdminBarcodes();
 }
+
+$('barcodeNewValue')?.addEventListener('change', ()=>previewAdminDerivedBarcodeFields());
+$('barcodeNewValue')?.addEventListener('blur', ()=>previewAdminDerivedBarcodeFields());
 
 let _admins=[];
 async function loadAdmins(){

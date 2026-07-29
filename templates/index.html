@@ -1832,7 +1832,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
         <h2>הוספת ברקוד</h2>
         <div class="card">
           <div class="scanbox">
-            <input id="bcNewBarcode" placeholder="ברקוד" inputmode="numeric"/>
+            <input id="bcNewBarcode" placeholder="ברקוד" inputmode="text" autocapitalize="characters" spellcheck="false"/>
             <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="סריקת טיקט חיה">📷</button>
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
@@ -2079,7 +2079,28 @@ const CAMERA_DECODE_MAX_WIDTH = 720;
 const TICKET_OCR_INTERVAL_MS = 900;
 const TICKET_OCR_STABLE_HITS = 2;
 const TICKET_FRAME_TIMEOUT_MS = 18000;
-const VALID_TICKET_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
+const BASE_VALID_TICKET_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
+let VALID_TICKET_SIZES = BASE_VALID_TICKET_SIZES.slice();
+let BARCODE_COLOR_CODE_MAP = Object.freeze({
+  '0001':'לבן','0002':'אבן','0003':'מוקה','0004':'שחור','0005':'אפור','0006':'אפור כהה','0007':'בורדו',
+  '0008':"בז'",'0009':"ג'ינס",'0010':'זית בהיר','0011':'חום','0012':'ירוק','0013':'ירוק זית','0014':'ירוק כהה',
+  '0015':'כחול','0016':'מנומר','0017':'כאמל','0018':'שמנת','0019':'תכלת','0020':'אדום','0021':'אפור בהיר',
+  '0022':'אפור מלאנז\'','0023':'אפרסק','0024':'גינס בהיר','0025':"ג'ינס כהה",'0026':'ורוד','0027':'ורוד עתיק',
+  '0028':'זית','0029':'חאקי','0030':'חום בהיר','0031':'חום כהה','0032':'תמרה','0033':'חרדל','0034':'ירוק בהיר',
+  '0035':'כחול כהה','0036':'כתום','0037':'ליים','0038':'לילך','0039':'מוקה','0040':'מנטה','0041':'ניוד',
+  '0042':'סגול','0043':'פסים','0044':'פסים אבן','0045':'פסים שחור לבן','0046':'צהוב','0049':'צהוב',
+  '0050':'אבן מלאנז\'','0051':'כחול בהיר','0052':'נייבי','0053':'הדפס','0054':'אבן מודסס','0055':'אפור ווש',
+  '0056':'אפור כהה ווש','0058':"ג'ינס כחול",'0059':"ג'ינס תכלת",'0060':'ורוד בהיר','0061':'ורוד מודסס',
+  '0062':'זברה','0063':'חום שוקולד','0064':'טורקיז','0065':'כחול פסים','0066':'נוגט','0067':'פסים חום',
+  '0068':'פסים כחול','0069':'פסים לבן','0070':'פסים שחור','0079':'חום ווש','0080':'חום דהוי',
+  '0081':'חום ווש','0082':'חום אדום','0083':'קאמל כהה','0084':'קאמל','0086':'כחול ווש','0087':'שחור ווש',
+  '0088':'לבן ווש','0089':'מולטי','0091':'ירוק בקבוק','0095':'ירוק ווש','0096':'כחול ווש',
+  '0097':'כחול כהה ווש','0100':'חמרה ווש',
+});
+let BARCODE_SIZE_CODE_MAP = Object.freeze({
+  '01':'y','02':'xs','03':'xs-s','04':'s','06':'m','07':'m-l','08':'l','10':'xl','11':'xxl',
+});
+let _barcodeScaleLoadPromise = null;
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
@@ -2284,7 +2305,7 @@ async function enterApp(branch){
   $('appScreen').style.display='block';
   $('branchBadge').innerHTML=`<span class="branch-badge-text">${esc(branch.name)}</span><i class="bi bi-shop" aria-hidden="true"></i>`;
   initSocketIO();
-  loadAll();
+  await loadAll();
 }
 
 // Auto-login check
@@ -2399,12 +2420,96 @@ $$('.tab').forEach(tab=>tab.addEventListener('click',()=>{
   ['t1','t2','t3','t4'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
   if(tab.dataset.tab==='t4') loadBarcodes();
 }));
+$('bcNewBarcode')?.addEventListener('change', ()=>previewDerivedBarcodeFields());
+$('bcNewBarcode')?.addEventListener('blur', ()=>previewDerivedBarcodeFields());
 
-function loadAll(){
+function renderSizeOptionsForSelect(selectId, sizes, fallbackPlaceholder='בחר'){
+  const select = $(selectId);
+  if(!select) return;
+  const currentValue = String(select.value || '').toLowerCase();
+  const placeholderLabel = select.querySelector('option[value=""]')?.textContent || fallbackPlaceholder;
+  select.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = placeholderLabel;
+  select.appendChild(placeholder);
+  sizes.forEach(size => {
+    const normalizedSize = String(size || '').trim().toLowerCase();
+    if(!normalizedSize) return;
+    const option = document.createElement('option');
+    option.value = normalizedSize;
+    option.textContent = normalizedSize;
+    if(normalizedSize === currentValue) option.selected = true;
+    select.appendChild(option);
+  });
+  if(currentValue && !sizes.includes(currentValue)) select.value = '';
+}
+
+function refreshBarcodeSizeSelectOptions(){
+  const sizes = VALID_TICKET_SIZES.slice();
+  [
+    ['man1Size', 'בחר'],
+    ['manualMissingSize', 'בחר'],
+    ['man2Size', 'מידה'],
+    ['bcNewSize', 'מידה'],
+    ['editSize', 'בחר'],
+  ].forEach(([selectId, placeholder]) => renderSizeOptionsForSelect(selectId, sizes, placeholder));
+}
+
+function setBarcodeScaleData(scale){
+  const nextColorMap = {};
+  const nextSizeMap = {};
+  const sizeValues = [];
+
+  (Array.isArray(scale?.colors) ? scale.colors : []).forEach(entry => {
+    const code = String(entry?.code || '').trim();
+    const color = normalizeTicketColor(entry?.color || '');
+    if(code && color) nextColorMap[code] = color;
+  });
+
+  (Array.isArray(scale?.sizes) ? scale.sizes : []).forEach(entry => {
+    const code = String(entry?.code || '').trim();
+    const size = String(entry?.size || '').trim().toLowerCase();
+    if(!code || !size) return;
+    nextSizeMap[code] = size;
+    if(!sizeValues.includes(size)) sizeValues.push(size);
+  });
+
+  if(Object.keys(nextColorMap).length) BARCODE_COLOR_CODE_MAP = Object.freeze(nextColorMap);
+  if(Object.keys(nextSizeMap).length){
+    BARCODE_SIZE_CODE_MAP = Object.freeze(nextSizeMap);
+    VALID_TICKET_SIZES = sizeValues.slice();
+  }else{
+    VALID_TICKET_SIZES = BASE_VALID_TICKET_SIZES.slice();
+  }
+
+  refreshBarcodeSizeSelectOptions();
+  if($('bcNewBarcode')?.value?.trim()) previewDerivedBarcodeFields();
+}
+
+async function loadBarcodeScales(force=false){
+  if(_barcodeScaleLoadPromise && !force) return _barcodeScaleLoadPromise;
+  const request = GET('/api/barcodes/scale')
+    .then(scale => {
+      setBarcodeScaleData(scale);
+      return scale;
+    })
+    .catch(_err => null)
+    .finally(() => {
+      if(_barcodeScaleLoadPromise === request) _barcodeScaleLoadPromise = null;
+    });
+  _barcodeScaleLoadPromise = request;
+  return request;
+}
+
+async function loadAll(){
   applyWorkTheme();
-  loadSessions();
-  loadMissingFloor();
-  loadMissingWh();
+  await loadBarcodeScales();
+  await Promise.all([
+    loadSessions(),
+    loadMissingFloor(),
+    loadMissingWh(),
+  ]);
 }
 
 function setCameraStatus(msg, isError=false){
@@ -2527,12 +2632,72 @@ function extractSkuFromText(text){
 }
 
 function deriveSkuFromBarcode(barcode){
+  const structured = parseStructuredBarcode(barcode);
+  if(structured?.sku) return structured.sku;
   const normalized = String(barcode || '')
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '');
   const match = normalized.match(/^[A-Z](\d{5})\d{4,8}$/);
   return match ? match[1] : '';
+}
+
+function parseStructuredBarcode(barcode){
+  const normalized = String(barcode || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+  const match = normalized.match(/^([A-Z])(\d{5})(\d{4})(\d{2})$/);
+  if(!match) return null;
+  const colorCode = match[3];
+  const sizeCode = match[4];
+  return {
+    prefix: match[1],
+    barcode: normalized,
+    sku: match[2],
+    colorCode,
+    sizeCode,
+    color: normalizeTicketColor(BARCODE_COLOR_CODE_MAP[colorCode] || ''),
+    size: normalizeTicketSize(BARCODE_SIZE_CODE_MAP[sizeCode] || ''),
+  };
+}
+
+function getBarcodeDerivedFields(barcode){
+  const structured = parseStructuredBarcode(barcode);
+  if(!structured){
+    return {
+      barcode: String(barcode || '').trim(),
+      sku: deriveSkuFromBarcode(barcode),
+      color: '',
+      size: '',
+      complete: false,
+      structured: false,
+      colorCode: '',
+      sizeCode: '',
+    };
+  }
+  return {
+    barcode: structured.barcode,
+    sku: structured.sku || '',
+    color: structured.color || '',
+    size: structured.size || '',
+    complete: !!(structured.sku && structured.color && structured.size),
+    structured: true,
+    colorCode: structured.colorCode,
+    sizeCode: structured.sizeCode,
+  };
+}
+
+async function applyDerivedBarcodeFields(barcode, opts={}){
+  const derived = getBarcodeDerivedFields(barcode);
+  if(!derived.structured) return null;
+  fillBarcodeManagerForm({
+    barcode: derived.barcode,
+    sku: derived.sku,
+    color: derived.color,
+    size: derived.size,
+  }, opts.focusField ? { focusField: opts.focusField } : {});
+  return derived;
 }
 
 function extractColorFromText(text){
@@ -2682,6 +2847,30 @@ function fillBarcodeManagerForm(data, opts={}){
       if(typeof el.select === 'function') el.select();
     }
   }
+}
+
+function previewDerivedBarcodeFields(opts={}){
+  const barcode = $('bcNewBarcode')?.value?.trim() || '';
+  if(!barcode) return null;
+  const derived = getBarcodeDerivedFields(barcode);
+  if(!derived.structured) return null;
+  const shouldFill = opts.force || (
+    !$('bcNewSku').value.trim() &&
+    !$('bcNewColor').value.trim() &&
+    !$('bcNewSize').value
+  );
+  if(shouldFill){
+    fillBarcodeManagerForm({
+      barcode: derived.barcode,
+      sku: derived.sku,
+      color: derived.color,
+      size: derived.size,
+    });
+    $('lastScan4').textContent = derived.complete
+      ? `הברקוד ${derived.barcode} פוענח אוטומטית לפי הקידוד החדש`
+      : `הברקוד ${derived.barcode} זוהה בפורמט החדש, אך חסר מיפוי מלא לצבע או למידה`;
+  }
+  return derived;
 }
 
 function scaleCanvasCopy(sourceCanvas, factor){
@@ -2979,6 +3168,10 @@ async function recognizeTicketFieldsFromCanvas(frameCanvas, opts={}){
 
   const candidates = [];
   const hasField = (field) => candidates.some(set => set?.[field]);
+  const barcodeFields = getBarcodeDerivedFields(opts.barcode || '');
+  if(barcodeFields.sku || barcodeFields.color || barcodeFields.size){
+    candidates.push(barcodeFields);
+  }
 
   const detailText = await readTicketOcrText(worker, zones.detail);
   candidates.push(parseTicketFieldsFromOcrText(detailText));
@@ -3091,7 +3284,26 @@ async function processCapturedTicketFrame(frameCanvas){
       _ticketScanState.barcodeKnown = true;
       return handleKnownTicketBarcode(barcode, existing);
     }
+    const derived = await applyDerivedBarcodeFields(barcode, { focusField:'bcNewColor' });
+    if(derived?.complete){
+      $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
+      soundOk();
+      popup('הברקוד פוענח ✓','success',1200);
+      setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
+      await closeCameraScanner();
+      return true;
+    }
     $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
+  }
+  const derivedFromBarcode = getBarcodeDerivedFields(barcode);
+  if(derivedFromBarcode.complete){
+    await applyDerivedBarcodeFields(barcode, { focusField:'bcNewColor' });
+    $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
+    soundOk();
+    popup('הברקוד פוענח ✓','success',1200);
+    setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
+    await closeCameraScanner();
+    return true;
   }
   const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'capture', barcode });
   if(!(fields.sku && fields.color && fields.size)){
@@ -3197,6 +3409,15 @@ async function scanTicketFrame(){
     if(!existing?.error){
       _ticketScanState.barcodeKnown = true;
       return handleKnownTicketBarcode(barcode, existing);
+    }
+    const derived = await applyDerivedBarcodeFields(barcode, { focusField:'bcNewColor' });
+    if(derived?.complete){
+      $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
+      soundOk();
+      popup('הברקוד פוענח ✓','success',1200);
+      setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
+      await closeCameraScanner();
+      return true;
     }
     $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
     setCameraStatus('הברקוד זוהה, קורא את פרטי הטיקט...');
@@ -4036,6 +4257,13 @@ async function doLocSearch(){
       resolvedSku=String(barcodeRes.sku).trim();
       foundViaBarcode=true;
       locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+    }else{
+      const derived = getBarcodeDerivedFields(rawValue);
+      if(derived.sku){
+        resolvedSku=String(derived.sku).trim();
+        foundViaBarcode=true;
+        locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+      }
     }
   }
 
@@ -4178,6 +4406,7 @@ async function importLocations(){
 let _allBarcodes=[];
 
 async function loadBarcodes(){
+  await loadBarcodeScales();
   _allBarcodes=await GET('/api/barcodes');
   renderBarcodeTable();
   const skus=new Set(_allBarcodes.map(r=>r.sku));
@@ -4207,7 +4436,13 @@ function renderBarcodeTable(){
 async function processTab4Barcode(code, opts={}){
   const value=String(code||'').trim();
   if(!value) return false;
-  fillBarcodeManagerForm({ barcode:value, sku:'', color:'', size:'' });
+  const derived = getBarcodeDerivedFields(value);
+  fillBarcodeManagerForm({
+    barcode:value,
+    sku:derived.sku || '',
+    color:derived.color || '',
+    size:derived.size || '',
+  });
   const existing=await GET(`/api/barcodes/${encodeURIComponent(value)}`);
   if(!existing?.error){
     fillBarcodeManagerForm({
@@ -4221,21 +4456,33 @@ async function processTab4Barcode(code, opts={}){
     popup('נסרק ✓','success',900);
     if(opts.fromCamera) setCameraStatus(`הברקוד ${value} נמצא בקטלוג והשדות מולאו.`);
   }else{
-    $('lastScan4').textContent=`נסרק: ${value} · ברקוד חדש, אפשר להשלים פרטים`;
+    $('lastScan4').textContent = derived.complete
+      ? `נסרק: ${value} · השדות מולאו לפי קידוד הברקוד`
+      : `נסרק: ${value} · ברקוד חדש, אפשר להשלים פרטים`;
     soundOk();
     popup('נסרק ✓','success',900);
-    if(opts.fromCamera) setCameraStatus(`הברקוד ${value} לא קיים עדיין. אפשר להשלים את הפרטים ידנית.`);
+    if(opts.fromCamera){
+      setCameraStatus(
+        derived.complete
+          ? `הברקוד ${value} פוענח לפי הקידוד החדש. אפשר לבדוק את השדות ולהוסיף.`
+          : `הברקוד ${value} לא קיים עדיין. אפשר להשלים את הפרטים ידנית.`
+      );
+    }
   }
   if(opts.fromCamera) await closeCameraScanner();
   return true;
 }
 
 async function addBarcode(){
-  const barcode=$('bcNewBarcode').value.trim(), sku=$('bcNewSku').value.trim();
-  const color=$('bcNewColor').value.trim(), size=$('bcNewSize').value;
+  previewDerivedBarcodeFields();
+  const barcode=$('bcNewBarcode').value.trim();
+  const sku=$('bcNewSku').value.trim();
+  const color=$('bcNewColor').value.trim();
+  const size=$('bcNewSize').value;
   if(!barcode||!sku||!color||!size)return toast('מלא כל השדות');
   const res=await POST('/api/barcodes',{barcode,sku,color,size});
   if(res.error)return toast('לא הצלחתי לשמור את הברקוד');
+  await loadBarcodeScales(true);
   $('bcNewBarcode').value='';$('bcNewSku').value='';$('bcNewColor').value='';$('bcNewSize').value='';
   toast(res.action==='updated' ? 'עודכן' : 'נוסף'); loadBarcodes();
 }
