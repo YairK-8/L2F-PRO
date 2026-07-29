@@ -2384,10 +2384,16 @@ function normalizeTicketSize(raw){
 }
 
 function normalizeTicketColor(raw){
-  return String(raw || '')
+  const cleaned = String(raw || '')
     .replace(/[^\u0590-\u05FFA-Za-z ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  const corrections = {
+    'נשחור': 'שחור',
+    'השחור': 'שחור',
+    'הלבן': 'לבן',
+  };
+  return corrections[cleaned] || cleaned;
 }
 
 function extractSkuFromText(text){
@@ -2409,6 +2415,15 @@ function extractSkuFromText(text){
     }
   }
   return '';
+}
+
+function deriveSkuFromBarcode(barcode){
+  const normalized = String(barcode || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+  const match = normalized.match(/^[A-Z](\d{5})\d{4,8}$/);
+  return match ? match[1] : '';
 }
 
 function extractColorFromText(text){
@@ -2674,6 +2689,61 @@ function createRelativeRegionCopy(sourceCanvas, rect){
   });
 }
 
+function clampTicketRatio(value, min, max){
+  return Math.min(max, Math.max(min, value));
+}
+
+function estimateTicketDetailBand(labelCanvas){
+  const sampleWidth = 160;
+  const sampleHeight = 100;
+  const probe = document.createElement('canvas');
+  probe.width = sampleWidth;
+  probe.height = sampleHeight;
+  const pctx = probe.getContext('2d', { willReadFrequently: true });
+  pctx.drawImage(labelCanvas, 0, 0, sampleWidth, sampleHeight);
+  const data = pctx.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  const rowScores = new Array(sampleHeight).fill(0);
+
+  for(let y = 0; y < sampleHeight; y++){
+    let rowScore = 0;
+    for(let x = 0; x < sampleWidth; x++){
+      const i = (y * sampleWidth + x) * 4;
+      const brightness = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
+      if(brightness < 222){
+        rowScore += (222 - brightness);
+      }
+    }
+    rowScores[y] = rowScore / sampleWidth;
+  }
+
+  const minY = Math.floor(sampleHeight * 0.16);
+  const maxY = Math.floor(sampleHeight * 0.52);
+  let bestY = Math.floor(sampleHeight * 0.28);
+  let bestScore = -1;
+
+  for(let y = minY; y <= maxY; y++){
+    let smoothed = 0;
+    let samples = 0;
+    for(let offset = -3; offset <= 3; offset++){
+      const rowIndex = y + offset;
+      if(rowIndex < 0 || rowIndex >= sampleHeight) continue;
+      smoothed += rowScores[rowIndex];
+      samples += 1;
+    }
+    const normalizedY = y / sampleHeight;
+    const positionBoost = normalizedY >= 0.22 && normalizedY <= 0.38 ? 4 : 0;
+    const score = (samples ? (smoothed / samples) : 0) + positionBoost;
+    if(score > bestScore){
+      bestScore = score;
+      bestY = y;
+    }
+  }
+
+  const y = clampTicketRatio((bestY / sampleHeight) - 0.08, 0.17, 0.34);
+  const height = clampTicketRatio(0.22, 0.18, 0.25);
+  return { y, height };
+}
+
 function prepareTicketOcrCanvas(sourceCanvas, opts={}){
   const out = document.createElement('canvas');
   out.width = Math.min(opts.maxWidth || 1600, Math.max(320, Math.round(sourceCanvas.width * (opts.scale || 2))));
@@ -2682,15 +2752,18 @@ function prepareTicketOcrCanvas(sourceCanvas, opts={}){
   ctx.filter = `grayscale(1) contrast(${opts.contrast || 1.55}) brightness(${opts.brightness || 1.1})`;
   ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
   ctx.filter = 'none';
-  const image = ctx.getImageData(0, 0, out.width, out.height);
-  for(let i = 0; i < image.data.length; i += 4){
-    const value = image.data[i];
-    const binary = value > (opts.threshold || 168) ? 255 : 0;
-    image.data[i] = binary;
-    image.data[i + 1] = binary;
-    image.data[i + 2] = binary;
+  if(opts.binary !== false){
+    const image = ctx.getImageData(0, 0, out.width, out.height);
+    const threshold = Number.isFinite(opts.threshold) ? opts.threshold : 168;
+    for(let i = 0; i < image.data.length; i += 4){
+      const value = image.data[i];
+      const binary = value > threshold ? 255 : 0;
+      image.data[i] = binary;
+      image.data[i + 1] = binary;
+      image.data[i + 2] = binary;
+    }
+    ctx.putImageData(image, 0, 0);
   }
-  ctx.putImageData(image, 0, 0);
   return out;
 }
 
@@ -2700,23 +2773,51 @@ function buildTicketOcrCanvas(frameCanvas){
 
 function buildTicketOcrZones(frameCanvas){
   const labelCanvas = buildTicketLabelCanvas(frameCanvas);
+  const detailBand = estimateTicketDetailBand(labelCanvas);
+  const detailY = detailBand.y;
+  const detailHeight = detailBand.height;
+  const sizeY = clampTicketRatio(detailY - 0.02, 0.15, 0.32);
   return {
     full: prepareTicketOcrCanvas(labelCanvas, { scale: 2, maxWidth: 1500, maxHeight: 1100, threshold: 168 }),
-    meta: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, { x: 0.04, y: 0.10, width: 0.92, height: 0.24 }),
-      { scale: 2.5, maxWidth: 1500, maxHeight: 460, threshold: 176 }
+    detail: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.05, y: detailY, width: 0.88, height: detailHeight }),
+      { scale: 3, maxWidth: 1500, maxHeight: 520, threshold: 170, contrast: 1.7, brightness: 1.08 }
+    ),
+    detailSoft: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.05, y: detailY, width: 0.88, height: detailHeight }),
+      { scale: 3.1, maxWidth: 1500, maxHeight: 520, binary: false, contrast: 1.95, brightness: 1.04 }
     ),
     sku: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, { x: 0.02, y: 0.10, width: 0.34, height: 0.24 }),
-      { scale: 2.8, maxWidth: 900, maxHeight: 460, threshold: 170 }
+      createRelativeRegionCopy(labelCanvas, { x: 0.03, y: detailY, width: 0.28, height: detailHeight }),
+      { scale: 3.1, maxWidth: 960, maxHeight: 460, threshold: 164, contrast: 1.78, brightness: 1.08 }
+    ),
+    skuSoft: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.03, y: detailY, width: 0.28, height: detailHeight }),
+      { scale: 3.2, maxWidth: 960, maxHeight: 460, binary: false, contrast: 2.05, brightness: 1.03 }
     ),
     color: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, { x: 0.28, y: 0.10, width: 0.40, height: 0.24 }),
-      { scale: 2.6, maxWidth: 1100, maxHeight: 460, threshold: 172 }
+      createRelativeRegionCopy(labelCanvas, { x: 0.33, y: detailY - 0.01, width: 0.28, height: detailHeight + 0.03 }),
+      { scale: 3.05, maxWidth: 1100, maxHeight: 500, threshold: 162, contrast: 1.72, brightness: 1.08 }
+    ),
+    colorSoft: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.32, y: detailY - 0.01, width: 0.30, height: detailHeight + 0.03 }),
+      { scale: 3.2, maxWidth: 1180, maxHeight: 500, binary: false, contrast: 1.92, brightness: 1.03 }
     ),
     size: prepareTicketOcrCanvas(
-      createRelativeRegionCopy(labelCanvas, { x: 0.70, y: 0.10, width: 0.22, height: 0.24 }),
-      { scale: 2.9, maxWidth: 720, maxHeight: 420, threshold: 170 }
+      createRelativeRegionCopy(labelCanvas, { x: 0.68, y: sizeY, width: 0.22, height: Math.max(0.22, detailHeight + 0.02) }),
+      { scale: 3.2, maxWidth: 760, maxHeight: 440, threshold: 164, contrast: 1.82, brightness: 1.08 }
+    ),
+    sizeSoft: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.67, y: sizeY, width: 0.24, height: Math.max(0.23, detailHeight + 0.03) }),
+      { scale: 3.25, maxWidth: 820, maxHeight: 460, binary: false, contrast: 2.02, brightness: 1.02 }
+    ),
+    barcodeText: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.20, y: 0.60, width: 0.62, height: 0.20 }),
+      { scale: 2.6, maxWidth: 1400, maxHeight: 420, threshold: 154, contrast: 1.78, brightness: 1.06 }
+    ),
+    barcodeTextSoft: prepareTicketOcrCanvas(
+      createRelativeRegionCopy(labelCanvas, { x: 0.20, y: 0.60, width: 0.62, height: 0.20 }),
+      { scale: 2.7, maxWidth: 1400, maxHeight: 420, binary: false, contrast: 1.96, brightness: 1.02 }
     ),
   };
 }
@@ -2793,25 +2894,64 @@ async function recognizeTicketFieldsFromCanvas(frameCanvas, opts={}){
   const mode = opts.mode === 'capture' ? 'capture' : 'live';
   const zones = buildTicketOcrZones(frameCanvas);
 
-  const metaText = await readTicketOcrText(worker, zones.meta);
-  const metaFields = parseTicketFieldsFromOcrText(metaText);
-  const candidates = [metaFields];
+  const candidates = [];
+  const hasField = (field) => candidates.some(set => set?.[field]);
 
-  if(mode === 'capture' || !metaFields.sku){
+  const detailText = await readTicketOcrText(worker, zones.detail);
+  candidates.push(parseTicketFieldsFromOcrText(detailText));
+
+  if(mode === 'capture' || !(hasField('sku') && hasField('color') && hasField('size'))){
+    const detailSoftText = await readTicketOcrText(worker, zones.detailSoft);
+    candidates.push(parseTicketFieldsFromOcrText(detailSoftText));
+  }
+
+  if(mode === 'capture' || !hasField('sku')){
     const skuText = await readTicketOcrText(worker, zones.sku);
     candidates.push({ sku: extractSkuFromText(skuText), color: '', size: '' });
+    const skuSoftText = await readTicketOcrText(worker, zones.skuSoft);
+    candidates.push({
+      sku: extractSkuFromText(skuSoftText) || deriveSkuFromBarcode(skuSoftText),
+      color: '',
+      size: '',
+    });
   }
-  if(mode === 'capture' || !metaFields.color){
+  if(mode === 'capture' || !hasField('color')){
     const colorText = await readTicketOcrText(worker, zones.color);
     candidates.push({ sku: '', color: extractColorFromText(colorText), size: '' });
+    const colorSoftText = await readTicketOcrText(worker, zones.colorSoft);
+    candidates.push({ sku: '', color: extractColorFromText(colorSoftText), size: '' });
   }
-  if(mode === 'capture' || !metaFields.size){
+  if(mode === 'capture' || !hasField('size')){
     const sizeText = await readTicketOcrText(worker, zones.size);
     candidates.push({ sku: '', color: '', size: extractSizeFromLine(sizeText) });
+    const sizeSoftText = await readTicketOcrText(worker, zones.sizeSoft);
+    candidates.push({ sku: '', color: '', size: extractSizeFromLine(sizeSoftText) });
   }
-  if(mode === 'capture' || !(metaFields.sku && metaFields.color && metaFields.size)){
+  if(mode === 'capture' || !hasField('sku')){
+    const barcodeText = await readTicketOcrText(worker, zones.barcodeText);
+    candidates.push({
+      sku: extractSkuFromText(barcodeText) || deriveSkuFromBarcode(barcodeText),
+      color: '',
+      size: '',
+    });
+    if(mode === 'capture'){
+      const barcodeTextSoft = await readTicketOcrText(worker, zones.barcodeTextSoft);
+      candidates.push({
+        sku: extractSkuFromText(barcodeTextSoft) || deriveSkuFromBarcode(barcodeTextSoft),
+        color: '',
+        size: '',
+      });
+    }
+  }
+
+  if(mode === 'capture' || !(hasField('sku') && hasField('color') && hasField('size'))){
     const fullText = await readTicketOcrText(worker, zones.full);
     candidates.push(parseTicketFieldsFromOcrText(fullText));
+  }
+
+  const barcodeSku = deriveSkuFromBarcode(opts.barcode || '');
+  if(barcodeSku){
+    candidates.push({ sku: barcodeSku, color: '', size: '' });
   }
 
   return mergeTicketFieldSets(candidates);
@@ -2870,7 +3010,7 @@ async function processCapturedTicketFrame(frameCanvas){
     }
     $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
   }
-  const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'capture' });
+  const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'capture', barcode });
   if(!(fields.sku && fields.color && fields.size)){
     setCameraStatus('לא הצלחתי לקרוא מספיק פרטים מהצילום. נסה צילום קרוב וחד יותר.', true);
     popup('הצילום לא הספיק','error',1200);
@@ -2991,7 +3131,7 @@ async function scanTicketFrame(){
   _ticketScanState.lastOcrAt = now;
   try{
     setCameraStatus('קורא פרטי מוצר...');
-    const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'live' });
+    const fields = await recognizeTicketFieldsFromCanvas(frameCanvas, { mode:'live', barcode: _ticketScanState.barcode });
     if(fields.sku || fields.color || fields.size){
       return await applyTicketOcrResult(fields);
     }
