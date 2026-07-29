@@ -192,9 +192,16 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .modal-box{background:rgba(245,245,242,.88);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.62);color:var(--text);border-radius:22px;padding:24px;width:100%;max-width:420px;box-shadow:0 16px 48px rgba(0,0,0,.18)}
 .modal-box h3{margin:0 0 16px;font-size:17px}
 .camera-btn{display:inline-flex;align-items:center;justify-content:center;min-width:46px}
+.camera-btn.active{background:rgba(41,179,74,.12);border-color:rgba(41,179,74,.28);color:#1f6a30}
+.ticket-camera-mount{display:none;margin-top:12px}
+.ticket-camera-mount.open{display:block}
 .camera-overlay{position:fixed;inset:0;background:rgba(15,23,42,.10);backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);z-index:12000;display:none;align-items:flex-end;justify-content:center;padding:24px 20px 7vh;pointer-events:none}
 .camera-overlay.open{display:flex}
 .camera-shell{width:min(90vw,430px);height:min(42vh,320px);min-height:260px;background:transparent;border:none;border-radius:24px;overflow:hidden;display:block;position:relative;box-shadow:none;pointer-events:auto}
+.camera-overlay.inline-ticket{position:relative;inset:auto;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:auto;padding:0;pointer-events:auto;align-items:stretch;justify-content:stretch}
+.camera-overlay.inline-ticket.open{display:block}
+.camera-overlay.inline-ticket .camera-shell{width:100%;max-width:100%;height:320px;min-height:320px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:24px;box-shadow:0 16px 32px rgba(0,0,0,.14)}
+.camera-overlay.inline-ticket .camera-shell.ticket-mode{width:100%;height:320px;min-height:320px}
 .camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
 .camera-close,.camera-switch{
   width:42px;
@@ -224,6 +231,7 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-reader section > div:not(:first-child){display:none !important}
 .camera-frame{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(88vw,390px);height:min(34vw,190px);max-height:190px;border:3px solid rgba(255,255,255,.92);border-radius:20px;box-shadow:0 0 0 9999px rgba(0,0,0,.12);pointer-events:none;overflow:hidden}
 .camera-frame.ticket-mode{inset:42% auto auto 50%;width:min(86vw,420px);height:min(34vh,240px);max-height:240px;border-radius:24px}
+.camera-overlay.inline-ticket .camera-frame.ticket-mode{inset:43% auto auto 50%;width:calc(100% - 34px);height:170px;max-height:none;border-radius:22px}
 .camera-frame.success{border-color:#22c55e;box-shadow:0 0 0 9999px rgba(34,197,94,.12)}
 .camera-frame.error{border-color:#ef4444;box-shadow:0 0 0 9999px rgba(239,68,68,.14)}
 .camera-shell.ticket-mode{width:min(94vw,470px);height:min(78vh,700px);min-height:420px}
@@ -334,6 +342,14 @@ tr:hover td{background:rgba(255,255,255,.24)}
   display:block;
   inset:auto 18px 118px 18px;
 }
+.camera-overlay.inline-ticket .camera-shell.ticket-mode .camera-guide{
+  inset:auto 14px 72px 14px;
+  font-size:14px;
+}
+.camera-overlay.inline-ticket .camera-guide small{
+  margin-top:4px;
+  font-size:11px;
+}
 .camera-capture{
   display:none;
   position:absolute;
@@ -358,6 +374,12 @@ tr:hover td{background:rgba(255,255,255,.24)}
   justify-content:center;
   bottom:66px;
 }
+.camera-overlay.inline-ticket .camera-shell.ticket-mode .camera-capture{
+  bottom:54px;
+  min-width:110px;
+  height:42px;
+  font-size:15px;
+}
 .camera-status{
   display:none;
   position:absolute;
@@ -379,6 +401,13 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-shell.ticket-mode .camera-status,
 .camera-status.error{display:block}
 .camera-status.error{color:#fecaca;background:#450a0a}
+.camera-overlay.inline-ticket .camera-status{
+  right:10px;
+  left:10px;
+  bottom:10px;
+  padding:8px 10px;
+  font-size:12px;
+}
 
 @media(max-width:640px){
   .tabs{gap:4px}.tab{padding:8px 9px;font-size:13px}
@@ -386,8 +415,11 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .camera-overlay{padding:18px 14px 5vh}
   .camera-shell{width:min(94vw,410px);height:min(40vh,300px);min-height:250px;border-radius:22px}
   .camera-shell.ticket-mode{width:min(96vw,420px);height:min(76vh,620px);min-height:400px}
+  .camera-overlay.inline-ticket .camera-shell,
+  .camera-overlay.inline-ticket .camera-shell.ticket-mode{height:292px;min-height:292px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
   .camera-frame.ticket-mode{inset:40% auto auto 50%;width:min(86vw,330px);height:min(28vh,200px);max-height:200px}
+  .camera-overlay.inline-ticket .camera-frame.ticket-mode{inset:42% auto auto 50%;width:calc(100% - 26px);height:150px}
   .camera-ticket-layout{inset:8px}
   .camera-ticket-zone{border-radius:15px}
   .camera-ticket-zone-label,
@@ -403,6 +435,10 @@ tr:hover td{background:rgba(255,255,255,.24)}
     inset:auto 12px 122px 12px;
     font-size:15px;
   }
+  .camera-overlay.inline-ticket .camera-shell.ticket-mode .camera-guide{
+    inset:auto 12px 68px 12px;
+    font-size:13px;
+  }
   .camera-guide small{
     font-size:12px;
   }
@@ -415,6 +451,12 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .camera-shell.ticket-mode .camera-capture{
     bottom:66px;
   }
+  .camera-overlay.inline-ticket .camera-shell.ticket-mode .camera-capture{
+    bottom:52px;
+    min-width:104px;
+    height:40px;
+    font-size:14px;
+  }
   .camera-status{
     right:12px;
     left:12px;
@@ -422,6 +464,7 @@ tr:hover td{background:rgba(255,255,255,.24)}
     font-size:13px;
     padding:9px 12px;
   }
+  .ticket-camera-mount{margin-top:10px}
 }
 
 /* route app refresh */
@@ -1840,7 +1883,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
         <div class="card">
           <div class="scanbox">
             <input id="bcNewBarcode" placeholder="ברקוד" inputmode="text" autocapitalize="characters" spellcheck="false"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="סריקת טיקט חיה">📷</button>
+            <button id="ticketCameraToggleBtn" class="btn-ghost camera-btn" type="button" onclick="toggleTicketCameraScanner()" title="סריקת טיקט חיה">📷</button>
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
@@ -1850,6 +1893,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
             <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
           </select>
           <div class="actions"><button class="btn-primary" onclick="addBarcode()">הוסף</button></div>
+          <div id="ticketCameraMount" class="ticket-camera-mount" hidden></div>
         </div>
 
         <div class="divider"></div>
@@ -2077,6 +2121,7 @@ let _cameraCanvas=null, _cameraCtx=null;
 let _cameraFacing='environment';
 let _cameraDecodeBusy=false;
 let _cameraSessionToken=0;
+let _cameraOverlayHome=null;
 let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
 let _alwaysConnected=false;
@@ -2422,6 +2467,7 @@ function setRtDot(on){
 // TABS
 // ══════════════════════════════════════════════════════════
 $$('.tab').forEach(tab=>tab.addEventListener('click',()=>{
+  if(tab.dataset.tab!=='t4' && isTicketCameraInlineVisible()) closeCameraScanner();
   $$('.tab').forEach(t=>t.classList.remove('active'));
   tab.classList.add('active');
   ['t1','t2','t3','t4'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
@@ -2534,10 +2580,72 @@ function isTicketCameraMode(){
   return !!(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='ticket-fill' && _cameraMode.target==='t4');
 }
 
+function isTicketCameraInlineVisible(){
+  const overlay = $('cameraOverlay');
+  return !!(overlay && overlay.classList.contains('open') && overlay.classList.contains('inline-ticket'));
+}
+
+function syncTicketCameraToggleButton(){
+  const btn = $('ticketCameraToggleBtn');
+  if(!btn) return;
+  const open = isTicketCameraInlineVisible();
+  btn.classList.toggle('active', open);
+  const label = open ? 'סגור מצלמת טיקט' : 'סריקת טיקט חיה';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+}
+
+function syncCameraOverlayMount(){
+  const overlay = $('cameraOverlay');
+  const mount = $('ticketCameraMount');
+  if(!overlay || !mount) return;
+  if(!_cameraOverlayHome){
+    _cameraOverlayHome = overlay.parentElement || document.body;
+  }
+  const inlineTicket = isTicketCameraMode();
+  overlay.classList.toggle('inline-ticket', inlineTicket);
+  if(inlineTicket){
+    mount.hidden = false;
+    mount.classList.add('open');
+    if(overlay.parentElement !== mount) mount.appendChild(overlay);
+  }else{
+    mount.classList.remove('open');
+    mount.hidden = true;
+    if(_cameraOverlayHome && overlay.parentElement !== _cameraOverlayHome){
+      _cameraOverlayHome.appendChild(overlay);
+    }
+  }
+  syncTicketCameraToggleButton();
+}
+
+function holdTicketScannerForReview(statusMessage){
+  if(!_ticketScanState) return;
+  _ticketScanState.awaitingConfirm = true;
+  updateCameraCaptureButton();
+  setCameraGuide('בדוק את השדות ואז לחץ הוסף', 'המצלמה נשארת פתוחה. אחרי השמירה אפשר להמשיך ישר לטיקט הבא.');
+  setCameraStatus(statusMessage || 'השדות מולאו. בדוק ואז לחץ הוסף.');
+}
+
+function prepareNextTicketScan(statusMessage='מוכן לטיקט הבא. מקם את הטיקט בתוך המסגרת.'){
+  if(!isTicketCameraMode()) return;
+  resetTicketScanState();
+  updateCameraModeUi();
+  setCameraStatus(statusMessage);
+}
+
+function toggleTicketCameraScanner(){
+  if(isTicketCameraInlineVisible()){
+    closeCameraScanner();
+    return;
+  }
+  openCameraScanner({ type:'ticket-fill', target:'t4' });
+}
+
 function updateCameraModeUi(){
   const ticketMode = isTicketCameraMode();
   $('cameraShell').classList.toggle('ticket-mode', ticketMode);
   $('cameraFrame').classList.toggle('ticket-mode', ticketMode);
+  syncTicketCameraToggleButton();
   if(ticketMode){
     setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'אפשר להמתין לזיהוי אוטומטי או ללחוץ צילום');
   }else{
@@ -2549,6 +2657,7 @@ function createEmptyTicketScanState(){
   return {
     barcode: '',
     barcodeKnown: false,
+    awaitingConfirm: false,
     captureBusy: false,
     lastOcrAt: 0,
     ocrBusy: false,
@@ -2571,8 +2680,9 @@ function updateCameraCaptureButton(){
   const label = $('cameraCaptureLabel');
   if(!btn || !label) return;
   const busy = !!_ticketScanState?.captureBusy;
-  btn.disabled = busy;
-  label.textContent = busy ? 'מעבד...' : 'צילום';
+  const awaitingConfirm = !!_ticketScanState?.awaitingConfirm;
+  btn.disabled = busy || awaitingConfirm;
+  label.textContent = busy ? 'מעבד...' : (awaitingConfirm ? 'מוכן' : 'צילום');
 }
 
 function normalizeTicketSize(raw){
@@ -3420,8 +3530,7 @@ async function handleKnownTicketBarcode(barcode, row){
   $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · הנתונים מולאו מהקטלוג`;
   soundOk();
   popup('הטיקט זוהה ✓','success',1200);
-  setCameraStatus(`הברקוד ${barcode} כבר קיים. השדות מולאו אוטומטית.`);
-  await closeCameraScanner();
+  holdTicketScannerForReview(`הברקוד ${barcode} כבר קיים. השדות מולאו אוטומטית.`);
   return true;
 }
 
@@ -3462,8 +3571,7 @@ async function processCapturedTicketFrame(frameCanvas){
       $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
       soundOk();
       popup('הברקוד פוענח ✓','success',1200);
-      setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
-      await closeCameraScanner();
+      holdTicketScannerForReview('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
       return true;
     }
     $('lastScan4').textContent=`נסרק: ${barcode} · קורא את פרטי הטיקט`;
@@ -3486,13 +3594,12 @@ async function processCapturedTicketFrame(frameCanvas){
   $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהצילום`;
   soundOk();
   popup('הצילום פוענח ✓','success',1200);
-  setCameraStatus('הצילום פוענח. אפשר לבדוק את השדות וללחוץ הוסף.');
-  await closeCameraScanner();
+  holdTicketScannerForReview('הצילום פוענח. אפשר לבדוק את השדות וללחוץ הוסף.');
   return true;
 }
 
 async function captureTicketStill(){
-  if(!isTicketCameraMode() || !_ticketScanState || _ticketScanState.captureBusy) return;
+  if(!isTicketCameraMode() || !_ticketScanState || _ticketScanState.captureBusy || _ticketScanState.awaitingConfirm) return;
   const video = $('cameraVideo');
   if(!_cameraStream || !video || video.readyState < 2){
     setCameraStatus('המצלמה עדיין נטענת. נסה שוב בעוד רגע.', true);
@@ -3516,6 +3623,11 @@ async function captureTicketStill(){
 
 function updateTicketGuidance(){
   if(!_ticketScanState) return;
+  if(_ticketScanState.awaitingConfirm){
+    setCameraGuide('בדוק את השדות ואז לחץ הוסף', 'המצלמה נשארת פתוחה ותהיה מוכנה לטיקט הבא אחרי השמירה.');
+    setCameraStatus('השדות מולאו. לחץ הוסף כדי לעבור לטיקט הבא, או סגור אם סיימת.');
+    return;
+  }
   const elapsed = Date.now() - _ticketScanState.startedAt;
   if(elapsed > TICKET_FRAME_TIMEOUT_MS){
     setCameraStatus('עדיין לא זיהיתי מספיק פרטים. נסה להתקרב לטיקט או לשפר תאורה.', true);
@@ -3555,13 +3667,16 @@ async function applyTicketOcrResult(fields){
   $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהסריקה`;
   soundOk();
   popup('הטיקט זוהה ✓','success',1200);
-  setCameraStatus('הטיקט זוהה. השדות מולאו, אפשר לבדוק וללחוץ הוסף.');
-  await closeCameraScanner();
+  holdTicketScannerForReview('הטיקט זוהה. השדות מולאו, אפשר לבדוק וללחוץ הוסף.');
   return true;
 }
 
 async function scanTicketFrame(){
   if(!_cameraCanvas || !_ticketScanState) return false;
+  if(_ticketScanState.awaitingConfirm){
+    updateTicketGuidance();
+    return false;
+  }
   if(_ticketScanState.captureBusy) return false;
   const frameCanvas = buildTicketFrameCanvas();
   if(!_ticketScanState.barcode){
@@ -3581,8 +3696,7 @@ async function scanTicketFrame(){
       $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהברקוד`;
       soundOk();
       popup('הברקוד פוענח ✓','success',1200);
-      setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
-      await closeCameraScanner();
+      holdTicketScannerForReview('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
       return true;
     }
     $('lastScan4').textContent=`נסרק: ${barcode} · קורא את פרטי הטיקט`;
@@ -3597,8 +3711,7 @@ async function scanTicketFrame(){
     $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהברקוד`;
     soundOk();
     popup('הברקוד פוענח ✓','success',1200);
-    setCameraStatus('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
-    await closeCameraScanner();
+    holdTicketScannerForReview('הברקוד החדש פוענח לפי הקידוד המובנה. אפשר לבדוק את השדות ולהוסיף.');
     return true;
   }
   const now = Date.now();
@@ -3707,11 +3820,12 @@ async function stopCameraStream(){
 
 async function closeCameraScanner(){
   await stopCameraStream();
+  $('cameraOverlay').classList.remove('open');
+  $('cameraOverlay').setAttribute('aria-hidden','true');
   _cameraMode=null;
   resetTicketScanState();
   updateCameraModeUi();
-  $('cameraOverlay').classList.remove('open');
-  $('cameraOverlay').setAttribute('aria-hidden','true');
+  syncCameraOverlayMount();
 }
 
 function openCameraInputScanner(inputId){
@@ -3905,6 +4019,7 @@ async function openCameraScanner(mode){
   }
 
   updateCameraModeUi();
+  syncCameraOverlayMount();
   $('cameraOverlay').classList.add('open');
   $('cameraOverlay').setAttribute('aria-hidden','false');
   setCameraStatus(
@@ -3935,6 +4050,7 @@ async function openCameraScanner(mode){
     await stopCameraStream();
     $('cameraOverlay').classList.remove('open');
     $('cameraOverlay').setAttribute('aria-hidden','true');
+    syncCameraOverlayMount();
   }
 }
 
@@ -4659,10 +4775,18 @@ async function addBarcode(){
   const color=$('bcNewColor').value.trim();
   const size=$('bcNewSize').value;
   if(!barcode||!sku||!color||!size)return toast('מלא כל השדות');
+  const keepTicketCameraOpen = isTicketCameraInlineVisible();
+  const savedSummary = `${sku}/${color}/${String(size).toUpperCase()}`;
   const res=await POST('/api/barcodes',{barcode,sku,color,size});
   if(res.error)return toast('לא הצלחתי לשמור את הברקוד');
   await loadBarcodeScales(true);
   $('bcNewBarcode').value='';$('bcNewSku').value='';$('bcNewColor').value='';$('bcNewSize').value='';
+  if(keepTicketCameraOpen){
+    $('lastScan4').textContent=`${res.action==='updated' ? 'עודכן' : 'נוסף'}: ${savedSummary} · מוכן לטיקט הבא`;
+    prepareNextTicketScan(res.action==='updated' ? 'הפריט עודכן. אפשר לסרוק את הטיקט הבא.' : 'הפריט נשמר. אפשר לסרוק את הטיקט הבא.');
+  }else{
+    $('lastScan4').textContent=`${res.action==='updated' ? 'עודכן' : 'נוסף'}: ${savedSummary}`;
+  }
   toast(res.action==='updated' ? 'עודכן' : 'נוסף'); loadBarcodes();
 }
 
@@ -4725,6 +4849,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!inInput){e.preventDefault();}
 },true);
 
+syncCameraOverlayMount();
 applyWorkTheme();
 </script>
 </body>
