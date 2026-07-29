@@ -223,8 +223,7 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-reader section{padding:0 !important}
 .camera-reader section > div:not(:first-child){display:none !important}
 .camera-frame{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(88vw,390px);height:min(34vw,190px);max-height:190px;border:3px solid rgba(255,255,255,.92);border-radius:20px;box-shadow:0 0 0 9999px rgba(0,0,0,.12);pointer-events:none}
-.camera-frame.ticket-mode{width:min(84vw,360px);height:min(66vh,470px);max-height:470px;border-radius:12px}
-.camera-frame.ticket-mode.ready{border-color:#2dcf64;box-shadow:0 0 0 9999px rgba(45,207,100,.12),0 0 0 1px rgba(45,207,100,.18) inset}
+.camera-frame.ticket-mode{width:min(84vw,360px);height:min(62vh,440px);max-height:440px;border-radius:28px}
 .camera-frame.success{border-color:#22c55e;box-shadow:0 0 0 9999px rgba(34,197,94,.12)}
 .camera-frame.error{border-color:#ef4444;box-shadow:0 0 0 9999px rgba(239,68,68,.14)}
 .camera-shell.ticket-mode{width:min(94vw,470px);height:min(78vh,700px);min-height:420px}
@@ -297,7 +296,7 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .camera-shell{width:min(94vw,410px);height:min(40vh,300px);min-height:250px;border-radius:22px}
   .camera-shell.ticket-mode{width:min(96vw,420px);height:min(76vh,620px);min-height:400px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
-  .camera-frame.ticket-mode{width:min(84vw,320px);height:min(60vh,420px);max-height:420px}
+  .camera-frame.ticket-mode{width:min(84vw,320px);height:min(58vh,400px);max-height:400px}
   .camera-guide{
     inset:auto 14px 82px 14px;
     font-size:16px;
@@ -1736,7 +1735,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
         <div class="card">
           <div class="scanbox">
             <input id="bcNewBarcode" placeholder="ברקוד" inputmode="numeric"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="סריקת טיקט חיה">📷</button>
+            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner({ type:'ticket-fill', target:'t4' })" title="צילום טיקט">📷</button>
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
@@ -1964,7 +1963,6 @@ let _cameraDecodeBusy=false;
 let _cameraSessionToken=0;
 let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
-let _ticketCatalogCache=null;
 let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
@@ -1972,19 +1970,7 @@ const CAMERA_DECODE_MAX_WIDTH = 720;
 const TICKET_OCR_INTERVAL_MS = 900;
 const TICKET_OCR_STABLE_HITS = 2;
 const TICKET_FRAME_TIMEOUT_MS = 18000;
-const TICKET_FRAME_READY_SCORE = 64;
-const TICKET_FRAME_CAPTURE_SCORE = 54;
-const TICKET_FRAME_MIN_SHARPNESS = 0.2;
-const TICKET_MIN_FIELD_SCORE = 66;
 const VALID_TICKET_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
-const TICKET_COLOR_CORRECTIONS = {
-  'נשחור': 'שחור',
-  'השחור': 'שחור',
-  'הלבן': 'לבן',
-  'לבנן': 'לבן',
-  'השמנת': 'שמנת',
-  'השחורו': 'שחור',
-};
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
@@ -2331,9 +2317,8 @@ function updateCameraModeUi(){
   const ticketMode = isTicketCameraMode();
   $('cameraShell').classList.toggle('ticket-mode', ticketMode);
   $('cameraFrame').classList.toggle('ticket-mode', ticketMode);
-  $('cameraFrame').classList.toggle('ready', false);
   if(ticketMode){
-    setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'אפשר להמתין לזיהוי אוטומטי או ללחוץ צילום');
+    setCameraGuide('מקם את כל הטיקט בתוך המסגרת', 'הפענוח יתבצע רק אחרי לחיצה על צילום');
   }else{
     setCameraGuide('מרכז את הפסים בתוך המסגרת', 'הסריקה מתבצעת ברצף וללא צילום');
   }
@@ -2347,18 +2332,11 @@ function createEmptyTicketScanState(){
     lastOcrAt: 0,
     ocrBusy: false,
     completedBarcode: '',
-    fieldEvidence: {
-      sku: new Map(),
-      color: new Map(),
-      size: new Map(),
-    },
     fieldVotes: {
       sku: new Map(),
       color: new Map(),
       size: new Map(),
     },
-    quality: null,
-    frameCounter: 0,
     hintsAt: 0,
     startedAt: Date.now(),
   };
@@ -2366,7 +2344,6 @@ function createEmptyTicketScanState(){
 
 function resetTicketScanState(){
   _ticketScanState = createEmptyTicketScanState();
-  $('cameraFrame')?.classList.remove('ready');
   updateCameraCaptureButton();
 }
 
@@ -2377,12 +2354,6 @@ function updateCameraCaptureButton(){
   const busy = !!_ticketScanState?.captureBusy;
   btn.disabled = busy;
   label.textContent = busy ? 'מעבד...' : 'צילום';
-}
-
-function setTicketFrameReady(isReady){
-  const frame = $('cameraFrame');
-  if(!frame || !isTicketCameraMode()) return;
-  frame.classList.toggle('ready', !!isReady);
 }
 
 function normalizeTicketSize(raw){
@@ -2507,703 +2478,6 @@ function getStableTicketField(field){
     }
   });
   return bestCount >= TICKET_OCR_STABLE_HITS ? bestKey : '';
-}
-
-function clampTicketScore(value, min=0, max=1){
-  return Math.max(min, Math.min(max, value));
-}
-
-function normalizeTicketDigits(value){
-  return String(value || '').replace(/\D+/g, '');
-}
-
-function normalizeSkuTokenText(value){
-  return String(value || '')
-    .toUpperCase()
-    .replace(/[OQ]/g, '0')
-    .replace(/[I|L]/g, '1')
-    .replace(/S/g, '5')
-    .replace(/B/g, '8')
-    .replace(/Z/g, '2')
-    .replace(/[^0-9]/g, '');
-}
-
-function normalizeTicketColorKey(raw){
-  let value = normalizeTicketColor(raw)
-    .replace(/\s+/g, ' ')
-    .trim();
-  if(!value) return '';
-  if(TICKET_COLOR_CORRECTIONS[value]) value = TICKET_COLOR_CORRECTIONS[value];
-  if(/^ה[\u0590-\u05FF]{2,}$/.test(value)){
-    value = value.slice(1);
-  }
-  return TICKET_COLOR_CORRECTIONS[value] || value;
-}
-
-function levenshteinDistance(a, b){
-  const left = String(a || '');
-  const right = String(b || '');
-  if(!left) return right.length;
-  if(!right) return left.length;
-  const rows = Array.from({ length: left.length + 1 }, (_, index) => [index]);
-  for(let j = 1; j <= right.length; j += 1){
-    rows[0][j] = j;
-  }
-  for(let i = 1; i <= left.length; i += 1){
-    for(let j = 1; j <= right.length; j += 1){
-      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
-      rows[i][j] = Math.min(
-        rows[i - 1][j] + 1,
-        rows[i][j - 1] + 1,
-        rows[i - 1][j - 1] + cost
-      );
-    }
-  }
-  return rows[left.length][right.length];
-}
-
-function similarityRatio(a, b){
-  const left = String(a || '');
-  const right = String(b || '');
-  if(!left && !right) return 1;
-  const maxLen = Math.max(left.length, right.length, 1);
-  return 1 - (levenshteinDistance(left, right) / maxLen);
-}
-
-function buildTicketCatalogSnapshot(rows){
-  const list = Array.isArray(rows) ? rows : [];
-  const snapshot = {
-    skus: new Set(),
-    skuList: [],
-    colors: new Set(),
-    colorList: [],
-    skuToColors: new Map(),
-    skuColorToSizes: new Map(),
-    combos: new Set(),
-  };
-  list.forEach(row => {
-    const sku = String(row?.sku || '').trim();
-    const color = normalizeTicketColor(row?.color || '');
-    const colorKey = normalizeTicketColorKey(color);
-    const size = normalizeTicketSize(row?.size || '');
-    if(!sku) return;
-    snapshot.skus.add(sku);
-    if(colorKey){
-      snapshot.colors.add(colorKey);
-      if(!snapshot.skuToColors.has(sku)) snapshot.skuToColors.set(sku, new Set());
-      snapshot.skuToColors.get(sku).add(colorKey);
-      if(size){
-        snapshot.skuColorToSizes.set(`${sku}|${colorKey}`, snapshot.skuColorToSizes.get(`${sku}|${colorKey}`) || new Set());
-        snapshot.skuColorToSizes.get(`${sku}|${colorKey}`).add(size);
-        snapshot.combos.add(`${sku}|${colorKey}|${size}`);
-      }
-    }
-  });
-  snapshot.skuList = Array.from(snapshot.skus);
-  snapshot.colorList = Array.from(snapshot.colors);
-  return snapshot;
-}
-
-function getTicketCatalogSnapshot(){
-  if(!_ticketCatalogCache){
-    _ticketCatalogCache = buildTicketCatalogSnapshot(_allBarcodes);
-  }
-  return _ticketCatalogCache;
-}
-
-function findNearestCatalogSkus(rawSku, catalog, limit=3){
-  const sku = String(rawSku || '').trim();
-  if(!sku || !catalog?.skuList?.length) return [];
-  return catalog.skuList
-    .map(candidate => ({
-      value: candidate,
-      distance: levenshteinDistance(sku, candidate),
-      similarity: similarityRatio(sku, candidate),
-    }))
-    .filter(item => item.distance <= 1 || item.similarity >= 0.74)
-    .sort((a, b) => (a.distance - b.distance) || (b.similarity - a.similarity))
-    .slice(0, limit);
-}
-
-function findBestCatalogColorMatch(rawColor, catalog){
-  const normalized = normalizeTicketColorKey(rawColor);
-  if(!normalized) return null;
-  if(catalog?.colors?.has(normalized)){
-    return { value: normalized, similarity: 1 };
-  }
-  let best = null;
-  (catalog?.colorList || []).forEach(candidate => {
-    const similarity = similarityRatio(normalized, candidate);
-    if(!best || similarity > best.similarity){
-      best = { value: candidate, similarity };
-    }
-  });
-  if(best && best.similarity >= 0.56) return best;
-  return null;
-}
-
-function getWordBoxMetrics(box){
-  if(!box) return { width: 0, height: 0 };
-  return {
-    width: Math.max(0, (box.x1 ?? box.x0 ?? 0) - (box.x0 ?? 0)),
-    height: Math.max(0, (box.y1 ?? box.y0 ?? 0) - (box.y0 ?? 0)),
-  };
-}
-
-function isBarcodeLikeToken(token){
-  const value = String(token || '').trim();
-  if(!value) return false;
-  const digits = normalizeTicketDigits(value);
-  return digits.length >= 8 || /^[A-Z]?\d{8,}$/.test(value);
-}
-
-function addTicketCandidate(targetMap, value, payload={}){
-  const normalized = String(value || '').trim();
-  if(!normalized) return;
-  const key = payload.key || normalized.toLowerCase();
-  const current = targetMap.get(key) || {
-    value: normalized,
-    score: 0,
-    hits: 0,
-    ocrConfidence: 0,
-    frameIds: new Set(),
-    variants: new Set(),
-    catalogHits: 0,
-    businessBoost: 0,
-    reasons: [],
-  };
-  current.value = normalized;
-  current.score += Number(payload.score || 0);
-  current.hits += Number(payload.hits || 1);
-  current.ocrConfidence += Number(payload.ocrConfidence || 0);
-  if(payload.frameId !== undefined && payload.frameId !== null) current.frameIds.add(payload.frameId);
-  if(payload.variantName) current.variants.add(payload.variantName);
-  if(payload.catalogMatch) current.catalogHits += 1;
-  if(payload.businessBoost) current.businessBoost += Number(payload.businessBoost || 0);
-  if(payload.reason) current.reasons.push(payload.reason);
-  targetMap.set(key, current);
-}
-
-function mapTicketCandidatesToSortedArray(targetMap){
-  return Array.from(targetMap.values()).sort((a, b) => {
-    const left = a.score + (a.businessBoost || 0);
-    const right = b.score + (b.businessBoost || 0);
-    return right - left;
-  });
-}
-
-function collectHebrewPhrases(text){
-  return (normalizeTicketOcrText(text).match(/[\u0590-\u05FF]{2,}(?:\s+[\u0590-\u05FF]{2,})*/g) || [])
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-function buildTicketQualityDescriptor(quality){
-  if(!quality) return { title: 'מקם את הטיקט בתוך המסגרת', subtitle: 'המתן לייצוב התמונה' };
-  if(quality.ready){
-    return {
-      title: 'מיקום טוב, אפשר לצלם',
-      subtitle: 'המסגרת הירוקה אומרת שהטיקט חד וברור מספיק',
-    };
-  }
-  if(quality.coverageScore < 0.35){
-    return {
-      title: 'קרב את הטיקט למסגרת',
-      subtitle: 'כדאי שהמדבקה הלבנה תמלא יותר מהמלבן',
-    };
-  }
-  if(quality.centeredScore < 0.45){
-    return {
-      title: 'מרכז את הטיקט במלבן',
-      subtitle: 'כדאי שהטיקט יהיה באמצע ולא ייחתך בצדדים',
-    };
-  }
-  if(quality.sharpnessScore < 0.34){
-    return {
-      title: 'החזק את הטלפון יציב',
-      subtitle: 'הזיהוי ישתפר כשהטקסט יהיה חד יותר',
-    };
-  }
-  if(quality.brightnessScore < 0.34){
-    return {
-      title: 'שפר תאורה',
-      subtitle: 'קצת יותר אור יעזור לפענוח מהיר ומדויק יותר',
-    };
-  }
-  return {
-    title: 'כמעט שם',
-    subtitle: 'הזז מעט את הטיקט עד שהמסגרת תיצבע בירוק',
-  };
-}
-
-function evaluateTicketFrameQuality(frameCanvas){
-  const sampleWidth = 96;
-  const sampleHeight = Math.max(56, Math.round(sampleWidth * (frameCanvas.height / Math.max(frameCanvas.width, 1))));
-  const probe = document.createElement('canvas');
-  probe.width = sampleWidth;
-  probe.height = sampleHeight;
-  const pctx = probe.getContext('2d', { willReadFrequently: true });
-  pctx.drawImage(frameCanvas, 0, 0, sampleWidth, sampleHeight);
-  const { data } = pctx.getImageData(0, 0, sampleWidth, sampleHeight);
-  const luminance = new Float32Array(sampleWidth * sampleHeight);
-  let sum = 0;
-  let sumSquares = 0;
-
-  for(let index = 0; index < luminance.length; index += 1){
-    const pixel = index * 4;
-    const value = (data[pixel] * 0.2126) + (data[pixel + 1] * 0.7152) + (data[pixel + 2] * 0.0722);
-    luminance[index] = value;
-    sum += value;
-    sumSquares += value * value;
-  }
-
-  const mean = sum / Math.max(luminance.length, 1);
-  const variance = Math.max(0, (sumSquares / Math.max(luminance.length, 1)) - (mean * mean));
-  const contrast = Math.sqrt(variance);
-  let gradientSum = 0;
-  let gradientCount = 0;
-  for(let y = 1; y < sampleHeight - 1; y += 1){
-    for(let x = 1; x < sampleWidth - 1; x += 1){
-      const idx = (y * sampleWidth) + x;
-      const dx = Math.abs(luminance[idx + 1] - luminance[idx - 1]);
-      const dy = Math.abs(luminance[idx + sampleWidth] - luminance[idx - sampleWidth]);
-      gradientSum += dx + dy;
-      gradientCount += 1;
-    }
-  }
-  const sharpness = gradientSum / Math.max(gradientCount, 1);
-  const labelRect = findBrightLabelRect(frameCanvas);
-  const frameArea = Math.max(frameCanvas.width * frameCanvas.height, 1);
-  const labelArea = labelRect ? labelRect.width * labelRect.height : 0;
-  const coverage = labelArea / frameArea;
-  const frameCenterX = frameCanvas.width / 2;
-  const frameCenterY = frameCanvas.height / 2;
-  const labelCenterX = labelRect ? labelRect.x + (labelRect.width / 2) : frameCenterX;
-  const labelCenterY = labelRect ? labelRect.y + (labelRect.height / 2) : frameCenterY;
-  const centerDistance = Math.hypot(labelCenterX - frameCenterX, labelCenterY - frameCenterY) / Math.hypot(frameCenterX, frameCenterY);
-
-  const brightnessScore = clampTicketScore(1 - (Math.abs(mean - 176) / 120));
-  const contrastScore = clampTicketScore((contrast - 16) / 36);
-  const sharpnessScore = clampTicketScore((sharpness - 14) / 40);
-  const coverageScore = labelRect ? clampTicketScore((coverage - 0.12) / 0.22) : 0;
-  const centeredScore = labelRect ? clampTicketScore(1 - (centerDistance / 0.48)) : 0;
-  const rectangularityScore = labelRect
-    ? clampTicketScore(((labelRect.width / Math.max(labelRect.height, 1)) - 1.15) / 2.3)
-    : 0;
-
-  const score = Math.round(
-    (
-      (brightnessScore * 0.16) +
-      (contrastScore * 0.2) +
-      (sharpnessScore * 0.28) +
-      (coverageScore * 0.2) +
-      (centeredScore * 0.1) +
-      (rectangularityScore * 0.06)
-    ) * 100
-  );
-  const ready = !!labelRect && score >= TICKET_FRAME_READY_SCORE && sharpnessScore >= TICKET_FRAME_MIN_SHARPNESS;
-  const canOcr = !!labelRect && score >= TICKET_FRAME_CAPTURE_SCORE && sharpnessScore >= 0.16;
-
-  return {
-    labelRect,
-    mean,
-    contrast,
-    sharpness,
-    coverage,
-    score,
-    ready,
-    canOcr,
-    brightnessScore,
-    contrastScore,
-    sharpnessScore,
-    coverageScore,
-    centeredScore,
-    rectangularityScore,
-  };
-}
-
-function createTicketOcrVariantCanvas(sourceCanvas, options={}){
-  const out = document.createElement('canvas');
-  out.width = Math.min(1700, Math.max(720, Math.round(sourceCanvas.width * (options.scale || 2))));
-  out.height = Math.min(1240, Math.max(340, Math.round(sourceCanvas.height * (options.scale || 2))));
-  const ctx = out.getContext('2d', { willReadFrequently: true });
-  ctx.filter = `grayscale(1) contrast(${options.contrast || 1.5}) brightness(${options.brightness || 1.04})`;
-  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
-  ctx.filter = 'none';
-  const image = ctx.getImageData(0, 0, out.width, out.height);
-  const pixels = image.data;
-  let mean = 0;
-  for(let i = 0; i < pixels.length; i += 4){
-    mean += pixels[i];
-  }
-  mean /= Math.max(pixels.length / 4, 1);
-  const threshold = options.threshold || mean;
-  for(let i = 0; i < pixels.length; i += 4){
-    const value = pixels[i];
-    let nextValue = value;
-    if(options.sharpen){
-      const delta = (value - mean) * options.sharpen;
-      nextValue = clampTicketScore((value + delta) / 255, 0, 1) * 255;
-    }
-    if(options.binary){
-      nextValue = nextValue > threshold ? 255 : 0;
-    }
-    pixels[i] = nextValue;
-    pixels[i + 1] = nextValue;
-    pixels[i + 2] = nextValue;
-  }
-  ctx.putImageData(image, 0, 0);
-  return out;
-}
-
-function buildTicketOcrVariants(frameCanvas, quality, options={}){
-  const labelRect = quality?.labelRect || findBrightLabelRect(frameCanvas) || {
-    x: 0,
-    y: Math.round(frameCanvas.height * 0.12),
-    width: frameCanvas.width,
-    height: Math.round(frameCanvas.height * 0.72),
-  };
-  const labelCanvas = createCanvasRegionCopy(frameCanvas, labelRect);
-  const variants = [
-    {
-      name: 'base-binary',
-      weight: 1,
-      canvas: createTicketOcrVariantCanvas(labelCanvas, { scale: 2, contrast: 1.55, brightness: 1.06, binary: true, threshold: 168 }),
-    },
-    {
-      name: 'contrast-soft',
-      weight: 0.92,
-      canvas: createTicketOcrVariantCanvas(labelCanvas, { scale: 2, contrast: 1.7, brightness: 1.08, binary: false, sharpen: 0.26 }),
-    },
-    {
-      name: 'dark-threshold',
-      weight: 0.88,
-      canvas: createTicketOcrVariantCanvas(labelCanvas, { scale: 2.1, contrast: 1.85, brightness: 1.02, binary: true, threshold: 148, sharpen: 0.32 }),
-    },
-    {
-      name: 'light-threshold',
-      weight: 0.84,
-      canvas: createTicketOcrVariantCanvas(labelCanvas, { scale: 2.1, contrast: 1.42, brightness: 1.12, binary: true, threshold: 182 }),
-    },
-  ];
-  return options.mode === 'capture' ? variants : variants.slice(0, 3);
-}
-
-function buildOcrLineContexts(data){
-  return (Array.isArray(data?.lines) ? data.lines : [])
-    .map(line => ({
-      text: normalizeTicketOcrText(line?.text || ''),
-      confidence: Number(line?.confidence || 0),
-      bbox: line?.bbox || null,
-    }))
-    .filter(line => line.text);
-}
-
-function findOcrLineForWord(wordBox, lines){
-  if(!wordBox || !lines.length) return null;
-  const wordMidY = ((wordBox.y0 ?? 0) + (wordBox.y1 ?? 0)) / 2;
-  let best = null;
-  lines.forEach(line => {
-    const box = line.bbox;
-    if(!box) return;
-    const top = box.y0 ?? 0;
-    const bottom = box.y1 ?? 0;
-    const inside = wordMidY >= top && wordMidY <= bottom;
-    const distance = inside ? 0 : Math.min(Math.abs(wordMidY - top), Math.abs(wordMidY - bottom));
-    if(!best || distance < best.distance){
-      best = { line, distance };
-    }
-  });
-  return best?.line || null;
-}
-
-function analyzeTicketOcrVariant(data, context={}){
-  const catalog = context.catalog || getTicketCatalogSnapshot();
-  const barcodeDigits = normalizeTicketDigits(context.barcode || '');
-  const frameId = context.frameId;
-  const variantName = context.variantName || 'variant';
-  const variantWeight = Number(context.variantWeight || 1);
-  const lines = buildOcrLineContexts(data);
-  const words = (Array.isArray(data?.words) ? data.words : []).map(word => {
-    const text = normalizeTicketOcrText(word?.text || '');
-    const confidence = Number(word?.confidence || data?.confidence || 0);
-    const bbox = word?.bbox || null;
-    const line = findOcrLineForWord(bbox, lines);
-    return { text, confidence, bbox, line };
-  }).filter(word => word.text);
-  const result = {
-    sku: new Map(),
-    color: new Map(),
-    size: new Map(),
-    text: normalizeTicketOcrText(data?.text || ''),
-    confidence: Number(data?.confidence || 0),
-  };
-
-  const scoreTextHeight = bbox => {
-    const { height } = getWordBoxMetrics(bbox);
-    return clampTicketScore((height - 16) / 34);
-  };
-
-  words.forEach(word => {
-    const rawText = word.text;
-    const normalizedDigits = normalizeSkuTokenText(rawText);
-    const lineText = word.line?.text || '';
-    const lineHasHebrew = /[\u0590-\u05FF]/.test(lineText);
-    const lineHasSize = !!extractSizeFromLine(lineText);
-    const geometryScore = scoreTextHeight(word.bbox);
-
-    if(/^\d{5}$/.test(normalizedDigits) && !isBarcodeLikeToken(rawText)){
-      const inCatalog = catalog?.skus?.has(normalizedDigits);
-      addTicketCandidate(result.sku, normalizedDigits, {
-        key: normalizedDigits,
-        score: (30 + (word.confidence * 0.22) + (geometryScore * 12) + (lineHasHebrew ? 6 : 0) + (lineHasSize ? 4 : 0) + (inCatalog ? 18 : 0)) * variantWeight,
-        ocrConfidence: word.confidence,
-        frameId,
-        variantName,
-        catalogMatch: inCatalog,
-        reason: 'exact-word',
-      });
-    }else if(normalizedDigits.length === 5){
-      const inCatalog = catalog?.skus?.has(normalizedDigits);
-      const barcodePenalty = barcodeDigits.includes(normalizedDigits) ? 16 : 0;
-      addTicketCandidate(result.sku, normalizedDigits, {
-        key: normalizedDigits,
-        score: Math.max(0, (18 + (word.confidence * 0.18) + (geometryScore * 8) + (inCatalog ? 16 : 0) - barcodePenalty)) * variantWeight,
-        ocrConfidence: word.confidence,
-        frameId,
-        variantName,
-        catalogMatch: inCatalog,
-        reason: 'normalized-word',
-      });
-    }
-
-    const sizeValue = normalizeTicketSize(rawText);
-    if(sizeValue){
-      addTicketCandidate(result.size, sizeValue, {
-        key: sizeValue,
-        score: (24 + (word.confidence * 0.2) + (geometryScore * 10)) * variantWeight,
-        ocrConfidence: word.confidence,
-        frameId,
-        variantName,
-        reason: 'size-word',
-      });
-    }
-
-    if(/[\u0590-\u05FF]{2,}/.test(rawText)){
-      const match = findBestCatalogColorMatch(rawText, catalog);
-      const colorValue = match?.value || normalizeTicketColorKey(rawText);
-      if(colorValue){
-        addTicketCandidate(result.color, colorValue, {
-          key: colorValue,
-          score: (18 + (word.confidence * 0.18) + ((match?.similarity || 0.42) * 30) + (geometryScore * 8) + (match ? 10 : 0)) * variantWeight,
-          ocrConfidence: word.confidence,
-          frameId,
-          variantName,
-          catalogMatch: !!match,
-          reason: 'color-word',
-        });
-      }
-    }
-  });
-
-  lines.forEach(line => {
-    const text = line.text;
-    const lineConfidence = Number(line.confidence || result.confidence || 0);
-    const lineHasHebrew = /[\u0590-\u05FF]/.test(text);
-    const sizeFromLine = extractSizeFromLine(text);
-    const lineBarcodeLike = isBarcodeLikeToken(text) || /\d{8,}/.test(normalizeTicketDigits(text));
-
-    (text.match(/\b\d{5}\b/g) || []).forEach(match => {
-      const barcodePenalty = barcodeDigits.includes(match) && lineBarcodeLike ? 20 : 0;
-      const inCatalog = catalog?.skus?.has(match);
-      addTicketCandidate(result.sku, match, {
-        key: match,
-        score: Math.max(0, (22 + (lineConfidence * 0.18) + (lineHasHebrew ? 4 : 0) + (sizeFromLine ? 4 : 0) + (inCatalog ? 14 : 0) - barcodePenalty)) * variantWeight,
-        ocrConfidence: lineConfidence,
-        frameId,
-        variantName,
-        catalogMatch: inCatalog,
-        reason: 'line-match',
-      });
-    });
-
-    if(sizeFromLine){
-      addTicketCandidate(result.size, sizeFromLine, {
-        key: sizeFromLine,
-        score: (20 + (lineConfidence * 0.18)) * variantWeight,
-        ocrConfidence: lineConfidence,
-        frameId,
-        variantName,
-        reason: 'line-size',
-      });
-    }
-
-    collectHebrewPhrases(text).forEach(phrase => {
-      const match = findBestCatalogColorMatch(phrase, catalog);
-      const value = match?.value || normalizeTicketColorKey(phrase);
-      if(!value) return;
-      addTicketCandidate(result.color, value, {
-        key: value,
-        score: (16 + (lineConfidence * 0.16) + ((match?.similarity || 0.38) * 28) + (match ? 12 : 0)) * variantWeight,
-        ocrConfidence: lineConfidence,
-        frameId,
-        variantName,
-        catalogMatch: !!match,
-        reason: 'line-color',
-      });
-    });
-  });
-
-  if(result.text){
-    const fallback = parseTicketFieldsFromOcrText(result.text);
-    if(fallback.sku){
-      const inCatalog = catalog?.skus?.has(fallback.sku);
-      addTicketCandidate(result.sku, fallback.sku, {
-        key: fallback.sku,
-        score: 14 + (inCatalog ? 10 : 0),
-        ocrConfidence: result.confidence,
-        frameId,
-        variantName,
-        catalogMatch: inCatalog,
-        reason: 'fallback-text',
-      });
-    }
-    if(fallback.color){
-      const match = findBestCatalogColorMatch(fallback.color, catalog);
-      const value = match?.value || normalizeTicketColorKey(fallback.color);
-      if(value){
-        addTicketCandidate(result.color, value, {
-          key: value,
-          score: 12 + ((match?.similarity || 0.34) * 20),
-          ocrConfidence: result.confidence,
-          frameId,
-          variantName,
-          catalogMatch: !!match,
-          reason: 'fallback-color',
-        });
-      }
-    }
-    if(fallback.size){
-      addTicketCandidate(result.size, fallback.size, {
-        key: fallback.size,
-        score: 12,
-        ocrConfidence: result.confidence,
-        frameId,
-        variantName,
-        reason: 'fallback-size',
-      });
-    }
-  }
-
-  mapTicketCandidatesToSortedArray(result.sku)
-    .filter(candidate => !catalog?.skus?.has(candidate.value))
-    .slice(0, 2)
-    .forEach(candidate => {
-      findNearestCatalogSkus(candidate.value, catalog, 2).forEach(match => {
-        addTicketCandidate(result.sku, match.value, {
-          key: match.value,
-          score: (candidate.score * 0.34) + (match.similarity * 22),
-          ocrConfidence: candidate.ocrConfidence / Math.max(candidate.hits, 1),
-          frameId,
-          variantName,
-          catalogMatch: true,
-          reason: 'catalog-neighbor',
-        });
-      });
-    });
-
-  return result;
-}
-
-function mergeTicketVariantResult(target, incoming){
-  ['sku','color','size'].forEach(field => {
-    incoming[field].forEach((candidate, key) => {
-      addTicketCandidate(target[field], candidate.value, {
-        key,
-        score: candidate.score,
-        hits: candidate.hits,
-        ocrConfidence: candidate.ocrConfidence,
-        frameId: Array.from(candidate.frameIds || [])[0],
-        variantName: Array.from(candidate.variants || [])[0],
-        catalogMatch: candidate.catalogHits > 0,
-        businessBoost: candidate.businessBoost || 0,
-        reason: candidate.reasons?.[0] || '',
-      });
-    });
-  });
-}
-
-function computeTicketBusinessBoost(field, candidateValue, context){
-  const catalog = context.catalog;
-  if(!catalog) return 0;
-  const provisionalSku = field === 'sku' ? candidateValue : context.sku;
-  const provisionalColor = field === 'color' ? candidateValue : context.color;
-  const provisionalSize = field === 'size' ? candidateValue : context.size;
-  let boost = 0;
-
-  if(field === 'sku' && provisionalSku && catalog.skus.has(provisionalSku)) boost += 10;
-  if(field === 'color' && provisionalColor && catalog.colors.has(provisionalColor)) boost += 8;
-  if(field === 'size' && provisionalSize) boost += 4;
-  if(provisionalSku && provisionalColor && catalog.skuToColors.get(provisionalSku)?.has(provisionalColor)) boost += 14;
-  if(provisionalSku && provisionalColor && provisionalSize && catalog.combos.has(`${provisionalSku}|${provisionalColor}|${provisionalSize}`)) boost += 22;
-  return boost;
-}
-
-function pickBestTicketFieldCandidate(field, evidenceMap, context){
-  const candidates = mapTicketCandidatesToSortedArray(evidenceMap).map(candidate => {
-    const frameHits = candidate.frameIds?.size || 0;
-    const variantHits = candidate.variants?.size || 0;
-    const avgConfidence = candidate.ocrConfidence / Math.max(candidate.hits, 1);
-    const businessBoost = computeTicketBusinessBoost(field, candidate.value, context);
-    return {
-      ...candidate,
-      avgConfidence,
-      frameHits,
-      variantHits,
-      finalScore: candidate.score + businessBoost + (frameHits * 8) + (variantHits * 6) + (avgConfidence * 0.18),
-      businessBoost,
-    };
-  });
-  return candidates.sort((a, b) => b.finalScore - a.finalScore)[0] || null;
-}
-
-function resolveTicketEvidenceState(options={}){
-  const state = options.state || _ticketScanState;
-  const catalog = options.catalog || getTicketCatalogSnapshot();
-  if(!state?.fieldEvidence) return null;
-  const initial = {
-    sku: pickBestTicketFieldCandidate('sku', state.fieldEvidence.sku, { catalog, color: '', size: '' }),
-    color: pickBestTicketFieldCandidate('color', state.fieldEvidence.color, { catalog, sku: '', size: '' }),
-    size: pickBestTicketFieldCandidate('size', state.fieldEvidence.size, { catalog, sku: '', color: '' }),
-  };
-  const refined = {
-    sku: pickBestTicketFieldCandidate('sku', state.fieldEvidence.sku, { catalog, color: initial.color?.value || '', size: initial.size?.value || '' }),
-    color: pickBestTicketFieldCandidate('color', state.fieldEvidence.color, { catalog, sku: initial.sku?.value || '', size: initial.size?.value || '' }),
-    size: pickBestTicketFieldCandidate('size', state.fieldEvidence.size, { catalog, sku: initial.sku?.value || '', color: initial.color?.value || '' }),
-  };
-  const comboBoost = refined.sku?.value && refined.color?.value && refined.size?.value && catalog.combos.has(`${refined.sku.value}|${refined.color.value}|${refined.size.value}`);
-  const businessReady = catalog?.skuList?.length
-    ? !!(comboBoost || ((refined.sku?.catalogHits || 0) > 0 && (refined.color?.catalogHits || 0) > 0))
-    : true;
-  return {
-    fields: {
-      sku: refined.sku?.value || '',
-      color: refined.color?.value || '',
-      size: refined.size?.value || '',
-    },
-    meta: refined,
-    stable: !!(
-      refined.sku?.finalScore >= TICKET_MIN_FIELD_SCORE &&
-      refined.color?.finalScore >= TICKET_MIN_FIELD_SCORE &&
-      refined.size?.finalScore >= TICKET_MIN_FIELD_SCORE &&
-      (refined.sku?.frameHits || 0) >= TICKET_OCR_STABLE_HITS &&
-      (refined.color?.frameHits || 0) >= TICKET_OCR_STABLE_HITS &&
-      (refined.size?.frameHits || 0) >= TICKET_OCR_STABLE_HITS &&
-      businessReady
-    ),
-    comboBoost,
-    businessReady,
-  };
 }
 
 function fillBarcodeManagerForm(data, opts={}){
@@ -3404,84 +2678,11 @@ async function ensureTicketOcrWorker(){
   }
 }
 
-function mergeTicketEvidenceMaps(targetMap, sourceMap){
-  sourceMap.forEach((candidate, key) => {
-    const current = targetMap.get(key) || {
-      value: candidate.value,
-      score: 0,
-      hits: 0,
-      ocrConfidence: 0,
-      frameIds: new Set(),
-      variants: new Set(),
-      catalogHits: 0,
-      businessBoost: 0,
-      reasons: [],
-    };
-    current.value = candidate.value;
-    current.score += Number(candidate.score || 0);
-    current.hits += Number(candidate.hits || 0);
-    current.ocrConfidence += Number(candidate.ocrConfidence || 0);
-    (candidate.frameIds || new Set()).forEach(frameId => current.frameIds.add(frameId));
-    (candidate.variants || new Set()).forEach(name => current.variants.add(name));
-    current.catalogHits += Number(candidate.catalogHits || 0);
-    current.businessBoost += Number(candidate.businessBoost || 0);
-    current.reasons.push(...(candidate.reasons || []));
-    targetMap.set(key, current);
-  });
-}
-
-function commitTicketRecognitionEvidence(recognition){
-  if(!_ticketScanState?.fieldEvidence || !recognition?.aggregate) return resolveTicketEvidenceState();
-  mergeTicketEvidenceMaps(_ticketScanState.fieldEvidence.sku, recognition.aggregate.sku);
-  mergeTicketEvidenceMaps(_ticketScanState.fieldEvidence.color, recognition.aggregate.color);
-  mergeTicketEvidenceMaps(_ticketScanState.fieldEvidence.size, recognition.aggregate.size);
-  return resolveTicketEvidenceState({ state:_ticketScanState, catalog:recognition.catalog || getTicketCatalogSnapshot() });
-}
-
-async function recognizeTicketFieldsFromCanvas(frameCanvas, options={}){
-  const quality = options.quality || evaluateTicketFrameQuality(frameCanvas);
-  if(!quality.canOcr && !options.force){
-    return {
-      skipped: true,
-      reason: 'low_quality',
-      quality,
-      aggregate: { sku:new Map(), color:new Map(), size:new Map() },
-      catalog: getTicketCatalogSnapshot(),
-    };
-  }
-
+async function recognizeTicketFieldsFromCanvas(frameCanvas){
   const worker = await ensureTicketOcrWorker();
-  const catalog = getTicketCatalogSnapshot();
-  const frameId = options.frameId ?? ((_ticketScanState?.frameCounter || 0) + 1);
-  const aggregate = { sku:new Map(), color:new Map(), size:new Map() };
-  const variants = buildTicketOcrVariants(frameCanvas, quality, { mode: options.mode === 'capture' ? 'capture' : 'live' });
-
-  for(const variant of variants){
-    const result = await worker.recognize(variant.canvas);
-    const analysis = analyzeTicketOcrVariant(result?.data || {}, {
-      catalog,
-      barcode: options.barcode || _ticketScanState?.barcode || '',
-      frameId,
-      variantName: variant.name,
-      variantWeight: variant.weight,
-    });
-    mergeTicketVariantResult(aggregate, analysis);
-  }
-
-  const resolved = resolveTicketEvidenceState({
-    state: { fieldEvidence: aggregate },
-    catalog,
-  });
-
-  return {
-    skipped: false,
-    frameId,
-    quality,
-    variants,
-    aggregate,
-    resolved,
-    catalog,
-  };
+  const prepared = buildTicketOcrCanvas(frameCanvas);
+  const result = await worker.recognize(prepared);
+  return parseTicketFieldsFromOcrText(result?.data?.text || '');
 }
 
 function buildTicketFrameCanvas(){
@@ -3517,27 +2718,8 @@ async function handleKnownTicketBarcode(barcode, row){
   return true;
 }
 
-async function finalizeTicketRecognition(resolved, successMessage){
-  if(!_ticketScanState || !resolved?.fields) return false;
-  fillBarcodeManagerForm({
-    barcode: _ticketScanState.barcode,
-    sku: resolved.fields.sku,
-    color: resolved.fields.color,
-    size: resolved.fields.size,
-  }, { focusField:'bcNewColor' });
-  $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהסריקה`;
-  soundOk();
-  popup(successMessage || 'הטיקט זוהה ✓','success',1200);
-  setCameraStatus('הטיקט זוהה. השדות מולאו, אפשר לבדוק וללחוץ הוסף.');
-  await closeCameraScanner();
-  return true;
-}
-
 async function processCapturedTicketFrame(frameCanvas){
   if(!_ticketScanState) return false;
-  const quality = evaluateTicketFrameQuality(frameCanvas);
-  _ticketScanState.quality = quality;
-  setTicketFrameReady(quality.ready);
   setCameraStatus('מעבד את הצילום...');
   let barcode = _ticketScanState.barcode || '';
   if(!barcode){
@@ -3556,29 +2738,24 @@ async function processCapturedTicketFrame(frameCanvas){
     }
     $('lastScan4').textContent=`נסרק: ${barcode} · ברקוד חדש, קורא את פרטי הטיקט`;
   }
-
-  if(!quality.canOcr){
-    setCameraStatus('הברקוד זוהה, אבל הצילום עדיין לא חד מספיק. קרב וייצב את הטיקט עד שהמסגרת תיצבע בירוק.', true);
-    popup('צריך צילום חד יותר','error',1200);
+  const fields = await recognizeTicketFieldsFromCanvas(frameCanvas);
+  if(!(fields.sku && fields.color && fields.size)){
+    setCameraStatus('לא הצלחתי לקרוא מספיק פרטים מהצילום. נסה צילום קרוב וחד יותר.', true);
+    popup('הצילום לא הספיק','error',1200);
     return false;
   }
-
-  _ticketScanState.frameCounter += 1;
-  const recognition = await recognizeTicketFieldsFromCanvas(frameCanvas, {
-    quality,
-    mode: 'capture',
-    force: true,
+  fillBarcodeManagerForm({
     barcode,
-    frameId: _ticketScanState.frameCounter,
-  });
-  const resolved = commitTicketRecognitionEvidence(recognition);
-  if(resolved?.stable){
-    return finalizeTicketRecognition(resolved, 'הצילום פוענח ✓');
-  }
-
-  setCameraStatus('קראתי חלק מהפרטים, אבל עדיין אין מספיק יציבות. נסה עוד צילום חד או המתן עוד רגע לסריקה חיה.', true);
-  popup('צריך עוד קצת יציבות','error',1200);
-  return false;
+    sku: fields.sku,
+    color: fields.color,
+    size: fields.size,
+  }, { focusField:'bcNewColor' });
+  $('lastScan4').textContent=`הטיקט זוהה: ${barcode} · השדות מולאו מהצילום`;
+  soundOk();
+  popup('הצילום פוענח ✓','success',1200);
+  setCameraStatus('הצילום פוענח. אפשר לבדוק את השדות וללחוץ הוסף.');
+  await closeCameraScanner();
+  return true;
 }
 
 async function captureTicketStill(){
@@ -3604,46 +2781,58 @@ async function captureTicketStill(){
   }
 }
 
-function updateTicketGuidance(quality){
+function updateTicketGuidance(){
   if(!_ticketScanState) return;
-  const descriptor = buildTicketQualityDescriptor(quality);
-  setTicketFrameReady(!!quality?.ready);
-  setCameraGuide(descriptor.title, descriptor.subtitle);
   const elapsed = Date.now() - _ticketScanState.startedAt;
   if(elapsed > TICKET_FRAME_TIMEOUT_MS){
     setCameraStatus('עדיין לא זיהיתי מספיק פרטים. נסה להתקרב לטיקט או לשפר תאורה.', true);
+    setCameraGuide('החזק את המכשיר יציב', 'ודא שכל המדבקה הלבנה נכנסת למסגרת');
     return;
   }
   if(!_ticketScanState.barcode){
-    setCameraStatus(quality?.ready ? 'מיקום טוב. מחפש ברקוד...' : 'המסגרת תהפוך לירוקה כשהטיקט יהיה חד וברור מספיק.');
+    setCameraStatus('מחפש ברקוד...');
+    if(elapsed > 5000){
+      setCameraGuide('קרב את הטיקט למצלמה', 'נסה למקם את המדבקה הלבנה כולה בתוך המסגרת');
+    }
     return;
   }
   if(_ticketScanState.ocrBusy){
-    setCameraStatus(quality?.ready ? 'מיקום טוב. קורא את פרטי המוצר...' : 'הברקוד זוהה, מחכה לפריים חד יותר כדי לקרוא את הפרטים.');
-    return;
-  }
-  if(!quality?.canOcr){
-    setCameraStatus('הברקוד זוהה. קרב או ייצב את הטיקט עד שהמסגרת תיצבע בירוק.');
+    setCameraStatus('קורא פרטי מוצר...');
     return;
   }
   setCameraStatus('הברקוד זוהה, קורא את פרטי הטיקט...');
 }
 
-async function applyTicketOcrResult(recognition){
-  if(!_ticketScanState || !recognition) return false;
-  const resolved = commitTicketRecognitionEvidence(recognition);
-  if(!resolved?.stable) return false;
-  return finalizeTicketRecognition(resolved, 'הטיקט זוהה ✓');
+async function applyTicketOcrResult(fields){
+  if(!_ticketScanState) return false;
+  if(fields.sku) voteTicketField('sku', fields.sku);
+  if(fields.color) voteTicketField('color', fields.color);
+  if(fields.size) voteTicketField('size', fields.size);
+  const stableSku = getStableTicketField('sku');
+  const stableColor = getStableTicketField('color');
+  const stableSize = getStableTicketField('size');
+  if(!(stableSku && stableColor && stableSize)) return false;
+
+  fillBarcodeManagerForm({
+    barcode: _ticketScanState.barcode,
+    sku: stableSku,
+    color: stableColor,
+    size: stableSize,
+  }, { focusField:'bcNewColor' });
+  $('lastScan4').textContent=`הטיקט זוהה: ${_ticketScanState.barcode} · השדות מולאו מהסריקה`;
+  soundOk();
+  popup('הטיקט זוהה ✓','success',1200);
+  setCameraStatus('הטיקט זוהה. השדות מולאו, אפשר לבדוק וללחוץ הוסף.');
+  await closeCameraScanner();
+  return true;
 }
 
 async function scanTicketFrame(){
   if(!_cameraCanvas || !_ticketScanState) return false;
   if(_ticketScanState.captureBusy) return false;
   const frameCanvas = buildTicketFrameCanvas();
-  const quality = evaluateTicketFrameQuality(frameCanvas);
-  _ticketScanState.quality = quality;
-  updateTicketGuidance(quality);
   if(!_ticketScanState.barcode){
+    updateTicketGuidance();
     const barcode = await detectTicketBarcode(frameCanvas);
     if(!barcode) return false;
 
@@ -3662,29 +2851,19 @@ async function scanTicketFrame(){
   if(_ticketScanState.barcodeKnown) return true;
   const now = Date.now();
   if(_ticketScanState.ocrBusy || (now - _ticketScanState.lastOcrAt) < TICKET_OCR_INTERVAL_MS){
+    updateTicketGuidance();
     return false;
   }
-  if(!quality.canOcr) return false;
 
   _ticketScanState.ocrBusy = true;
   _ticketScanState.lastOcrAt = now;
   try{
     setCameraStatus('קורא פרטי מוצר...');
-    _ticketScanState.frameCounter += 1;
-    const recognition = await recognizeTicketFieldsFromCanvas(frameCanvas, {
-      quality,
-      mode: 'live',
-      barcode: _ticketScanState.barcode,
-      frameId: _ticketScanState.frameCounter,
-    });
-    if(!recognition?.skipped && (
-      recognition.aggregate.sku.size ||
-      recognition.aggregate.color.size ||
-      recognition.aggregate.size.size
-    )){
-      return await applyTicketOcrResult(recognition);
+    const fields = await recognizeTicketFieldsFromCanvas(frameCanvas);
+    if(fields.sku || fields.color || fields.size){
+      return await applyTicketOcrResult(fields);
     }
-    setCameraStatus('עדיין קורא את הטיקט... החזק את המכשיר יציב עד שהמסגרת תישאר ירוקה.');
+    setCameraStatus('עדיין קורא את הטיקט... החזק את המכשיר יציב.');
   }catch(err){
     if(err?.message === 'tesseract_unavailable'){
       setCameraStatus('מנוע זיהוי הטקסט לא נטען. אפשר להקליד את הפרטים ידנית.', true);
@@ -3859,6 +3038,7 @@ async function scanCameraFrame(){
     }
     return;
   }
+  if(isTicketCameraMode()) return;
 
   _cameraDecodeBusy=true;
   let nextDelay = CAMERA_SCAN_INTERVAL_MS;
@@ -3875,13 +3055,6 @@ async function scanCameraFrame(){
     }
     _cameraCtx.drawImage(video, 0, 0, width, height);
     if(!_cameraLoopActive || sessionToken !== _cameraSessionToken) return;
-    if(isTicketCameraMode()){
-      const done = await scanTicketFrame();
-      if(done){
-        nextDelay = CAMERA_SUCCESS_PAUSE_MS;
-      }
-      return;
-    }
     const imageData=_cameraCtx.getImageData(0, 0, width, height);
     if(!_cameraLoopActive || sessionToken !== _cameraSessionToken) return;
     const results = await ZXingWASM.readBarcodesFromImageData(imageData, {
@@ -3935,13 +3108,15 @@ async function startCameraStream(){
   setCameraStatus(
     isTicketCameraMode()
       ? (_cameraFacing === 'environment'
-          ? 'המצלמה האחורית פעילה. מקם את כל הטיקט בתוך המסגרת.'
-          : 'המצלמה הקדמית פעילה. מקם את כל הטיקט בתוך המסגרת.')
+          ? 'המצלמה האחורית פעילה. מקם את כל הטיקט בתוך המסגרת ואז לחץ צילום.'
+          : 'המצלמה הקדמית פעילה. מקם את כל הטיקט בתוך המסגרת ואז לחץ צילום.')
       : (_cameraFacing === 'environment'
           ? 'המצלמה האחורית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.'
           : 'המצלמה הקדמית פעילה. מרכז את הפסים בתוך המסגרת והמשך לסרוק ברצף.')
   );
-  scanCameraFrame();
+  if(!isTicketCameraMode()){
+    scanCameraFrame();
+  }
 }
 
 async function openCameraScanner(mode){
@@ -3975,7 +3150,7 @@ async function openCameraScanner(mode){
   $('cameraOverlay').setAttribute('aria-hidden','false');
   setCameraStatus(
     ticketMode
-      ? 'פותח מצלמה לסריקת טיקט... אפשר גם ללחוץ צילום'
+      ? 'פותח מצלמה לצילום טיקט... הזיהוי יתבצע אחרי לחיצה על צילום'
       : (_cameraFacing === 'environment' ? 'פותח מצלמה אחורית...' : 'פותח מצלמה קדמית...')
   );
 
@@ -4644,9 +3819,7 @@ async function importLocations(){
 let _allBarcodes=[];
 
 async function loadBarcodes(){
-  const rows = await GET('/api/barcodes');
-  _allBarcodes = Array.isArray(rows) ? rows : [];
-  _ticketCatalogCache = buildTicketCatalogSnapshot(_allBarcodes);
+  _allBarcodes=await GET('/api/barcodes');
   renderBarcodeTable();
   const skus=new Set(_allBarcodes.map(r=>r.sku));
   $('stat4Total').textContent=_allBarcodes.length;
