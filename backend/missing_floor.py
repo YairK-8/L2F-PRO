@@ -121,6 +121,51 @@ def _resolve_missing_floor_item(conn, branch_id, sku, color, size):
     )
 
 
+def _session_missing_sizes(session_data):
+    all_sizes = session_data.get("sizes_all") or []
+    found_set = set(session_data.get("sizes_found") or [])
+    return [size for size in all_sizes if size not in found_set]
+
+
+def _approve_session_data(conn, branch_id, session_data, session_date=None):
+    missing = _session_missing_sizes(session_data)
+    location_hint = _location_for_sku(conn, branch_id, session_data["sku"])
+    _clear_stale_manual_missing(conn, branch_id, session_date or _today())
+
+    for size in session_data.get("sizes_found", []):
+        _resolve_missing_floor_item(conn, branch_id, session_data["sku"], session_data["color"], size)
+
+    for size in missing:
+        exists = conn.execute(
+            """SELECT id FROM missing_floor
+               WHERE branch_id=? AND sku=? AND color=? AND size=? AND status='missing'""",
+            (branch_id, session_data["sku"], session_data["color"], size)
+        ).fetchone()
+        if not exists:
+            conn.execute(
+                "INSERT INTO missing_floor (branch_id,sku,color,size) VALUES (?,?,?,?)",
+                (branch_id, session_data["sku"], session_data["color"], size)
+            )
+
+    conn.execute(
+        "UPDATE morning_sessions SET approved=1 WHERE id=?",
+        (session_data["id"],)
+    )
+    return {
+        "session_id": session_data["id"],
+        "sku": session_data["sku"],
+        "color": session_data["color"],
+        "missing_sizes": missing,
+        "location_hint": location_hint,
+    }
+
+
+def _auto_approve_completed_session(conn, branch_id, session_data, session_date=None):
+    if _session_missing_sizes(session_data):
+        return None
+    return _approve_session_data(conn, branch_id, session_data, session_date=session_date)
+
+
 # ── Morning sessions ──────────────────────────────────────────
 
 @missing_floor_bp.route("/sessions", methods=["GET"])
@@ -135,16 +180,23 @@ def get_sessions(branch_id):
            LEFT JOIN warehouse_locations wl
              ON wl.branch_id = ms.branch_id AND wl.sku = ms.sku
            WHERE ms.branch_id=? AND ms.session_date=? AND ms.approved=0
-           ORDER BY ms.created_at""",
+           ORDER BY ms.sku, ms.color, ms.created_at, ms.id""",
         (branch_id, _today())
     ).fetchall()
     result = []
+    approved_payloads = []
     for r in rows:
         session_data = _normalize_session_row(conn, r, persist=True)
+        approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, r["session_date"])
+        if approval_payload:
+            approved_payloads.append(approval_payload)
+            continue
         session_data["location_hint"] = r["location_hint"] or ""
         result.append(session_data)
     conn.commit()
     conn.close()
+    for payload in approved_payloads:
+        emit_update(branch_id, "tab1_approved", payload)
     return jsonify(result)
 
 
@@ -184,14 +236,25 @@ def scan(branch_id):
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
     session_data = _upsert_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
+    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
 
     conn.commit()
     conn.close()
+
+    if approval_payload:
+        emit_update(branch_id, "tab1_approved", approval_payload)
+        return jsonify({
+            "ok": True,
+            "approved": True,
+            "approval": approval_payload,
+            "catalog_created": bool(catalog_created),
+        })
 
     emit_update(branch_id, "tab1_update", session_data)
     return jsonify({
         "ok": True,
         "session": session_data,
+        "approved": False,
         "catalog_created": bool(catalog_created),
     })
 
@@ -235,18 +298,22 @@ def tick_size(branch_id):
         "UPDATE morning_sessions SET sizes_found=?, sizes_all=? WHERE id=?",
         (new_found, all_sizes_str, session_id)
     )
-    conn.commit()
-
     session_data = {
         **dict(row),
         "sizes_all": all_sizes,
         "sizes_found": ordered_found,
         "location_hint": _location_for_sku(conn, branch_id, row["sku"]),
     }
+    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, row["session_date"])
+    conn.commit()
     conn.close()
 
+    if approval_payload:
+        emit_update(branch_id, "tab1_approved", approval_payload)
+        return jsonify({"ok": True, "approved": True, "approval": approval_payload})
+
     emit_update(branch_id, "tab1_update", session_data)
-    return jsonify({"ok": True, "session": session_data})
+    return jsonify({"ok": True, "approved": False, "session": session_data})
 
 
 @missing_floor_bp.route("/sessions/<int:session_id>/approve", methods=["POST"])
@@ -267,44 +334,15 @@ def approve_session(branch_id, session_id):
         return jsonify({"error": "not_found"}), 404
 
     session_data = _normalize_session_row(conn, row, persist=True)
-    sizes_all = session_data["sizes_all"]
-    sizes_found = set(session_data["sizes_found"])
-    missing = [size for size in sizes_all if size not in sizes_found]
-    location_hint = _location_for_sku(conn, branch_id, row["sku"])
-    _clear_stale_manual_missing(conn, branch_id, row["session_date"])
-
-    for size in session_data["sizes_found"]:
-        _resolve_missing_floor_item(conn, branch_id, row["sku"], row["color"], size)
-
-    for size in missing:
-        exists = conn.execute(
-            """SELECT id FROM missing_floor
-               WHERE branch_id=? AND sku=? AND color=? AND size=? AND status='missing'""",
-            (branch_id, row["sku"], row["color"], size)
-        ).fetchone()
-        if not exists:
-            conn.execute(
-                "INSERT INTO missing_floor (branch_id,sku,color,size) VALUES (?,?,?,?)",
-                (branch_id, row["sku"], row["color"], size)
-            )
-
-    conn.execute(
-        "UPDATE morning_sessions SET approved=1 WHERE id=?", (session_id,)
-    )
+    approval_payload = _approve_session_data(conn, branch_id, session_data, row["session_date"])
     conn.commit()
     conn.close()
 
-    emit_update(branch_id, "tab1_approved", {
-        "session_id": session_id,
-        "sku": row["sku"],
-        "color": row["color"],
-        "missing_sizes": list(missing),
-        "location_hint": location_hint,
-    })
+    emit_update(branch_id, "tab1_approved", approval_payload)
     return jsonify({
         "ok": True,
-        "missing_sizes": missing,
-        "location_hint": location_hint,
+        "missing_sizes": approval_payload["missing_sizes"],
+        "location_hint": approval_payload["location_hint"],
     })
 
 

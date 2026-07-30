@@ -4092,22 +4092,39 @@ async function handleCameraDetectedBarcode(code){
 // ══════════════════════════════════════════════════════════
 let _sessions={};   // id→session data
 
+function compareMorningSessions(a,b){
+  const skuCompare = String(a?.sku || '').localeCompare(String(b?.sku || ''), undefined, {numeric:true, sensitivity:'base'});
+  if(skuCompare) return skuCompare;
+  const colorCompare = String(a?.color || '').localeCompare(String(b?.color || ''), 'he', {numeric:true, sensitivity:'base'});
+  if(colorCompare) return colorCompare;
+  return Number(a?.id || 0) - Number(b?.id || 0);
+}
+
+function renderSessionsList(){
+  const container=$('sessionsContainer');
+  container.innerHTML='';
+  Object.values(_sessions)
+    .sort(compareMorningSessions)
+    .forEach(s=>{
+      const div=document.createElement('div');
+      div.className='session-card';
+      div.dataset.id=s.id;
+      updateSessionCard(div,s);
+      container.appendChild(div);
+    });
+}
+
 async function loadSessions(){
   const rows=await GET('/api/missing-floor/sessions');
   _sessions={};
-  $('sessionsContainer').innerHTML='';
-  rows.forEach(s=>{ _sessions[s.id]=s; renderSessionCard(s); });
+  rows.forEach(s=>{ _sessions[s.id]=s; });
+  renderSessionsList();
   updateStat1();
 }
 
 function renderSessionCard(s){
-  const existing=document.querySelector(`.session-card[data-id="${s.id}"]`);
-  if(existing){ updateSessionCard(existing,s); return; }
-  const div=document.createElement('div');
-  div.className='session-card';
-  div.dataset.id=s.id;
-  $('sessionsContainer').prepend(div);
-  updateSessionCard(div,s);
+  _sessions[s.id]=s;
+  renderSessionsList();
 }
 
 function updateSessionCard(el,s){
@@ -4140,19 +4157,13 @@ function updateSessionCard(el,s){
 
 function upsertSessionCard(s){
   _sessions[s.id]=s;
-  renderSessionCard(s);
+  renderSessionsList();
   updateStat1();
 }
 
 function onSessionApproved(data){
-  const card=document.querySelector(`.session-card[data-id="${data.session_id}"]`);
-  if(card){
-    card.style.opacity='0.4';
-    card.style.pointerEvents='none';
-    setTimeout(()=>card.remove(),2000);
-  }
   delete _sessions[data.session_id];
-  loadMissingFloor();
+  renderSessionsList();
   updateStat1();
 }
 
@@ -4168,6 +4179,12 @@ async function approveSession(sessionId){
 async function tickSize(sessionId,size,found){
   const res=await POST('/api/missing-floor/sessions/tick',{session_id:sessionId,size,found});
   if(res.ok){
+    if(res.approved && res.approval){
+      onSessionApproved(res.approval);
+      loadMissingFloor();
+      toast('הכול נמצא - אושר אוטומטית');
+      return;
+    }
     upsertSessionCard(res.session);
     if(found) loadMissingFloor();
   }
@@ -4229,19 +4246,31 @@ async function processTab1Barcode(code, opts={}){
     }
     return false;
   }
-  const i=res.session;
+  const summary = res.session || res.approval || {};
   $('lastScan1').textContent = res.catalog_created
-    ? `נסרק ונוסף לקטלוג: ${i.sku}/${i.color}`
-    : `נסרק: ${i.sku}/${i.color}`;
+    ? `נסרק ונוסף לקטלוג: ${summary.sku}/${summary.color}`
+    : `נסרק: ${summary.sku}/${summary.color}`;
   soundOk();
-  popup(res.catalog_created ? 'נוסף לקטלוג ✓' : 'נסרק ✓','success',900);
-  upsertSessionCard(res.session);
+  popup(
+    res.approved
+      ? 'אושר אוטומטית ✓'
+      : (res.catalog_created ? 'נוסף לקטלוג ✓' : 'נסרק ✓'),
+    'success',
+    900
+  );
+  if(res.approved && res.approval){
+    onSessionApproved(res.approval);
+  }else{
+    upsertSessionCard(res.session);
+  }
   loadMissingFloor();
   if(opts.fromCamera){
     setCameraStatus(
-      res.catalog_created
-        ? `הברקוד ${code} פוענח, נוסף לקטלוג, והוכנס לקבוצת הבוקר.`
-        : `הברקוד ${code} נקלט בהצלחה.`
+      res.approved
+        ? `הברקוד ${code} נקלט, כל המידות נמצאו, והשורה אושרה אוטומטית.`
+        : res.catalog_created
+          ? `הברקוד ${code} פוענח, נוסף לקטלוג, והוכנס לקבוצת הבוקר.`
+          : `הברקוד ${code} נקלט בהצלחה.`
     );
   }
   return true;
@@ -4270,8 +4299,8 @@ async function manualScan1(){
   const rows=await GET(`/api/barcodes?sku=${encodeURIComponent(sku)}`);
   const match=rows.find(r=>r.color===color&&r.size===size);
   if(!match){toast('לא נמצא בקטלוג — הוסף ברקוד קודם');return;}
-  const res=await POST('/api/missing-floor/scan',{barcode:match.barcode});
-  if(res.ok){ soundOk(); upsertSessionCard(res.session); toast('נוסף לסשן'); }
+  const ok=await processTab1Barcode(match.barcode);
+  if(ok) toast('נוסף לסשן');
 }
 
 async function addManualMissing(){
