@@ -238,28 +238,6 @@ def scan(branch_id):
            LIMIT 1""",
         (branch_id, sku, color)
     ).fetchone()
-    if not open_row:
-        approved_row = conn.execute(
-            """SELECT id
-               FROM morning_sessions
-               WHERE branch_id=? AND sku=? AND color=? AND approved=1
-               ORDER BY created_at DESC, id DESC
-               LIMIT 1""",
-            (branch_id, sku, color)
-        ).fetchone()
-        if approved_row:
-            location_hint = _location_for_sku(conn, branch_id, sku)
-            conn.commit()
-            conn.close()
-            return jsonify({
-                "ok": True,
-                "already_approved": True,
-                "catalog_created": bool(catalog_created),
-                "sku": sku,
-                "color": color,
-                "size": size,
-                "location_hint": location_hint,
-            })
     session_data = _upsert_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
     approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
