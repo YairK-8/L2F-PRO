@@ -1717,6 +1717,9 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
 
         <div class="divider"></div>
         <h2>חוסר כללי מאושר</h2>
+        <div class="scanbox" style="margin-bottom:8px">
+          <input id="missingFloorSearch" placeholder="חיפוש לפי מק&quot;ט..." autocomplete="off" inputmode="numeric" oninput="renderMissingFloorList()"/>
+        </div>
         <div id="missingFloorList" class="list"></div>
         <div class="actions">
           <button class="btn-accent" onclick="exportMissingFloor()">יצוא CSV</button>
@@ -2148,6 +2151,7 @@ let _cameraFastPassCounter=0;
 let _cameraNativeDetector=null, _cameraNativeDetectorInit=null;
 let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
+let _missingFloorRows=[];
 let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_BARCODE_SCAN_INTERVAL_MS = 170;
@@ -4426,24 +4430,90 @@ async function clearSessions(){
 
 async function loadMissingFloor(){
   const rows=await GET('/api/missing-floor');
+  _missingFloorRows = Array.isArray(rows) ? rows : [];
+  $('stat1Missing').textContent=_missingFloorRows.length;
+  renderMissingFloorList();
+}
+
+function compareMissingFloorSizes(a, b){
+  const order = VALID_TICKET_SIZES;
+  const left = String(a || '').toLowerCase();
+  const right = String(b || '').toLowerCase();
+  const leftIndex = order.indexOf(left);
+  const rightIndex = order.indexOf(right);
+  if(leftIndex === -1 && rightIndex === -1) return left.localeCompare(right, 'en');
+  if(leftIndex === -1) return 1;
+  if(rightIndex === -1) return -1;
+  return leftIndex - rightIndex;
+}
+
+function groupMissingFloorRows(rows){
+  const grouped = new Map();
+  (Array.isArray(rows) ? rows : []).forEach(row => {
+    const sku = String(row?.sku || '').trim();
+    const color = normalizeTicketColor(row?.color || '');
+    const key = `${sku}__${color}`;
+    let entry = grouped.get(key);
+    if(!entry){
+      entry = {
+        sku,
+        color,
+        items: [],
+        location_hints: [],
+        created_at: '',
+      };
+      grouped.set(key, entry);
+    }
+
+    const size = normalizeTicketSize(row?.size || '') || String(row?.size || '').trim().toLowerCase();
+    if(size) entry.items.push({id: row.id, size});
+
+    const locationHint = String(row?.location_hint || '').trim();
+    if(locationHint && !entry.location_hints.includes(locationHint)) entry.location_hints.push(locationHint);
+
+    const createdAt = String(row?.created_at || '').trim();
+    if(createdAt && (!entry.created_at || createdAt > entry.created_at)) entry.created_at = createdAt;
+  });
+
+  return Array.from(grouped.values())
+    .map(entry => ({...entry, items: entry.items.sort((a, b) => compareMissingFloorSizes(a.size, b.size))}))
+    .sort((a, b) => {
+      const skuDiff = String(a.sku).localeCompare(String(b.sku), 'en', {numeric:true});
+      if(skuDiff !== 0) return skuDiff;
+      return String(a.color).localeCompare(String(b.color), 'he');
+    });
+}
+
+function renderMissingFloorList(){
   const el=$('missingFloorList');
-  if(!rows.length){el.innerHTML='<div class="small">אין כרגע חוסר כללי מאושר</div>';$('stat1Missing').textContent=0;return;}
-  el.innerHTML=rows.map(r=>`
+  if(!_missingFloorRows.length){el.innerHTML='<div class="small">אין כרגע חוסר כללי מאושר</div>';return;}
+
+  const query = String($('missingFloorSearch')?.value || '').trim();
+  const groupedRows = groupMissingFloorRows(_missingFloorRows);
+  const visibleRows = query
+    ? groupedRows.filter(row => String(row.sku).includes(query))
+    : groupedRows;
+
+  if(!visibleRows.length){
+    el.innerHTML = `<div class="small">לא נמצא חוסר כללי עבור מק&quot;ט ${esc(query)}</div>`;
+    return;
+  }
+
+  el.innerHTML=visibleRows.map(row=>`
     <div class="kv">
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <div><b>${esc(r.sku)}</b> · ${esc(r.color)} · <span style="font-weight:600">${esc(r.size).toUpperCase()}</span></div>
-        ${r.location_hint ? `<div><span class="locHintBadge">📍 ${esc(r.location_hint)}</span></div>` : ``}
-        <span class="small">${r.created_at}</span>
+      <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+        <div><b>${esc(row.sku)}</b> · ${esc(row.color)}</div>
+        <div>${row.items.map(item => `<button type="button" class="chip missing-chip" onclick="resolveFloor(${item.id})" title="סמן מידה זו כנמצאה">${esc(item.size).toUpperCase()}</button>`).join('')}</div>
+        ${row.location_hints.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${row.location_hints.map(locationHint => `<span class="locHintBadge">📍 ${esc(locationHint)}</span>`).join('')}</div>` : ``}
+        <span class="small">${row.items.length} מידות חסרות${row.created_at ? ` · ${esc(row.created_at)}` : ''}</span>
       </div>
-      <button class="btn-ok" style="padding:5px 10px;font-size:12px"
-              onclick="resolveFloor(${r.id})">✓ נמצא</button>
     </div>`).join('');
-  $('stat1Missing').textContent=rows.length;
 }
 
 async function resolveFloor(id){
   await POST(`/api/missing-floor/${id}/resolve`);
-  toast('סומן כנמצא'); loadMissingFloor();
+  toast('סומן כנמצא');
+  loadMissingFloor();
 }
 
 async function clearMissingFloor(){
