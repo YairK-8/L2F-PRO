@@ -5,9 +5,9 @@ Emits realtime updates via SocketIO.
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
 from backend.auth_utils import require_branch
-from backend.barcodes import normalize_size_label
+from backend.barcodes import normalize_size_label, normalize_barcode as _normalize_barcode, resolve_barcode_catalog_entry
 from backend.realtime import emit_update
-from backend.utils import today as _today, normalize_barcode as _normalize_barcode
+from backend.utils import today as _today
 
 missing_warehouse_bp = Blueprint("missing_warehouse", __name__, url_prefix="/api/missing-warehouse")
 
@@ -123,10 +123,11 @@ def scan_sold(branch_id):
     _clear_stale_pending_missing_warehouse(conn, branch_id)
 
     if barcode:
-        meta = conn.execute(
-            "SELECT sku,color,size FROM barcodes WHERE barcode=?",
-            (barcode,)
-        ).fetchone()
+        meta, _catalog_created = resolve_barcode_catalog_entry(
+            conn,
+            barcode,
+            autocreate_structured=True,
+        )
         if not meta:
             conn.close()
             return jsonify({

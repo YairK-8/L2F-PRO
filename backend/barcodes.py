@@ -4,8 +4,10 @@ Global barcode catalog (shared across all branches).
 Includes filtered import: only import SKUs that exist in branch's warehouse_locations.
 
 Barcode normalization:
+- remove scanner/control noise
 - trim whitespace
 - uppercase
+- strip common scanner symbology prefixes
 - if barcode starts with 'E' and is not a structured new-format barcode, remove the leading E
 
 Structured new-format barcode:
@@ -48,14 +50,28 @@ from database.db import get_connection
 barcodes_bp = Blueprint("barcodes", __name__, url_prefix="/api/barcodes")
 
 STRUCTURED_BARCODE_RE = re.compile(r"^([A-Z])(\d{5})(\d{4})(\d{2})$")
+STRUCTURED_BARCODE_BODY_RE = re.compile(r"^(\d{5})(\d{4})(\d{2})$")
+SCANNER_SYMBOLOGY_PREFIX_RE = re.compile(r"^\][A-Z0-9][0-9]")
+
+
+def _clean_barcode_input(value):
+    v = str(value or "").upper()
+    v = v.replace("\u200b", "").replace("\ufeff", "")
+    v = re.sub(r"[\x00-\x20]+", "", v)
+    while SCANNER_SYMBOLOGY_PREFIX_RE.match(v):
+        v = v[3:]
+    v = re.sub(r"^[^A-Z0-9]+", "", v)
+    v = re.sub(r"[^A-Z0-9]+$", "", v)
+    return v
 
 
 def parse_structured_barcode(value):
-    normalized = str(value or "").strip().upper().replace(" ", "")
+    normalized = _clean_barcode_input(value)
     match = STRUCTURED_BARCODE_RE.fullmatch(normalized)
     if not match:
         return None
     return {
+        "missing_prefix": False,
         "prefix": match.group(1),
         "barcode": normalized,
         "sku": match.group(2),
@@ -64,12 +80,58 @@ def parse_structured_barcode(value):
     }
 
 
+def parse_structured_barcode_body(value):
+    normalized = _clean_barcode_input(value)
+    match = STRUCTURED_BARCODE_BODY_RE.fullmatch(normalized)
+    if not match:
+        return None
+    return {
+        "missing_prefix": True,
+        "prefix": "",
+        "barcode": normalized,
+        "sku": match.group(1),
+        "color_code": match.group(2),
+        "size_code": match.group(3),
+    }
+
+
 def normalize_barcode(value):
     """Normalize scanner/input barcode while preserving new structured barcodes."""
-    v = str(value or "").strip().upper()
+    v = _clean_barcode_input(value)
     if v.startswith("E") and not parse_structured_barcode(v):
         v = v[1:]
     return v
+
+
+def find_barcode_catalog_entry(conn, barcode):
+    normalized = normalize_barcode(barcode)
+    if not normalized:
+        return None, normalized
+
+    row = conn.execute(
+        "SELECT * FROM barcodes WHERE barcode=?",
+        (normalized,),
+    ).fetchone()
+    if row:
+        return dict(row), normalized
+
+    parsed_without_prefix = parse_structured_barcode_body(normalized)
+    if not parsed_without_prefix:
+        return None, normalized
+
+    rows = conn.execute(
+        """
+        SELECT * FROM barcodes
+        WHERE LENGTH(barcode)=12
+          AND SUBSTR(barcode, 2)=?
+        ORDER BY barcode
+        """,
+        (parsed_without_prefix["barcode"],),
+    ).fetchall()
+    if len(rows) == 1:
+        return dict(rows[0]), rows[0]["barcode"]
+
+    return None, normalized
 
 
 def normalize_scale_code(value, expected_length):
@@ -144,20 +206,20 @@ def get_catalog_sizes_for_sku_color(conn, sku, color, include_sizes=None):
 
 
 def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
-    normalized = normalize_barcode(barcode)
-    row = conn.execute(
-        "SELECT * FROM barcodes WHERE barcode=?",
-        (normalized,),
-    ).fetchone()
+    row, normalized = find_barcode_catalog_entry(conn, barcode)
     if row:
-        return dict(row), False
+        return row, False
 
     if not autocreate_structured:
         return None, False
 
     parsed = parse_structured_barcode(normalized)
+    parsed_without_prefix = None
     if not parsed:
-        return None, False
+        parsed_without_prefix = parse_structured_barcode_body(normalized)
+        if not parsed_without_prefix:
+            return None, False
+        parsed = parsed_without_prefix
 
     color_row = conn.execute(
         "SELECT color FROM barcode_color_scale WHERE code=?",
@@ -169,6 +231,14 @@ def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
     ).fetchone()
     if not color_row or not size_row:
         return None, False
+
+    if parsed.get("missing_prefix"):
+        return {
+            "barcode": normalized,
+            "sku": parsed["sku"],
+            "color": str(color_row["color"]).strip(),
+            "size": normalize_size_label(size_row["size"]),
+        }, False
 
     before = conn.total_changes
     conn.execute(
@@ -445,16 +515,12 @@ def delete_barcode_size_scale_entry(code):
 @barcodes_bp.route("/<barcode>", methods=["GET"])
 @require_branch_or_admin
 def get_barcode(branch_id, barcode):
-    barcode = normalize_barcode(barcode)
     conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM barcodes WHERE barcode=?",
-        (barcode,),
-    ).fetchone()
+    row, _normalized = find_barcode_catalog_entry(conn, barcode)
     conn.close()
     if not row:
         return jsonify({"error": "not_found"}), 404
-    return jsonify(dict(row))
+    return jsonify(row)
 
 
 # Branch write: add single barcode

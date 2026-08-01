@@ -2126,6 +2126,15 @@ function downloadCsv(filename,rows,headers){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
 }
 
+function normalizeScannerBarcodeInput(value){
+  let v=String(value || '').toUpperCase();
+  v=v.replace(/\u200B|\uFEFF/g,'').replace(/[\u0000-\u0020]+/g,'');
+  while(v.startsWith(']') && v.length>=3 && /[A-Z0-9]/.test(v[1]) && /[0-9]/.test(v[2])) v=v.slice(3);
+  v=v.replace(/^[^A-Z0-9]+/,'').replace(/[^A-Z0-9]+$/,'');
+  if(v.startsWith('E') && !/^[A-Z]\d{5}\d{4}\d{2}$/.test(v)) v=v.slice(1);
+  return v;
+}
+
 // ── API helpers ──────────────────────────────────────────
 async function api(method,url,body=null){
   const opts={method,headers:{'Content-Type':'application/json'}};
@@ -4577,14 +4586,15 @@ function exportMorningMissingOnly(){
 }
 
 async function processTab1Barcode(code, opts={}){
-  const res=await POST('/api/missing-floor/scan',{barcode:code});
+  const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
+  const res=await POST('/api/missing-floor/scan',{barcode:normalizedCode});
   if(res.error==='not_found'){
-    $('lastScan1').textContent=`לא נמצא: ${code}`;
+    $('lastScan1').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
     popup('לא נמצא','error',1200);
     if(opts.fromCamera){
       flashCameraError();
-      setCameraStatus(`הברקוד ${code} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
+      setCameraStatus(`הברקוד ${normalizedCode} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
     }
     return false;
   }
@@ -4594,7 +4604,7 @@ async function processTab1Barcode(code, opts={}){
     popup('כבר אושר קודם ✓','success',900);
     loadMissingFloor();
     if(opts.fromCamera){
-      setCameraStatus(`הברקוד ${code} נסרק, אבל השורה של ${res.sku}/${res.color} כבר אושרה קודם ולכן לא נפתחה שוב.`);
+      setCameraStatus(`הברקוד ${normalizedCode} נסרק, אבל השורה של ${res.sku}/${res.color} כבר אושרה קודם ולכן לא נפתחה שוב.`);
     }
     return true;
   }
@@ -4809,14 +4819,15 @@ async function exportMissingWh(){
 }
 
 async function processTab2Barcode(code, opts={}){
-  const res=await POST('/api/missing-warehouse/scan',{barcode:code});
+  const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
+  const res=await POST('/api/missing-warehouse/scan',{barcode:normalizedCode});
   if(res.error==='not_found'){
-    $('lastScan2').textContent=`לא נמצא: ${code}`;
+    $('lastScan2').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
     popup('לא נמצא','error',1200);
     if(opts.fromCamera){
       flashCameraError();
-      setCameraStatus(`הברקוד ${code} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
+      setCameraStatus(`הברקוד ${normalizedCode} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
     }
     return false;
   }
@@ -4824,7 +4835,7 @@ async function processTab2Barcode(code, opts={}){
   soundOk();
   popup(`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
   if(res.item) appendWhItem(res.item);
-  if(opts.fromCamera) setCameraStatus(`הברקוד ${code} נוסף לרשימת המחסן.`);
+  if(opts.fromCamera) setCameraStatus(`הברקוד ${normalizedCode} נוסף לרשימת המחסן.`);
   return true;
 }
 
