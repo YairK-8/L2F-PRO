@@ -1772,6 +1772,14 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <h2 style="margin:0">רשימת השלמות מחסן</h2>
           <span id="rtBadge2" class="small" style="color:#27c93f">●</span>
         </div>
+        <h2>סרוק ברקוד שנמכר</h2>
+        <div class="scanbox">
+          <input id="scanInput2" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
+          <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t2')" title="סריקה מהמצלמה">📷</button>
+        </div>
+        <div class="small" id="lastScan2" style="margin-top:6px">מוכן לסריקה.</div>
+
+        <div class="divider"></div>
         <div id="lastScannedWhCard" class="card last-scanned-card" style="display:none"></div>
         <div class="queue-box">
           <div class="queue-title">
@@ -1786,15 +1794,6 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
       </div>
 
       <div class="col sticky">
-        <h2>סרוק ברקוד שנמכר</h2>
-        <div class="scanbox">
-          <input id="scanInput2" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
-          <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t2')" title="סריקה מהמצלמה">📷</button>
-        </div>
-        <div class="small" id="lastScan2" style="margin-top:6px">מוכן לסריקה.</div>
-
-        <div class="divider"></div>
-
         <h2>הוספה ידנית</h2>
         <div class="card">
           <input id="man2Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"
@@ -2137,6 +2136,7 @@ const DELETE = url     => api('DELETE',url);
 let _branchId=null, _socket=null;
 let _deviceId=null, _deviceName=null, _heartbeatTimer=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
+let _realtimeSyncPromise=null, _realtimeLastSyncAt=0, _realtimeSyncTimer=null;
 let _cameraMode=null, _cameraStream=null, _cameraLoopTimer=0, _cameraLoopActive=false;
 let _cameraCooldownUntil=0, _cameraLastValue='';
 let _cameraCanvas=null, _cameraCtx=null;
@@ -2186,6 +2186,8 @@ const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
+const REALTIME_SYNC_INTERVAL_MS = 8000;
+const REALTIME_SYNC_MIN_GAP_MS = 1200;
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
 
@@ -2272,6 +2274,7 @@ async function doLogout(options={}){
   const reason = options.reason || '';
   await closeCameraScanner();
   stopHeartbeat();
+  stopRealtimeSyncTimer();
   await POST('/api/auth/logout');
   if(_socket)_socket.disconnect();
   $('appScreen').style.display='none';
@@ -2369,6 +2372,55 @@ function stopHeartbeat(){
   }
 }
 
+function stopRealtimeSyncTimer(){
+  if(_realtimeSyncTimer){
+    clearInterval(_realtimeSyncTimer);
+    _realtimeSyncTimer=null;
+  }
+}
+
+function startRealtimeSyncTimer(){
+  stopRealtimeSyncTimer();
+  _realtimeSyncTimer=setInterval(()=>{
+    if(document.visibilityState==='visible' && _socket?.connected && !_forceLogoutInProgress){
+      syncRealtimeState();
+    }
+  }, REALTIME_SYNC_INTERVAL_MS);
+}
+
+async function syncRealtimeState(opts={}){
+  if(!_branchId) return;
+  const now = Date.now();
+  if(_realtimeSyncPromise) return _realtimeSyncPromise;
+  if(!opts.force && (now - _realtimeLastSyncAt) < REALTIME_SYNC_MIN_GAP_MS) return;
+  const request = Promise.allSettled([
+    loadSessions(),
+    loadMissingFloor(),
+    loadMissingWh(),
+  ]).finally(()=>{
+    if(_realtimeSyncPromise === request){
+      _realtimeSyncPromise = null;
+      _realtimeLastSyncAt = Date.now();
+    }
+  });
+  _realtimeSyncPromise = request;
+  return request;
+}
+
+function ensureRealtimeConnected(opts={}){
+  if(!_branchId || _forceLogoutInProgress) return;
+  if(_socket?.connected){
+    _socket.emit('heartbeat', getDevicePayload());
+    if(opts.forceSync){
+      syncRealtimeState({force:true});
+    }
+    return;
+  }
+  try{
+    _socket?.connect();
+  }catch(_err){}
+}
+
 function startHeartbeat(){
   stopHeartbeat();
   _heartbeatTimer=setInterval(()=>{
@@ -2404,24 +2456,41 @@ loadAlwaysConnectedPreference();
 // REALTIME — SocketIO
 // ══════════════════════════════════════════════════════════
 function initSocketIO(){
-  _socket=io();
+  if(_socket){
+    try{ _socket.off(); }catch(_err){}
+    try{ _socket.disconnect(); }catch(_err){}
+  }
+  _socket=io({
+    transports:['websocket','polling'],
+    reconnection:true,
+    reconnectionAttempts:Infinity,
+    reconnectionDelay:700,
+    reconnectionDelayMax:2500,
+    timeout:10000,
+  });
   _socket.on('connect',()=>{
     _socket.emit('join_branch',{branch_id:_branchId, ...getDevicePayload()});
     _socket.emit('heartbeat', getDevicePayload());
     startHeartbeat();
+    startRealtimeSyncTimer();
     setRtDot(true);
+  });
+  _socket.on('joined_branch', ()=>{
+    syncRealtimeState({force:true});
   });
   _socket.on('disconnect', reason=>{
     setRtDot(false);
     stopHeartbeat();
-    if(_alwaysConnected && !_forceLogoutInProgress && reason==='io server disconnect'){
+    stopRealtimeSyncTimer();
+    if(!_forceLogoutInProgress && reason!=='io client disconnect'){
       setTimeout(()=>{
-        if(_socket && !_socket.connected && _alwaysConnected && !_forceLogoutInProgress){
+        if(_socket && !_socket.connected && !_forceLogoutInProgress){
           _socket.connect();
         }
-      }, 1500);
+      }, 1200);
     }
   });
+  _socket.on('connect_error', ()=>{ setRtDot(false); });
   _socket.on('blocked_device', async ()=>{
     if(_forceLogoutInProgress) return;
     _forceLogoutInProgress=true;
@@ -4412,6 +4481,16 @@ async function processTab1Barcode(code, opts={}){
     }
     return false;
   }
+  if(res.already_approved){
+    $('lastScan1').textContent=`כבר אושר קודם: ${res.sku}/${res.color}`;
+    soundOk();
+    popup('כבר אושר קודם ✓','success',900);
+    loadMissingFloor();
+    if(opts.fromCamera){
+      setCameraStatus(`הברקוד ${code} נסרק, אבל השורה של ${res.sku}/${res.color} כבר אושרה קודם ולכן לא נפתחה שוב.`);
+    }
+    return true;
+  }
   const summary = res.session || res.approval || {};
   $('lastScan1').textContent = res.catalog_created
     ? `נסרק ונוסף לקטלוג: ${summary.sku}/${summary.color}`
@@ -4726,12 +4805,14 @@ document.addEventListener('keydown',e=>{
 });
 
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && _socket?.connected){
-    _socket.emit('heartbeat', getDevicePayload());
+  if(document.visibilityState==='visible'){
+    ensureRealtimeConnected({forceSync:true});
   }
 });
 
-window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopHeartbeat(); });
+window.addEventListener('focus', ()=>{ ensureRealtimeConnected({forceSync:true}); });
+window.addEventListener('online', ()=>{ ensureRealtimeConnected({forceSync:true}); });
+window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopHeartbeat(); stopRealtimeSyncTimer(); });
 
 // ══════════════════════════════════════════════════════════
 // TAB 3 — LOCATIONS

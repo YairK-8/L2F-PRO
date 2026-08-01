@@ -100,12 +100,8 @@ def _clear_stale_manual_missing(conn, branch_id, current_session_date):
 
 
 def _clear_stale_morning_sessions(conn, branch_id, current_session_date):
-    conn.execute(
-        """DELETE FROM morning_sessions
-           WHERE branch_id=?
-             AND session_date < ?""",
-        (branch_id, current_session_date)
-    )
+    # Morning sessions now stay open until a manual clear.
+    return
 
 
 def _resolve_missing_floor_item(conn, branch_id, sku, color, size):
@@ -171,7 +167,7 @@ def _auto_approve_completed_session(conn, branch_id, session_data, session_date=
 @missing_floor_bp.route("/sessions", methods=["GET"])
 @require_branch
 def get_sessions(branch_id):
-    """Return all open (unapproved) morning sessions for today, with location hint."""
+    """Return all open (unapproved) morning sessions, with location hint."""
     conn = get_connection()
     _clear_stale_morning_sessions(conn, branch_id, _today())
     rows = conn.execute(
@@ -179,9 +175,9 @@ def get_sessions(branch_id):
            FROM morning_sessions ms
            LEFT JOIN warehouse_locations wl
              ON wl.branch_id = ms.branch_id AND wl.sku = ms.sku
-           WHERE ms.branch_id=? AND ms.session_date=? AND ms.approved=0
-           ORDER BY ms.sku, ms.color, ms.created_at, ms.id""",
-        (branch_id, _today())
+           WHERE ms.branch_id=? AND ms.approved=0
+           ORDER BY ms.sku, ms.color, ms.session_date, ms.created_at, ms.id""",
+        (branch_id,)
     ).fetchall()
     result = []
     approved_payloads = []
@@ -234,6 +230,36 @@ def scan(branch_id):
 
     sku, color, size = meta["sku"], meta["color"], meta["size"]
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
+    open_row = conn.execute(
+        """SELECT id
+           FROM morning_sessions
+           WHERE branch_id=? AND sku=? AND color=? AND approved=0
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1""",
+        (branch_id, sku, color)
+    ).fetchone()
+    if not open_row:
+        approved_row = conn.execute(
+            """SELECT id
+               FROM morning_sessions
+               WHERE branch_id=? AND sku=? AND color=? AND approved=1
+               ORDER BY created_at DESC, id DESC
+               LIMIT 1""",
+            (branch_id, sku, color)
+        ).fetchone()
+        if approved_row:
+            location_hint = _location_for_sku(conn, branch_id, sku)
+            conn.commit()
+            conn.close()
+            return jsonify({
+                "ok": True,
+                "already_approved": True,
+                "catalog_created": bool(catalog_created),
+                "sku": sku,
+                "color": color,
+                "size": size,
+                "location_hint": location_hint,
+            })
     session_data = _upsert_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
     approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
@@ -371,11 +397,11 @@ def add_manual_missing(branch_id):
 @missing_floor_bp.route("/sessions/clear", methods=["POST"])
 @require_branch
 def clear_sessions(branch_id):
-    """Clear all today's morning sessions (manual end-of-day)."""
+    """Clear all morning sessions for the branch (manual reset)."""
     conn = get_connection()
     conn.execute(
-        "DELETE FROM morning_sessions WHERE branch_id=? AND session_date=?",
-        (branch_id, _today())
+        "DELETE FROM morning_sessions WHERE branch_id=?",
+        (branch_id,)
     )
     conn.commit()
     conn.close()
@@ -443,8 +469,10 @@ def _upsert_session(conn, branch_id, sku, color, size):
     today = _today()
     row = conn.execute(
         """SELECT * FROM morning_sessions
-           WHERE branch_id=? AND session_date=? AND sku=? AND color=?""",
-        (branch_id, today, sku, color)
+           WHERE branch_id=? AND sku=? AND color=? AND approved=0
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1""",
+        (branch_id, sku, color)
     ).fetchone()
 
     stored_sizes = _sizes_list(row["sizes_all"]) if row else []
@@ -492,8 +520,10 @@ def _upsert_manual_session(conn, branch_id, sku, color, size):
     today = _today()
     row = conn.execute(
         """SELECT * FROM morning_sessions
-           WHERE branch_id=? AND session_date=? AND sku=? AND color=?""",
-        (branch_id, today, sku, color)
+           WHERE branch_id=? AND sku=? AND color=? AND approved=0
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1""",
+        (branch_id, sku, color)
     ).fetchone()
 
     stored_sizes = _sizes_list(row["sizes_all"]) if row else []

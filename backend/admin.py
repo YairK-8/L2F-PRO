@@ -780,12 +780,13 @@ def admin_delete_location(branch_id, sku):
 @admin_bp.route("/branches/<int:branch_id>/sessions", methods=["GET"])
 @require_admin
 def admin_get_sessions(branch_id):
-    from datetime import date
-    today = str(date.today())
     conn  = get_connection()
     rows  = conn.execute(
-        "SELECT * FROM morning_sessions WHERE branch_id=? AND session_date=? ORDER BY created_at",
-        (branch_id, today)
+        """SELECT *
+           FROM morning_sessions
+           WHERE branch_id=?
+           ORDER BY approved, session_date DESC, created_at, id""",
+        (branch_id,)
     ).fetchall()
     result = []
     for r in rows:
