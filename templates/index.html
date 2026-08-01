@@ -154,6 +154,7 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border);font-size:12px;margin:3px;cursor:pointer;user-select:none;transition:all .15s}
 .chip.found{background:rgba(121,194,58,.14);border-color:rgba(121,194,58,.32);color:#3f6f18;font-weight:600}
 .chip.missing-chip{background:rgba(217,139,43,.12);border-color:rgba(217,139,43,.24);color:#9f5d14}
+.chip.missing-chip.selected{background:rgba(121,194,58,.14);border-color:rgba(121,194,58,.32);color:#3f6f18;font-weight:600}
 
 /* session card tab1 */
 .morning-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px}
@@ -847,6 +848,11 @@ body.app-dark #appScreen .chip.missing-chip{
   background:rgba(255,106,0,.12);
   color:#ff9a3d;
   border-color:rgba(255,106,0,.28);
+}
+body.app-dark #appScreen .chip.missing-chip.selected{
+  background:rgba(41,179,74,.14);
+  color:#7fe29a;
+  border-color:rgba(41,179,74,.30);
 }
 body.app-dark #appScreen th{
   background:#1b1b1b;
@@ -2152,6 +2158,7 @@ let _cameraNativeDetector=null, _cameraNativeDetectorInit=null;
 let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
 let _missingFloorRows=[];
+let _missingFloorSelectedIds=new Set();
 let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_BARCODE_SCAN_INTERVAL_MS = 170;
@@ -4431,6 +4438,10 @@ async function clearSessions(){
 async function loadMissingFloor(){
   const rows=await GET('/api/missing-floor');
   _missingFloorRows = Array.isArray(rows) ? rows : [];
+  const validIds = new Set(_missingFloorRows.map(row => Number(row.id)));
+  _missingFloorSelectedIds = new Set(
+    [..._missingFloorSelectedIds].filter(id => validIds.has(Number(id)))
+  );
   $('stat1Missing').textContent=_missingFloorRows.length;
   renderMissingFloorList();
 }
@@ -4503,17 +4514,36 @@ function renderMissingFloorList(){
     <div class="kv">
       <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
         <div><b>${esc(row.sku)}</b> · ${esc(row.color)}</div>
-        <div>${row.items.map(item => `<button type="button" class="chip missing-chip" onclick="resolveFloor(${item.id})" title="סמן מידה זו כנמצאה">${esc(item.size).toUpperCase()}</button>`).join('')}</div>
+        <div>${row.items.map(item => `<button type="button" class="chip missing-chip ${_missingFloorSelectedIds.has(Number(item.id)) ? 'selected' : ''}" onclick="toggleMissingFloorSelection(${item.id})" title="סמן מידה זו לאישור">${esc(item.size).toUpperCase()}</button>`).join('')}</div>
         ${row.location_hints.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${row.location_hints.map(locationHint => `<span class="locHintBadge">📍 ${esc(locationHint)}</span>`).join('')}</div>` : ``}
         <span class="small">${row.items.length} מידות חסרות${row.created_at ? ` · ${esc(row.created_at)}` : ''}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;min-width:88px">
+        ${row.items.some(item => _missingFloorSelectedIds.has(Number(item.id)))
+          ? `<button class="btn-ok" style="padding:5px 10px;font-size:12px" onclick='confirmMissingFloorSelection(${JSON.stringify(row.items.filter(item => _missingFloorSelectedIds.has(Number(item.id))).map(item => item.id))})'>אישור</button>`
+          : ``}
       </div>
     </div>`).join('');
 }
 
-async function resolveFloor(id){
-  await POST(`/api/missing-floor/${id}/resolve`);
-  toast('סומן כנמצא');
+function toggleMissingFloorSelection(id){
+  const key = Number(id);
+  if(_missingFloorSelectedIds.has(key)) _missingFloorSelectedIds.delete(key);
+  else _missingFloorSelectedIds.add(key);
+  renderMissingFloorList();
+}
+
+async function confirmMissingFloorSelection(ids){
+  const selectedIds = Array.isArray(ids) ? ids.map(Number).filter(Boolean) : [];
+  if(!selectedIds.length) return;
+  await Promise.all(selectedIds.map(id => POST(`/api/missing-floor/${id}/resolve`)));
+  selectedIds.forEach(id => _missingFloorSelectedIds.delete(id));
+  toast(selectedIds.length > 1 ? 'המידות אושרו' : 'המידה אושרה');
   loadMissingFloor();
+}
+
+async function resolveFloor(id){
+  toggleMissingFloorSelection(id);
 }
 
 async function clearMissingFloor(){
@@ -4523,7 +4553,14 @@ async function clearMissingFloor(){
 
 async function exportMissingFloor(){
   const rows=await GET('/api/missing-floor');
-  downloadCsv('missing-floor.csv',rows,['sku','color','size','created_at']);
+  const groupedRows = groupMissingFloorRows(Array.isArray(rows) ? rows : []).map(row => ({
+    sku: row.sku,
+    color: row.color,
+    missing_sizes: row.items.map(item => item.size).join(','),
+    location_hint: row.location_hints.join(' | '),
+    created_at: row.created_at,
+  }));
+  downloadCsv('missing-floor.csv',groupedRows,['sku','color','missing_sizes','location_hint','created_at']);
 }
 
 function updateStat1(){
