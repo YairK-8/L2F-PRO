@@ -15,18 +15,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="L2F">
-<script>
-window.__l2fSwapScriptSource = function(el, fallback){
-  if(!el || !fallback || el.dataset.fallbackUsed === "1") return;
-  el.dataset.fallbackUsed = "1";
-  el.src = fallback;
-};
-</script>
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/zxing-wasm@2.2.2/dist/iife/reader/index.js')"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260802-1").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=20260716-2").catch(() => {});
   });
 }
 </script>

@@ -15,20 +15,17 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="L2F">
-<script>
-window.__l2fSwapScriptSource = function(el, fallback){
-  if(!el || !fallback || el.dataset.fallbackUsed === "1") return;
-  el.dataset.fallbackUsed = "1";
-  el.src = fallback;
-};
-</script>
-<script src="/socket.io/socket.io.js" onerror="window.__l2fSwapScriptSource(this,'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js')"></script>
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/zxing-wasm@2.2.2/dist/iife/reader/index.js')"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260802-1").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=20260716-2").catch(() => {});
   });
 }
 </script>
@@ -43,24 +40,7 @@ html,body{height:100%;margin:0;background:
   radial-gradient(circle at 50% 8%, rgba(255,255,255,.72), transparent 22%),
   radial-gradient(circle at 82% 20%, rgba(0,0,0,.22), transparent 26%),
   linear-gradient(145deg, #efefec 0%, #d7d7d3 42%, #bdbdb8 100%);
-color:var(--text);font-family:"Heebo","Segoe UI",Tahoma,Arial,sans-serif}
-.bi{display:inline-flex;align-items:center;justify-content:center;min-width:1em;font-style:normal;font-weight:700;line-height:1}
-.bi::before{display:block}
-.bi-box-seam-fill::before,.bi-box-seam::before{content:"📦"}
-.bi-x-lg::before{content:"×"}
-.bi-arrow-clockwise::before{content:"↻"}
-.bi-brightness-high-fill::before{content:"☀"}
-.bi-hourglass-split::before,.bi-hourglass::before{content:"⏳"}
-.bi-receipt-cutoff::before{content:"🧾"}
-.bi-pin-map-fill::before,.bi-geo-alt-fill::before{content:"📍"}
-.bi-upc-scan::before{content:"|||";letter-spacing:-1px;font-size:.92em}
-.bi-search::before{content:"⌕"}
-.bi-floppy-fill::before{content:"💾"}
-.bi-chevron-down::before{content:"▾"}
-.bi-shop::before{content:"🏪"}
-.bi-moon-stars-fill::before{content:"☾"}
-.bi-exclamation-circle-fill::before{content:"⚠"}
-.bi-check-circle-fill::before{content:"✔"}
+color:var(--text);font-family:"Heebo",system-ui,-apple-system,Segoe UI,sans-serif}
 
 /* ── AUTH ── */
 #authScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
@@ -2178,7 +2158,6 @@ let _branchId=null, _socket=null;
 let _deviceId=null, _deviceName=null, _heartbeatTimer=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
 let _realtimeSyncPromise=null, _realtimeLastSyncAt=0, _realtimeSyncTimer=null;
-let _realtimeDisabled=false, _realtimeWarned=false;
 let _cameraMode=null, _cameraStream=null, _cameraLoopTimer=0, _cameraLoopActive=false;
 let _cameraCooldownUntil=0, _cameraLastValue='';
 let _cameraCanvas=null, _cameraCtx=null;
@@ -2230,10 +2209,8 @@ const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
-const REALTIME_SYNC_INTERVAL_MS = 25000;
+const REALTIME_SYNC_INTERVAL_MS = 8000;
 const REALTIME_SYNC_MIN_GAP_MS = 1200;
-const REALTIME_RECONNECT_DELAY_MS = 2500;
-const REALTIME_RECONNECT_DELAY_MAX_MS = 8000;
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
 
@@ -2434,33 +2411,16 @@ function startRealtimeSyncTimer(){
   }, REALTIME_SYNC_INTERVAL_MS);
 }
 
-function getActiveTabId(){
-  return document.querySelector('.tab.active')?.dataset.tab || 't1';
-}
-
-function getRealtimeSyncTasks(tabId=getActiveTabId()){
-  if(tabId==='t1') return [loadSessions(), loadMissingFloor()];
-  if(tabId==='t2') return [loadMissingWh()];
-  return [];
-}
-
-function loadActiveTabData(tabId=getActiveTabId()){
-  const tasks = getRealtimeSyncTasks(tabId);
-  if(!tasks.length) return Promise.resolve([]);
-  return Promise.allSettled(tasks);
-}
-
 async function syncRealtimeState(opts={}){
-  if(!_branchId || _realtimeDisabled) return;
+  if(!_branchId) return;
   const now = Date.now();
   if(_realtimeSyncPromise) return _realtimeSyncPromise;
   if(!opts.force && (now - _realtimeLastSyncAt) < REALTIME_SYNC_MIN_GAP_MS) return;
-  const tasks = getRealtimeSyncTasks();
-  if(!tasks.length){
-    _realtimeLastSyncAt = now;
-    return;
-  }
-  const request = Promise.allSettled(tasks).finally(()=>{
+  const request = Promise.allSettled([
+    loadSessions(),
+    loadMissingFloor(),
+    loadMissingWh(),
+  ]).finally(()=>{
     if(_realtimeSyncPromise === request){
       _realtimeSyncPromise = null;
       _realtimeLastSyncAt = Date.now();
@@ -2471,7 +2431,7 @@ async function syncRealtimeState(opts={}){
 }
 
 function ensureRealtimeConnected(opts={}){
-  if(!_branchId || _forceLogoutInProgress || _realtimeDisabled) return;
+  if(!_branchId || _forceLogoutInProgress) return;
   if(_socket?.connected){
     _socket.emit('heartbeat', getDevicePayload());
     if(opts.forceSync){
@@ -2496,7 +2456,6 @@ function startHeartbeat(){
 async function enterApp(branch){
   _branchId=branch.id;
   await ensureDeviceIdentity();
-  _realtimeWarned=false;
   hideAuthNotice();
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
@@ -2516,26 +2475,10 @@ loadAlwaysConnectedPreference();
   if(res.branch_id) await enterApp({id:res.branch_id,name:res.branch_name});
 })();
 
-function setRealtimeDisabled(message=''){
-  _realtimeDisabled=true;
-  setRtDot(false);
-  stopHeartbeat();
-  stopRealtimeSyncTimer();
-  if(message && !_realtimeWarned){
-    _realtimeWarned=true;
-    toast(message, 3200);
-  }
-}
-
 // ══════════════════════════════════════════════════════════
 // REALTIME — SocketIO
 // ══════════════════════════════════════════════════════════
 function initSocketIO(){
-  if(typeof io!=='function'){
-    setRealtimeDisabled('החיבור החי נחסם ברשת הזאת. אפשר להמשיך לעבוד, אבל ייתכן שיידרש ריענון ידני.');
-    return;
-  }
-  _realtimeDisabled=false;
   if(_socket){
     try{ _socket.off(); }catch(_err){}
     try{ _socket.disconnect(); }catch(_err){}
@@ -2544,10 +2487,9 @@ function initSocketIO(){
     transports:['websocket','polling'],
     reconnection:true,
     reconnectionAttempts:Infinity,
-    reconnectionDelay:REALTIME_RECONNECT_DELAY_MS,
-    reconnectionDelayMax:REALTIME_RECONNECT_DELAY_MAX_MS,
-    randomizationFactor:0.45,
-    timeout:12000,
+    reconnectionDelay:700,
+    reconnectionDelayMax:2500,
+    timeout:10000,
   });
   _socket.on('connect',()=>{
     _socket.emit('join_branch',{branch_id:_branchId, ...getDevicePayload()});
@@ -2563,12 +2505,12 @@ function initSocketIO(){
     setRtDot(false);
     stopHeartbeat();
     stopRealtimeSyncTimer();
-    if(!_forceLogoutInProgress && reason!=='io client disconnect' && (document.visibilityState==='visible' || _alwaysConnected)){
+    if(!_forceLogoutInProgress && reason!=='io client disconnect'){
       setTimeout(()=>{
         if(_socket && !_socket.connected && !_forceLogoutInProgress){
           _socket.connect();
         }
-      }, REALTIME_RECONNECT_DELAY_MS);
+      }, 1200);
     }
   });
   _socket.on('connect_error', ()=>{ setRtDot(false); });
@@ -2632,18 +2574,13 @@ function initSocketIO(){
 
   // Tab1
   _socket.on('tab1_update', session=>upsertSessionCard(session));
-  _socket.on('tab1_approved', data=>{
-    onSessionApproved(data);
-    if(getActiveTabId()==='t1') loadMissingFloor();
-  });
+  _socket.on('tab1_approved', data=>{ onSessionApproved(data); loadMissingFloor(); });
   _socket.on('tab1_cleared',()=>{
     _sessions={};
     renderSessionsList();
     updateStat1();
   });
-  _socket.on('tab1_floor_missing_added', ()=>{
-    if(getActiveTabId()==='t1') loadMissingFloor();
-  });
+  _socket.on('tab1_floor_missing_added', ()=>loadMissingFloor());
 }
 
 function setRtDot(on){
@@ -2660,7 +2597,6 @@ $$('.tab').forEach(tab=>tab.addEventListener('click',()=>{
   tab.classList.add('active');
   ['t1','t2','t3','t4'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
   if(tab.dataset.tab==='t4') loadBarcodes();
-  else loadActiveTabData(tab.dataset.tab);
 }));
 $('bcNewBarcode')?.addEventListener('change', ()=>previewDerivedBarcodeFields());
 $('bcNewBarcode')?.addEventListener('blur', ()=>previewDerivedBarcodeFields());
