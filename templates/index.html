@@ -48,6 +48,7 @@ color:var(--text);font-family:"Heebo","Segoe UI",Tahoma,Arial,sans-serif}
 .bi::before{display:block}
 .bi-box-seam-fill::before,.bi-box-seam::before{content:"📦"}
 .bi-x-lg::before{content:"×"}
+.bi-arrow-clockwise::before{content:"↻"}
 .bi-brightness-high-fill::before{content:"☀"}
 .bi-hourglass-split::before,.bi-hourglass::before{content:"⏳"}
 .bi-receipt-cutoff::before{content:"🧾"}
@@ -1696,6 +1697,9 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     <div class="header-actions">
       <button class="btn-ghost header-icon-btn" type="button" onclick="doLogout()" title="יציאה" aria-label="יציאה">
         <i class="bi bi-x-lg icon" aria-hidden="true"></i>
+      </button>
+      <button class="btn-ghost header-icon-btn" id="refreshPageBtn" type="button" onclick="refreshCurrentPage()" title="ריענון הדף" aria-label="ריענון הדף">
+        <i class="bi bi-arrow-clockwise icon" aria-hidden="true"></i>
       </button>
       <button class="btn-ghost header-icon-btn" id="workThemeBtn" type="button" onclick="toggleWorkTheme()" title="מצב עבודה">
         <i class="bi bi-brightness-high-fill icon" aria-hidden="true"></i>
@@ -4037,6 +4041,13 @@ function toggleWorkTheme(){
   const next = document.body.classList.contains('app-dark') ? 'light' : 'dark';
   localStorage.setItem('l2f_work_theme', next);
   applyWorkTheme();
+}
+
+function refreshCurrentPage(){
+  try{
+    if(_cameraLoopActive) closeCamera();
+  }catch(_err){}
+  window.location.reload();
 }
 
 function updateCameraSwitchButton(){
