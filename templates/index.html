@@ -15,33 +15,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="L2F">
-<script>
-window.__l2fSwapScriptSource = function(el, fallback){
-  if(!el || !fallback || el.dataset.fallbackUsed === "1") return;
-  el.dataset.fallbackUsed = "1";
-  el.src = fallback;
-};
-window.__l2fEnableIconFallback = function(){
-  document.documentElement.classList.add('icons-fallback');
-};
-window.__l2fVerifyIconFont = async function(){
-  if(!document.fonts?.load || !document.fonts?.check) return;
-  try{
-    await Promise.race([
-      document.fonts.load('16px "bootstrap-icons"'),
-      new Promise((_, reject)=>setTimeout(()=>reject(new Error('icon-timeout')), 1500)),
-    ]);
-    if(!document.fonts.check('16px "bootstrap-icons"')){
-      window.__l2fEnableIconFallback();
-    }
-  }catch(_err){
-    window.__l2fEnableIconFallback();
-  }
-};
-</script>
-<script src="/socket.io/socket.io.js" onerror="window.__l2fSwapScriptSource(this,'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js')"></script>
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/zxing-wasm@2.2.2/dist/iife/reader/index.js')"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -49,12 +25,9 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260802-1").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=20260716-2").catch(() => {});
   });
 }
-window.addEventListener("load", () => {
-  window.__l2fVerifyIconFont?.();
-});
 </script>
 <style>
 :root{
@@ -68,23 +41,6 @@ html,body{height:100%;margin:0;background:
   radial-gradient(circle at 82% 20%, rgba(0,0,0,.22), transparent 26%),
   linear-gradient(145deg, #efefec 0%, #d7d7d3 42%, #bdbdb8 100%);
 color:var(--text);font-family:"Heebo",system-ui,-apple-system,Segoe UI,sans-serif}
-.icons-fallback .bi{display:inline-flex;align-items:center;justify-content:center;min-width:1em;font-style:normal;font-weight:700;line-height:1}
-.icons-fallback .bi::before{display:block}
-.icons-fallback .bi-box-seam-fill::before,.icons-fallback .bi-box-seam::before{content:"📦"}
-.icons-fallback .bi-x-lg::before{content:"×"}
-.icons-fallback .bi-arrow-clockwise::before{content:"↻"}
-.icons-fallback .bi-brightness-high-fill::before{content:"☀"}
-.icons-fallback .bi-hourglass-split::before,.icons-fallback .bi-hourglass::before{content:"⏳"}
-.icons-fallback .bi-receipt-cutoff::before{content:"🧾"}
-.icons-fallback .bi-pin-map-fill::before,.icons-fallback .bi-geo-alt-fill::before{content:"📍"}
-.icons-fallback .bi-upc-scan::before{content:"|||";letter-spacing:-1px;font-size:.92em}
-.icons-fallback .bi-search::before{content:"⌕"}
-.icons-fallback .bi-floppy-fill::before{content:"💾"}
-.icons-fallback .bi-chevron-down::before{content:"▾"}
-.icons-fallback .bi-shop::before{content:"🏪"}
-.icons-fallback .bi-moon-stars-fill::before{content:"☾"}
-.icons-fallback .bi-exclamation-circle-fill::before{content:"⚠"}
-.icons-fallback .bi-check-circle-fill::before{content:"✔"}
 
 /* ── AUTH ── */
 #authScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
@@ -2523,11 +2479,6 @@ loadAlwaysConnectedPreference();
 // REALTIME — SocketIO
 // ══════════════════════════════════════════════════════════
 function initSocketIO(){
-  if(typeof io!=='function'){
-    setRtDot(false);
-    toast('החיבור החי לא נטען כרגע. אפשר להמשיך לעבוד ולרענן אם צריך.');
-    return;
-  }
   if(_socket){
     try{ _socket.off(); }catch(_err){}
     try{ _socket.disconnect(); }catch(_err){}
