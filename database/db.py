@@ -4,8 +4,6 @@ import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "l2f.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
-SQLITE_TIMEOUT_SECONDS = 30
-SQLITE_BUSY_TIMEOUT_MS = SQLITE_TIMEOUT_SECONDS * 1000
 
 BARCODE_COLOR_SCALE_SEED = [
     ("0001", "לבן"),
@@ -107,11 +105,8 @@ STRUCTURED_BARCODE_RE = re.compile(r"^([A-Z])(\d{5})(\d{4})(\d{2})$")
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=SQLITE_TIMEOUT_SECONDS)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS};")
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
     return conn
 

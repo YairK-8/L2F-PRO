@@ -8,7 +8,6 @@ from backend.barcodes import (
     resolve_barcode_catalog_entry,
 )
 from backend.realtime import emit_update
-from backend.scan_queue import JOB_TYPE_MORNING_SCAN, enqueue_scan_job
 from backend.utils import today as _today
 
 missing_floor_bp = Blueprint("missing_floor", __name__, url_prefix="/api/missing-floor")
@@ -170,30 +169,28 @@ def _auto_approve_completed_session(conn, branch_id, session_data, session_date=
 def get_sessions(branch_id):
     """Return all open (unapproved) morning sessions, with location hint."""
     conn = get_connection()
-    try:
-        _clear_stale_morning_sessions(conn, branch_id, _today())
-        rows = conn.execute(
-            """SELECT ms.*, wl.location AS location_hint
-               FROM morning_sessions ms
-               LEFT JOIN warehouse_locations wl
-                 ON wl.branch_id = ms.branch_id AND wl.sku = ms.sku
-               WHERE ms.branch_id=? AND ms.approved=0
-               ORDER BY ms.sku, ms.color, ms.session_date, ms.created_at, ms.id""",
-            (branch_id,)
-        ).fetchall()
-        result = []
-        approved_payloads = []
-        for r in rows:
-            session_data = _normalize_session_row(conn, r, persist=False)
-            approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, r["session_date"])
-            if approval_payload:
-                approved_payloads.append(approval_payload)
-                continue
-            session_data["location_hint"] = r["location_hint"] or ""
-            result.append(session_data)
-        conn.commit()
-    finally:
-        conn.close()
+    _clear_stale_morning_sessions(conn, branch_id, _today())
+    rows = conn.execute(
+        """SELECT ms.*, wl.location AS location_hint
+           FROM morning_sessions ms
+           LEFT JOIN warehouse_locations wl
+             ON wl.branch_id = ms.branch_id AND wl.sku = ms.sku
+           WHERE ms.branch_id=? AND ms.approved=0
+           ORDER BY ms.sku, ms.color, ms.session_date, ms.created_at, ms.id""",
+        (branch_id,)
+    ).fetchall()
+    result = []
+    approved_payloads = []
+    for r in rows:
+        session_data = _normalize_session_row(conn, r, persist=True)
+        approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, r["session_date"])
+        if approval_payload:
+            approved_payloads.append(approval_payload)
+            continue
+        session_data["location_hint"] = r["location_hint"] or ""
+        result.append(session_data)
+    conn.commit()
+    conn.close()
     for payload in approved_payloads:
         emit_update(branch_id, "tab1_approved", payload)
     return jsonify(result)
@@ -202,85 +199,68 @@ def get_sessions(branch_id):
 @missing_floor_bp.route("/scan", methods=["POST"])
 @require_branch
 def scan(branch_id):
-    data = request.get_json(silent=True) or {}
-    barcode = _normalize_catalog_barcode(data.get("barcode", ""))
-    if not barcode:
-        return jsonify({"error": "missing_barcode"}), 400
-
-    device_id = str(data.get("device_id", "")).strip()
-    device_name = str(data.get("device_name", "")).strip()
-    if not device_id:
-        response, status_code = process_morning_scan_request(branch_id, data)
-        return jsonify(response), status_code
-
-    job = enqueue_scan_job(
-        branch_id=branch_id,
-        device_id=device_id,
-        device_name=device_name,
-        job_type=JOB_TYPE_MORNING_SCAN,
-        payload={"barcode": str(data.get("barcode", ""))},
-    )
-    return jsonify({"ok": True, **job}), 202
-
-
-def process_morning_scan_request(branch_id, data):
     """
     Record a morning scan.
     Finds or creates a session for (branch, today, sku, color).
     Marks the scanned size as found.
     """
+    data = request.get_json(silent=True) or {}
     barcode_raw = data.get("barcode", "")
     barcode = _normalize_catalog_barcode(barcode_raw)
 
     if not barcode:
-        return {"error": "missing_barcode"}, 400
+        return jsonify({"error": "missing_barcode"}), 400
 
     conn = get_connection()
-    session_data = None
-    approval_payload = None
-    catalog_created = False
-    try:
-        _clear_stale_morning_sessions(conn, branch_id, _today())
+    _clear_stale_morning_sessions(conn, branch_id, _today())
 
-        meta, catalog_created = resolve_barcode_catalog_entry(
-            conn,
-            barcode,
-            autocreate_structured=True,
-        )
+    meta, catalog_created = resolve_barcode_catalog_entry(
+        conn,
+        barcode,
+        autocreate_structured=True,
+    )
 
-        if not meta:
-            return {
-                "error": "not_found",
-                "barcode_received": str(barcode_raw),
-                "barcode_normalized": barcode
-            }, 404
-
-        sku, color, size = meta["sku"], meta["color"], meta["size"]
-        _resolve_missing_floor_item(conn, branch_id, sku, color, size)
-        session_data = _upsert_session(conn, branch_id, sku, color, size)
-        session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
-        approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
-
-        conn.commit()
-    finally:
+    if not meta:
         conn.close()
+        return jsonify({
+            "error": "not_found",
+            "barcode_received": str(barcode_raw),
+            "barcode_normalized": barcode
+        }), 404
+
+    sku, color, size = meta["sku"], meta["color"], meta["size"]
+    _resolve_missing_floor_item(conn, branch_id, sku, color, size)
+    open_row = conn.execute(
+        """SELECT id
+           FROM morning_sessions
+           WHERE branch_id=? AND sku=? AND color=? AND approved=0
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1""",
+        (branch_id, sku, color)
+    ).fetchone()
+    session_data = _upsert_session(conn, branch_id, sku, color, size)
+    session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
+    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
+
+    conn.commit()
+    conn.close()
 
     if approval_payload:
         emit_update(branch_id, "tab1_approved", approval_payload)
-        return {
+        return jsonify({
             "ok": True,
             "approved": True,
             "approval": approval_payload,
             "catalog_created": bool(catalog_created),
-        }, 200
+        })
 
     emit_update(branch_id, "tab1_update", session_data)
-    return {
+    return jsonify({
         "ok": True,
         "session": session_data,
         "approved": False,
         "catalog_created": bool(catalog_created),
-    }, 200
+    })
 
 
 @missing_floor_bp.route("/sessions/tick", methods=["POST"])

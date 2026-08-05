@@ -329,22 +329,6 @@ def emit_update(branch_id: int, event: str, data: dict):
     socketio.emit(event, data, room=room)
 
 
-def emit_to_device(branch_id: int, device_id: str, event: str, data: dict) -> int:
-    target_sids = []
-    with _lock:
-        for sid in list(_branch_to_sids.get(branch_id, set())):
-            conn = _sid_to_conn.get(sid)
-            if not conn or conn.get("device_id") != device_id:
-                continue
-            target_sids.append(sid)
-        if target_sids:
-            _emit_events.append((_now(), {"event": event, "branch_id": branch_id}))
-            _trim_deque(_emit_events)
-    for sid in target_sids:
-        socketio.emit(event, data, to=sid)
-    return len(target_sids)
-
-
 def disconnect_branch_devices(branch_id: int, reason: str = "admin_disconnect_all") -> int:
     with _lock:
         sids = list(_branch_to_sids.get(branch_id, set()))

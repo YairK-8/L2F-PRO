@@ -10,7 +10,6 @@ from backend.realtime import (
     record_request_metric,
     socketio,
 )
-from backend.scan_queue import ensure_scan_queue_worker
 from backend.auth import auth_bp
 from backend.admin import admin_bp
 from backend.barcodes import barcodes_bp
@@ -55,7 +54,6 @@ for bp in [auth_bp, admin_bp, barcodes_bp, missing_floor_bp,
 
 socketio.init_app(app)
 ensure_realtime_background_tasks()
-ensure_scan_queue_worker()
 
 
 @app.before_request
