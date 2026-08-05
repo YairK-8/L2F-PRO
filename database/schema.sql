@@ -105,6 +105,26 @@ CREATE INDEX IF NOT EXISTS idx_missing_wh_branch  ON missing_warehouse(branch_id
 -- ============================================================
 -- TAB 3 — WAREHOUSE LOCATIONS  (per branch)
 -- ============================================================
+-- ============================================================
+-- SCAN JOB QUEUE  (serialize heavy scan writes, keep per-device feedback)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS scan_jobs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id   TEXT NOT NULL UNIQUE,
+    branch_id    INTEGER NOT NULL REFERENCES branches(id),
+    device_id    TEXT NOT NULL DEFAULT '',
+    device_name  TEXT NOT NULL DEFAULT '',
+    job_type     TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    status       TEXT NOT NULL DEFAULT 'queued',
+    result_json  TEXT NOT NULL DEFAULT '{}',
+    created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    started_at   TEXT,
+    finished_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_scan_jobs_status_id ON scan_jobs(status, id);
+CREATE INDEX IF NOT EXISTS idx_scan_jobs_branch_device ON scan_jobs(branch_id, device_id, id);
+
 CREATE TABLE IF NOT EXISTS warehouse_locations (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     branch_id  INTEGER NOT NULL REFERENCES branches(id),

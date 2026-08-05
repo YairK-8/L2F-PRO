@@ -2158,6 +2158,7 @@ let _branchId=null, _socket=null;
 let _deviceId=null, _deviceName=null, _heartbeatTimer=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
 let _realtimeSyncPromise=null, _realtimeLastSyncAt=0, _realtimeSyncTimer=null;
+let _pendingScanJobs=new Map();
 let _cameraMode=null, _cameraStream=null, _cameraLoopTimer=0, _cameraLoopActive=false;
 let _cameraCooldownUntil=0, _cameraLastValue='';
 let _cameraCanvas=null, _cameraCtx=null;
@@ -2581,6 +2582,7 @@ function initSocketIO(){
     updateStat1();
   });
   _socket.on('tab1_floor_missing_added', ()=>loadMissingFloor());
+  _socket.on('scan_job_result', data=>handleScanJobResult(data));
 }
 
 function setRtDot(on){
@@ -4595,9 +4597,136 @@ function exportMorningMissingOnly(){
   downloadCsv('morning-missing-sizes.csv', rows, ['sku','color','missing_sizes','location_hint']);
 }
 
+function rememberPendingScanJob(requestId, meta){
+  const payload={...(meta||{}), createdAt:Date.now()};
+  _pendingScanJobs.set(requestId, payload);
+  setTimeout(()=>{
+    const current=_pendingScanJobs.get(requestId);
+    if(current && current.createdAt===payload.createdAt){
+      _pendingScanJobs.delete(requestId);
+    }
+  }, 2*60*1000);
+}
+
+function noteQueuedScan(tab, requestId, label, opts={}){
+  rememberPendingScanJob(requestId, {tab, label, opts});
+  if(tab==='t1'){
+    $('lastScan1').textContent=`נקלט לעיבוד: ${label}`;
+  }else if(tab==='t2'){
+    $('lastScan2').textContent=`נקלט לעיבוד: ${label}`;
+  }
+  if(opts.fromCamera){
+    setCameraStatus(`הסריקה ${label} נקלטה ומעובדת כעת.`);
+  }
+}
+
+function applyTab1ScanResponse(res, code, opts={}){
+  const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
+  if(res.error==='not_found'){
+    $('lastScan1').textContent=`לא נמצא: ${normalizedCode || res.barcode_normalized || res.barcode_received || ''}`;
+    soundErr();
+    popup('לא נמצא','error',1200);
+    if(opts.fromCamera){
+      flashCameraError();
+      setCameraStatus(`הברקוד ${normalizedCode || res.barcode_normalized || ''} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
+    }
+    return false;
+  }
+  if(res.already_approved){
+    $('lastScan1').textContent=`כבר אושר קודם: ${res.sku}/${res.color}`;
+    soundOk();
+    popup('כבר אושר קודם ✓','success',900);
+    loadMissingFloor();
+    if(opts.fromCamera){
+      setCameraStatus(`הברקוד ${normalizedCode} נסרק, אבל השורה של ${res.sku}/${res.color} כבר אושרה קודם ולכן לא נפתחה שוב.`);
+    }
+    return true;
+  }
+  const summary = res.session || res.approval || {};
+  $('lastScan1').textContent = res.catalog_created
+    ? `נסרק ונוסף לקטלוג: ${summary.sku}/${summary.color}`
+    : `נסרק: ${summary.sku}/${summary.color}`;
+  soundOk();
+  popup(
+    res.approved
+      ? 'אושר אוטומטית ✓'
+      : (res.catalog_created ? 'נוסף לקטלוג ✓' : 'נסרק ✓'),
+    'success',
+    900
+  );
+  if(res.approved && res.approval){
+    onSessionApproved(res.approval);
+  }else if(res.session){
+    upsertSessionCard(res.session);
+  }
+  loadMissingFloor();
+  if(opts.fromCamera){
+    setCameraStatus(
+      res.approved
+        ? `הברקוד ${code} נקלט, כל המידות נמצאו, והשורה אושרה אוטומטית.`
+        : res.catalog_created
+          ? `הברקוד ${code} פוענח, נוסף לקטלוג, והוכנס לקבוצת הבוקר.`
+          : `הברקוד ${code} נקלט בהצלחה.`
+    );
+  }
+  return true;
+}
+
+function applyTab2ScanResponse(res, code, opts={}){
+  const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
+  if(res.error==='not_found'){
+    $('lastScan2').textContent=`לא נמצא: ${normalizedCode || res.barcode_normalized || res.barcode_received || ''}`;
+    soundErr();
+    popup('לא נמצא','error',1200);
+    if(opts.fromCamera){
+      flashCameraError();
+      setCameraStatus(`הברקוד ${normalizedCode || res.barcode_normalized || ''} לא נמצא במערכת. אפשר להמשיך לסרוק.`, true);
+    }
+    return false;
+  }
+  if(res.error){
+    $('lastScan2').textContent='שגיאת סריקה';
+    soundErr();
+    popup('שגיאת סריקה','error',1200);
+    if(opts.fromCamera){
+      flashCameraError();
+      setCameraStatus('הסריקה נכשלה. אפשר לנסות שוב.', true);
+    }
+    return false;
+  }
+  $('lastScan2').textContent=`נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
+  soundOk();
+  popup(`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
+  if(res.item) appendWhItem(res.item);
+  if(opts.fromCamera) setCameraStatus(`הברקוד ${normalizedCode || code} נוסף לרשימת המחסן.`);
+  return true;
+}
+
+function handleScanJobResult(data){
+  const requestId=String(data?.request_id || '');
+  const jobType=String(data?.job_type || '');
+  const response=data?.response || {};
+  const pending=requestId ? _pendingScanJobs.get(requestId) : null;
+  if(requestId) _pendingScanJobs.delete(requestId);
+  const label = pending?.label || response.barcode_normalized || response.barcode_received || '';
+  const opts = pending?.opts || {};
+
+  if(jobType==='missing_floor_scan'){
+    applyTab1ScanResponse(response, label, opts);
+    return;
+  }
+  if(jobType==='missing_warehouse_scan'){
+    applyTab2ScanResponse(response, label, opts);
+  }
+}
+
 async function processTab1Barcode(code, opts={}){
   const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
-  const res=await POST('/api/missing-floor/scan',{barcode:normalizedCode});
+  const res=await POST('/api/missing-floor/scan',{barcode:normalizedCode, ...getDevicePayload()});
+  if(res.queued && res.request_id){
+    noteQueuedScan('t1', res.request_id, normalizedCode, opts);
+    return true;
+  }
   if(res.error==='not_found'){
     $('lastScan1').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
@@ -4830,7 +4959,11 @@ async function exportMissingWh(){
 
 async function processTab2Barcode(code, opts={}){
   const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
-  const res=await POST('/api/missing-warehouse/scan',{barcode:normalizedCode});
+  const res=await POST('/api/missing-warehouse/scan',{barcode:normalizedCode, ...getDevicePayload()});
+  if(res.queued && res.request_id){
+    noteQueuedScan('t2', res.request_id, normalizedCode, opts);
+    return true;
+  }
   if(res.error==='not_found'){
     $('lastScan2').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
@@ -4883,7 +5016,13 @@ $('scanInput2').addEventListener('keydown',async e=>{
 async function manualScan2(){
   const sku=$('man2Sku').value.trim(),color=$('man2Color').value.trim(),size=$('man2Size').value;
   if(!sku||!color||!size){toast('מלא מק״ט, צבע ומידה');return;}
-  const res=await POST('/api/missing-warehouse/scan',{sku,color,size});
+  const res=await POST('/api/missing-warehouse/scan',{sku,color,size, ...getDevicePayload()});
+  if(res.queued && res.request_id){
+    $('man2Sku').value='';$('man2Color').value='';$('man2Size').value='';
+    $('colorDropdown').style.display='none';
+    noteQueuedScan('t2', res.request_id, `${sku}/${color}/${String(size).toUpperCase()}`);
+    return;
+  }
   if(res.error){toast('שגיאה');return;}
   if(res.item) appendWhItem(res.item);
   $('man2Sku').value='';$('man2Color').value='';$('man2Size').value='';

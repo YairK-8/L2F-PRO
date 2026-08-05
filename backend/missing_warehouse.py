@@ -7,6 +7,7 @@ from database.db import get_connection
 from backend.auth_utils import require_branch
 from backend.barcodes import normalize_size_label, normalize_barcode as _normalize_barcode, resolve_barcode_catalog_entry
 from backend.realtime import emit_update
+from backend.scan_queue import JOB_TYPE_WAREHOUSE_SCAN, enqueue_scan_job
 from backend.utils import today as _today
 
 missing_warehouse_bp = Blueprint("missing_warehouse", __name__, url_prefix="/api/missing-warehouse")
@@ -54,6 +55,19 @@ def _clear_stale_pending_missing_warehouse(conn, branch_id):
     )
 
 
+def _has_stale_pending_missing_warehouse(conn, branch_id):
+    row = conn.execute(
+        """SELECT 1
+           FROM missing_warehouse
+           WHERE branch_id=?
+             AND status='pending'
+             AND substr(scanned_at, 1, 10) < ?
+           LIMIT 1""",
+        (branch_id, _today())
+    ).fetchone()
+    return bool(row)
+
+
 def _ensure_missing_floor_item(conn, branch_id, sku, color, size):
     exists = conn.execute(
         """SELECT id FROM missing_floor
@@ -91,18 +105,21 @@ def _load_missing_floor_item(conn, item_id):
 @require_branch
 def list_pending(branch_id):
     conn = get_connection()
-    _clear_stale_pending_missing_warehouse(conn, branch_id)
-    conn.commit()
-    rows = conn.execute(
-        """SELECT mw.*, wl.location AS location_hint
-           FROM missing_warehouse mw
-           LEFT JOIN warehouse_locations wl
-             ON wl.branch_id = mw.branch_id AND wl.sku = mw.sku
-           WHERE mw.branch_id=? AND mw.status='pending'
-           ORDER BY mw.scanned_at ASC, mw.id ASC""",
-        (branch_id,)
-    ).fetchall()
-    conn.close()
+    try:
+        if _has_stale_pending_missing_warehouse(conn, branch_id):
+            _clear_stale_pending_missing_warehouse(conn, branch_id)
+            conn.commit()
+        rows = conn.execute(
+            """SELECT mw.*, wl.location AS location_hint
+               FROM missing_warehouse mw
+               LEFT JOIN warehouse_locations wl
+                 ON wl.branch_id = mw.branch_id AND wl.sku = mw.sku
+               WHERE mw.branch_id=? AND mw.status='pending'
+               ORDER BY mw.scanned_at ASC, mw.id ASC""",
+            (branch_id,)
+        ).fetchall()
+    finally:
+        conn.close()
 
     result = []
     for r in rows:
@@ -117,56 +134,87 @@ def list_pending(branch_id):
 @require_branch
 def scan_sold(branch_id):
     data = request.get_json(silent=True) or {}
+    barcode = _normalize_barcode(data.get("barcode", ""))
+    sku = str(data.get("sku", "")).strip()
+    color = str(data.get("color", "")).strip()
+    size = normalize_size_label(data.get("size", ""))
+
+    if not barcode and not all([sku, color, size]):
+        return jsonify({"error": "missing_fields"}), 400
+
+    device_id = str(data.get("device_id", "")).strip()
+    device_name = str(data.get("device_name", "")).strip()
+    if not device_id:
+        response, status_code = process_missing_warehouse_scan_request(branch_id, data)
+        return jsonify(response), status_code
+
+    job = enqueue_scan_job(
+        branch_id=branch_id,
+        device_id=device_id,
+        device_name=device_name,
+        job_type=JOB_TYPE_WAREHOUSE_SCAN,
+        payload={
+            "barcode": str(data.get("barcode", "")),
+            "sku": sku,
+            "color": color,
+            "size": size,
+        },
+    )
+    return jsonify({"ok": True, **job}), 202
+
+
+def process_missing_warehouse_scan_request(branch_id, data):
     barcode_raw = data.get("barcode", "")
     barcode = _normalize_barcode(barcode_raw)
     conn = get_connection()
-    _clear_stale_pending_missing_warehouse(conn, branch_id)
+    item = None
+    try:
+        _clear_stale_pending_missing_warehouse(conn, branch_id)
 
-    if barcode:
-        meta, _catalog_created = resolve_barcode_catalog_entry(
-            conn,
-            barcode,
-            autocreate_structured=True,
-        )
-        if not meta:
-            conn.close()
-            return jsonify({
-                "error": "not_found",
-                "barcode_received": str(barcode_raw),
-                "barcode_normalized": barcode
-            }), 404
-        sku, color, size = meta["sku"], meta["color"], normalize_size_label(meta["size"])
-    else:
-        sku = str(data.get("sku", "")).strip()
-        color = str(data.get("color", "")).strip()
-        size = normalize_size_label(data.get("size", ""))
-        if not all([sku, color, size]):
-            conn.close()
-            return jsonify({"error": "missing_fields"}), 400
+        if barcode:
+            meta, _catalog_created = resolve_barcode_catalog_entry(
+                conn,
+                barcode,
+                autocreate_structured=True,
+            )
+            if not meta:
+                return {
+                    "error": "not_found",
+                    "barcode_received": str(barcode_raw),
+                    "barcode_normalized": barcode
+                }, 404
+            sku, color, size = meta["sku"], meta["color"], normalize_size_label(meta["size"])
+        else:
+            sku = str(data.get("sku", "")).strip()
+            color = str(data.get("color", "")).strip()
+            size = normalize_size_label(data.get("size", ""))
+            if not all([sku, color, size]):
+                return {"error": "missing_fields"}, 400
 
-    existing = _find_pending_item(conn, branch_id, sku, color, size)
-    now_ts = conn.execute("SELECT datetime('now','localtime') AS ts").fetchone()["ts"]
-    if existing:
-        history = _history_list(existing["scan_history"])
-        history.append(now_ts)
-        conn.execute(
-            "UPDATE missing_warehouse SET quantity=quantity+1, scanned_at=?, scan_history=? WHERE id=?",
-            (now_ts, _history_str(history), existing["id"])
-        )
-        item_id = existing["id"]
-    else:
-        cur = conn.execute(
-            "INSERT INTO missing_warehouse (branch_id,sku,color,size,quantity,scan_history,scanned_at) VALUES (?,?,?,?,1,?,?)",
-            (branch_id, sku, color, size, now_ts, now_ts)
-        )
-        item_id = cur.lastrowid
-    conn.commit()
+        existing = _find_pending_item(conn, branch_id, sku, color, size)
+        now_ts = conn.execute("SELECT datetime('now','localtime') AS ts").fetchone()["ts"]
+        if existing:
+            history = _history_list(existing["scan_history"])
+            history.append(now_ts)
+            conn.execute(
+                "UPDATE missing_warehouse SET quantity=quantity+1, scanned_at=?, scan_history=? WHERE id=?",
+                (now_ts, _history_str(history), existing["id"])
+            )
+            item_id = existing["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO missing_warehouse (branch_id,sku,color,size,quantity,scan_history,scanned_at) VALUES (?,?,?,?,1,?,?)",
+                (branch_id, sku, color, size, now_ts, now_ts)
+            )
+            item_id = cur.lastrowid
+        conn.commit()
 
-    item = _load_item_with_location(conn, item_id)
-    conn.close()
+        item = _load_item_with_location(conn, item_id)
+    finally:
+        conn.close()
 
     emit_update(branch_id, "tab2_new_item", item)
-    return jsonify({"ok": True, "item": item}), 201
+    return {"ok": True, "item": item}, 201
 
 
 @missing_warehouse_bp.route("/<int:item_id>/restock", methods=["POST"])
