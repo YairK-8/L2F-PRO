@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from database.db import get_connection
+from database.db import get_connection, insert_and_get_id
 from backend.auth_utils import require_branch
 from backend.barcodes import (
     get_catalog_sizes_for_sku_color,
@@ -480,13 +480,14 @@ def _upsert_session(conn, branch_id, sku, color, size):
         }
     else:
         ordered_found = _order_found_sizes(all_sizes_list, [size])
-        cur = conn.execute(
+        session_id = insert_and_get_id(
+            conn,
             """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
                VALUES (?,?,?,?,?,?)""",
-            (branch_id, today, sku, color, all_sizes, _sizes_str(ordered_found))
+            (branch_id, today, sku, color, all_sizes, _sizes_str(ordered_found)),
         )
         return {
-            "id": cur.lastrowid, "sku": sku, "color": color,
+            "id": session_id, "sku": sku, "color": color,
             "sizes_all": all_sizes_list,
             "sizes_found": ordered_found,
             "approved": 0
@@ -527,13 +528,14 @@ def _upsert_manual_session(conn, branch_id, sku, color, size):
             "approved": 0
         }
 
-    cur = conn.execute(
+    session_id = insert_and_get_id(
+        conn,
         """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
            VALUES (?,?,?,?,?,?)""",
-        (branch_id, today, sku, color, all_sizes_str, "")
+        (branch_id, today, sku, color, all_sizes_str, ""),
     )
     return {
-        "id": cur.lastrowid, "sku": sku, "color": color,
+        "id": session_id, "sku": sku, "color": color,
         "sizes_all": all_sizes_list,
         "sizes_found": [],
         "approved": 0

@@ -39,12 +39,11 @@ Permissions:
 import csv
 import io
 import re
-import sqlite3
 
 from flask import Blueprint, Response, jsonify, request
 
 from backend.auth_utils import require_admin, require_branch, require_branch_or_admin
-from database.db import get_connection
+from database.db import IntegrityError, get_connection
 
 
 barcodes_bp = Blueprint("barcodes", __name__, url_prefix="/api/barcodes")
@@ -243,8 +242,9 @@ def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
     before = conn.total_changes
     conn.execute(
         """
-        INSERT OR IGNORE INTO barcodes (barcode, sku, color, size)
+        INSERT INTO barcodes (barcode, sku, color, size)
         VALUES (?, ?, ?, ?)
+        ON CONFLICT(barcode) DO NOTHING
         """,
         (
             parsed["barcode"],
@@ -278,8 +278,9 @@ def learn_structured_scale_mappings(conn, barcode, color="", size=""):
         before = conn.total_changes
         conn.execute(
             """
-            INSERT OR IGNORE INTO barcode_color_scale (code, color, updated_at)
+            INSERT INTO barcode_color_scale (code, color, updated_at)
             VALUES (?, ?, datetime('now','localtime'))
+            ON CONFLICT(code) DO NOTHING
             """,
             (parsed["color_code"], color_value),
         )
@@ -289,8 +290,9 @@ def learn_structured_scale_mappings(conn, barcode, color="", size=""):
         before = conn.total_changes
         conn.execute(
             """
-            INSERT OR IGNORE INTO barcode_size_scale (code, size, updated_at)
+            INSERT INTO barcode_size_scale (code, size, updated_at)
             VALUES (?, ?, datetime('now','localtime'))
+            ON CONFLICT(code) DO NOTHING
             """,
             (parsed["size_code"], size_value),
         )
@@ -373,7 +375,7 @@ def create_barcode_color_scale_entry():
             (code, color),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         conn.close()
         return jsonify({"error": "code_exists"}), 409
     conn.close()
@@ -409,7 +411,7 @@ def update_barcode_color_scale_entry(code):
             (next_code, color, original_code),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         conn.close()
         return jsonify({"error": "code_exists"}), 409
     conn.close()
@@ -452,7 +454,7 @@ def create_barcode_size_scale_entry():
             (code, size),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         conn.close()
         return jsonify({"error": "code_exists"}), 409
     conn.close()
@@ -488,7 +490,7 @@ def update_barcode_size_scale_entry(code):
             (next_code, size, original_code),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         conn.close()
         return jsonify({"error": "code_exists"}), 409
     conn.close()
@@ -670,7 +672,10 @@ def import_csv(branch_id):
 
         try:
             conn.execute(
-                "INSERT OR REPLACE INTO barcodes (barcode,sku,color,size) VALUES (?,?,?,?)",
+                """INSERT INTO barcodes (barcode,sku,color,size)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(barcode) DO UPDATE
+                   SET sku=excluded.sku, color=excluded.color, size=excluded.size""",
                 (barcode, sku, color, size),
             )
             learn_structured_scale_mappings(conn, barcode, color=color, size=size)
@@ -713,7 +718,10 @@ def import_csv_admin():
 
         try:
             conn.execute(
-                "INSERT OR REPLACE INTO barcodes (barcode,sku,color,size) VALUES (?,?,?,?)",
+                """INSERT INTO barcodes (barcode,sku,color,size)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(barcode) DO UPDATE
+                   SET sku=excluded.sku, color=excluded.color, size=excluded.size""",
                 (barcode, sku, color, size),
             )
             learn_structured_scale_mappings(conn, barcode, color=color, size=size)

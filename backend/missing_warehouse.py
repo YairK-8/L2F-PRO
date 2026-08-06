@@ -3,7 +3,7 @@ Tab 2 — "Scanned = Missing from Warehouse" (per branch, FIFO)
 Emits realtime updates via SocketIO.
 """
 from flask import Blueprint, request, jsonify
-from database.db import get_connection
+from database.db import get_connection, insert_and_get_id
 from backend.auth_utils import require_branch
 from backend.barcodes import normalize_size_label, normalize_barcode as _normalize_barcode, resolve_barcode_catalog_entry
 from backend.realtime import emit_update
@@ -63,11 +63,11 @@ def _ensure_missing_floor_item(conn, branch_id, sku, color, size):
     if exists:
         return exists["id"]
 
-    cur = conn.execute(
+    return insert_and_get_id(
+        conn,
         "INSERT INTO missing_floor (branch_id,sku,color,size) VALUES (?,?,?,?)",
-        (branch_id, sku, color, size)
+        (branch_id, sku, color, size),
     )
-    return cur.lastrowid
 
 
 def _load_missing_floor_item(conn, item_id):
@@ -155,11 +155,11 @@ def scan_sold(branch_id):
         )
         item_id = existing["id"]
     else:
-        cur = conn.execute(
+        item_id = insert_and_get_id(
+            conn,
             "INSERT INTO missing_warehouse (branch_id,sku,color,size,quantity,scan_history,scanned_at) VALUES (?,?,?,?,1,?,?)",
-            (branch_id, sku, color, size, now_ts, now_ts)
+            (branch_id, sku, color, size, now_ts, now_ts),
         )
-        item_id = cur.lastrowid
     conn.commit()
 
     item = _load_item_with_location(conn, item_id)

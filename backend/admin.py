@@ -12,7 +12,13 @@ Super-Admin API:
   POST /api/admin/setup          — first-time admin account creation (only if no admin exists)
 """
 from flask import Blueprint, request, jsonify, session
-from database.db import get_connection
+from database.db import (
+    get_connection,
+    get_table_columns,
+    list_table_names,
+    quote_identifier,
+    table_exists,
+)
 from backend.auth_utils import require_admin
 from backend.barcodes import get_catalog_sizes_for_sku_color, normalize_size_label
 from backend.realtime import (
@@ -34,14 +40,6 @@ def _clear_admin_session():
     session.pop("admin_id", None)
     session.pop("admin_username", None)
     session.modified = True
-
-
-def _quote_sqlite_ident(name: str) -> str:
-    return '"' + str(name).replace('"', '""') + '"'
-
-
-def _quote_sqlite_string(name: str) -> str:
-    return "'" + str(name).replace("'", "''") + "'"
 
 
 # ── Session check ─────────────────────────────────────────────
@@ -202,25 +200,12 @@ def get_system_health():
 def get_database_schema():
     conn = get_connection()
     try:
-        table_rows = conn.execute(
-            """
-            SELECT name
-            FROM sqlite_master
-            WHERE type='table'
-              AND name NOT LIKE 'sqlite_%'
-            ORDER BY name
-            """
-        ).fetchall()
-
         tables = []
-        for row in table_rows:
-            table_name = row["name"]
+        for table_name in list_table_names(conn):
             try:
-                cols = conn.execute(
-                    f"PRAGMA table_info({_quote_sqlite_string(table_name)})"
-                ).fetchall()
+                cols = get_table_columns(conn, table_name)
                 row_count = conn.execute(
-                    f"SELECT COUNT(*) AS count FROM {_quote_sqlite_ident(table_name)}"
+                    f"SELECT COUNT(*) AS count FROM {quote_identifier(table_name)}"
                 ).fetchone()["count"]
             except Exception as exc:
                 tables.append({
@@ -255,23 +240,11 @@ def get_database_schema():
 def get_database_table(table_name):
     conn = get_connection()
     try:
-        row = conn.execute(
-            """
-            SELECT name
-            FROM sqlite_master
-            WHERE type='table'
-              AND name=?
-              AND name NOT LIKE 'sqlite_%'
-            """,
-            (table_name,)
-        ).fetchone()
-        if not row:
+        if not table_exists(conn, table_name):
             return jsonify({"error": "table_not_found"}), 404
 
-        safe_name = _quote_sqlite_ident(table_name)
-        cols = conn.execute(
-            f"PRAGMA table_info({_quote_sqlite_string(table_name)})"
-        ).fetchall()
+        safe_name = quote_identifier(table_name)
+        cols = get_table_columns(conn, table_name)
         rows = conn.execute(f"SELECT * FROM {safe_name}").fetchall()
         return jsonify({
             "name": table_name,

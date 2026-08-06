@@ -139,3 +139,42 @@ barcode,sku,color,size
 3. **WebSockets** — עדכונים בזמן אמת בין מכשירים (Flask-SocketIO)
 4. **גיבוי אוטומטי** — cron job שמעתיק את `l2f.db` כל יום
 5. **HTTPS** — עם nginx + Let's Encrypt אם תעבור לאינטרנט
+
+---
+
+## מעבר ל-PostgreSQL בלי לאבד דאטה
+
+המערכת תומכת עכשיו בשני מצבים:
+
+- בלי `DATABASE_URL` היא ממשיכה לעבוד עם `database/l2f.db`
+- עם `DATABASE_URL` היא תעבוד מול PostgreSQL
+
+### מה נשמר
+
+- קובץ ה-SQLite המקורי לא נמחק
+- יש סקריפט הגירה שמעתיק את הנתונים ל-PostgreSQL
+- אפשר לחזור אחורה כל עוד לא החלפת את ההרצה הראשית בשרת
+
+### מה צריך בשרת
+
+1. להתקין תלויות:
+```bash
+pip install -r requirements.txt
+```
+
+2. להגדיר חיבור ל-PostgreSQL:
+```bash
+export DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/DBNAME'
+```
+
+3. להריץ את סקריפט ההגירה:
+```bash
+python scripts/migrate_sqlite_to_postgres.py
+```
+
+אם קובץ ה-SQLite לא נמצא בנתיב הרגיל:
+```bash
+SQLITE_PATH=/path/to/l2f.db python scripts/migrate_sqlite_to_postgres.py
+```
+
+4. אחרי שההגירה הסתיימה, להפעיל את האפליקציה עם אותו `DATABASE_URL`.
