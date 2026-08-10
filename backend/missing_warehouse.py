@@ -91,16 +91,15 @@ def _load_missing_floor_item(conn, item_id):
 @require_branch
 def list_pending(branch_id):
     conn = get_connection()
-    _clear_stale_pending_missing_warehouse(conn, branch_id)
-    conn.commit()
     rows = conn.execute(
         """SELECT mw.*, wl.location AS location_hint
            FROM missing_warehouse mw
            LEFT JOIN warehouse_locations wl
              ON wl.branch_id = mw.branch_id AND wl.sku = mw.sku
            WHERE mw.branch_id=? AND mw.status='pending'
+             AND substr(mw.scanned_at, 1, 10) >= ?
            ORDER BY mw.scanned_at ASC, mw.id ASC""",
-        (branch_id,)
+        (branch_id, _today())
     ).fetchall()
     conn.close()
 
@@ -117,6 +116,7 @@ def list_pending(branch_id):
 @require_branch
 def scan_sold(branch_id):
     data = request.get_json(silent=True) or {}
+    source_device_id = str(data.get("device_id", "")).strip()
     barcode_raw = data.get("barcode", "")
     barcode = _normalize_barcode(barcode_raw)
     conn = get_connection()
@@ -165,6 +165,7 @@ def scan_sold(branch_id):
     item = _load_item_with_location(conn, item_id)
     conn.close()
 
+    item["_source_device_id"] = source_device_id
     emit_update(branch_id, "tab2_new_item", item)
     return jsonify({"ok": True, "item": item}), 201
 

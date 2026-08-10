@@ -2297,7 +2297,9 @@ const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
 const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
-const REALTIME_SYNC_INTERVAL_MS = 8000;
+// Full-state polling is only a disconnected-mode safety net. While Socket.IO is
+// healthy, targeted events below keep every device in the branch up to date.
+const REALTIME_SYNC_INTERVAL_MS = 20000;
 const REALTIME_SYNC_MIN_GAP_MS = 1200;
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
@@ -2508,7 +2510,7 @@ function startRealtimeSyncTimer(){
     if(
       document.visibilityState==='visible' &&
       !_forceLogoutInProgress &&
-      (_realtimePollingOnly || _socket?.connected)
+      _realtimePollingOnly
     ){
       syncRealtimeState();
     }
@@ -2610,10 +2612,10 @@ function initSocketIO(){
   });
   _socket.on('connect',()=>{
     _realtimePollingOnly=false;
+    stopRealtimeSyncTimer();
     _socket.emit('join_branch',{branch_id:_branchId, ...getDevicePayload()});
     _socket.emit('heartbeat', getDevicePayload());
     startHeartbeat();
-    startRealtimeSyncTimer();
     setRtDot(true);
   });
   _socket.on('joined_branch', ()=>{
@@ -2622,7 +2624,8 @@ function initSocketIO(){
   _socket.on('disconnect', reason=>{
     setRtDot(false);
     stopHeartbeat();
-    stopRealtimeSyncTimer();
+    _realtimePollingOnly=true;
+    startRealtimeSyncTimer();
     if(!_forceLogoutInProgress && reason!=='io client disconnect'){
       setTimeout(()=>{
         if(_socket && !_socket.connected && !_forceLogoutInProgress){
@@ -2677,6 +2680,7 @@ function initSocketIO(){
 
   // Tab2 — push new item
   _socket.on('tab2_new_item', item=>{
+    if(item?._source_device_id && item._source_device_id === _deviceId) return;
     appendWhItem(item);
   });
   _socket.on('tab2_item_restocked', data=>{
@@ -2691,8 +2695,15 @@ function initSocketIO(){
   });
 
   // Tab1
-  _socket.on('tab1_update', session=>upsertSessionCard(session));
-  _socket.on('tab1_approved', data=>{ onSessionApproved(data); loadMissingFloor(); });
+  _socket.on('tab1_update', session=>{
+    if(session?._source_device_id && session._source_device_id === _deviceId) return;
+    upsertSessionCard(session);
+  });
+  _socket.on('tab1_approved', data=>{
+    if(data?._source_device_id && data._source_device_id === _deviceId) return;
+    onSessionApproved(data);
+    loadMissingFloor();
+  });
   _socket.on('tab1_cleared',()=>{
     _sessions={};
     renderSessionsList();
@@ -4787,7 +4798,7 @@ function exportMorningMissingOnly(){
 
 async function processTab1Barcode(code, opts={}){
   const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
-  const res=await POST('/api/missing-floor/scan',{barcode:normalizedCode});
+  const res=await POST('/api/missing-floor/scan',{barcode:normalizedCode,device_id:_deviceId});
   if(res.error==='not_found'){
     $('lastScan1').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
@@ -5020,7 +5031,7 @@ async function exportMissingWh(){
 
 async function processTab2Barcode(code, opts={}){
   const normalizedCode=normalizeScannerBarcodeInput(code) || String(code || '').trim();
-  const res=await POST('/api/missing-warehouse/scan',{barcode:normalizedCode});
+  const res=await POST('/api/missing-warehouse/scan',{barcode:normalizedCode,device_id:_deviceId});
   if(res.error==='not_found'){
     $('lastScan2').textContent=`לא נמצא: ${normalizedCode}`;
     soundErr();
@@ -5073,7 +5084,7 @@ $('scanInput2').addEventListener('keydown',async e=>{
 async function manualScan2(){
   const sku=$('man2Sku').value.trim(),color=$('man2Color').value.trim(),size=$('man2Size').value;
   if(!sku||!color||!size){toast('מלא מק״ט, צבע ומידה');return;}
-  const res=await POST('/api/missing-warehouse/scan',{sku,color,size});
+  const res=await POST('/api/missing-warehouse/scan',{sku,color,size,device_id:_deviceId});
   if(res.error){toast('שגיאה');return;}
   if(res.item) appendWhItem(res.item);
   $('man2Sku').value='';$('man2Color').value='';$('man2Size').value='';

@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS morning_sessions (
     UNIQUE(branch_id, session_date, sku, color)
 );
 CREATE INDEX IF NOT EXISTS idx_msession_branch ON morning_sessions(branch_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color, approved);
 
 -- ============================================================
 -- TAB 1 — MISSING FLOOR  (result after approval)
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS missing_floor (
     resolved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_missing_floor_branch ON missing_floor(branch_id, status);
+CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size, status);
 
 -- ============================================================
 -- TAB 2 — MISSING WAREHOUSE  (per branch, FIFO)
@@ -101,6 +103,7 @@ CREATE TABLE IF NOT EXISTS missing_warehouse (
     restocked_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_missing_wh_branch  ON missing_warehouse(branch_id, status);
+CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size, status);
 
 -- ============================================================
 -- TAB 3 — WAREHOUSE LOCATIONS  (per branch)

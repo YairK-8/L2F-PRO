@@ -180,19 +180,13 @@ def get_sessions(branch_id):
         (branch_id,)
     ).fetchall()
     result = []
-    approved_payloads = []
     for r in rows:
-        session_data = _normalize_session_row(conn, r, persist=True)
-        approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, r["session_date"])
-        if approval_payload:
-            approved_payloads.append(approval_payload)
-            continue
+        # GET must stay read-only. Normalization and auto-approval are persisted
+        # by scan/tick operations, not by every device's refresh request.
+        session_data = _normalize_session_row(conn, r, persist=False)
         session_data["location_hint"] = r["location_hint"] or ""
         result.append(session_data)
-    conn.commit()
     conn.close()
-    for payload in approved_payloads:
-        emit_update(branch_id, "tab1_approved", payload)
     return jsonify(result)
 
 
@@ -205,6 +199,7 @@ def scan(branch_id):
     Marks the scanned size as found.
     """
     data = request.get_json(silent=True) or {}
+    source_device_id = str(data.get("device_id", "")).strip()
     barcode_raw = data.get("barcode", "")
     barcode = _normalize_catalog_barcode(barcode_raw)
 
@@ -246,6 +241,7 @@ def scan(branch_id):
     conn.close()
 
     if approval_payload:
+        approval_payload["_source_device_id"] = source_device_id
         emit_update(branch_id, "tab1_approved", approval_payload)
         return jsonify({
             "ok": True,
@@ -254,6 +250,7 @@ def scan(branch_id):
             "catalog_created": bool(catalog_created),
         })
 
+    session_data["_source_device_id"] = source_device_id
     emit_update(branch_id, "tab1_update", session_data)
     return jsonify({
         "ok": True,

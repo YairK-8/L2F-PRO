@@ -20,6 +20,13 @@ from backend.locations import locations_bp
 app = Flask(__name__, static_folder="static", template_folder="templates")
 PWA_ASSET_DIR = "static"
 
+if os.environ.get("REQUIRE_POSTGRES", "").strip().lower() in {"1", "true", "yes"}:
+    if not os.environ.get("DATABASE_URL", "").strip():
+        raise RuntimeError(
+            "REQUIRE_POSTGRES is enabled but DATABASE_URL is missing. "
+            "Refusing to fall back to SQLite in production."
+        )
+
 
 def _load_secret_key():
     env_secret = os.environ.get("SECRET_KEY", "").strip()

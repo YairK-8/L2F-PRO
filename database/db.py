@@ -625,6 +625,9 @@ def _migrate_sqlite():
             pass
 
         conn.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color, approved)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size, status)")
         _ensure_structured_barcode_scale_tables(conn)
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)
@@ -645,6 +648,9 @@ def _migrate_postgres():
         conn.execute("ALTER TABLE missing_warehouse ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1")
         conn.execute("ALTER TABLE missing_warehouse ADD COLUMN IF NOT EXISTS scan_history TEXT NOT NULL DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color) WHERE approved = 0")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size) WHERE status = 'missing'")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size) WHERE status = 'pending'")
         _ensure_structured_barcode_scale_tables(conn)
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)

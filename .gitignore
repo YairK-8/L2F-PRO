@@ -1,0 +1,7 @@
+.env
+.git.broken-*/
+__pycache__/
+*.py[cod]
+database/l2f.db
+database/l2f.db.*
+database/.flask_secret_key
