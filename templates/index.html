@@ -2684,9 +2684,7 @@ function initSocketIO(){
     appendWhItem(item);
   });
   _socket.on('tab2_item_restocked', data=>{
-    delete _whItems[data.id];
-    renderWhQueue();
-    updateStat2();
+    removeWhItem(data.id);
   });
   _socket.on('tab2_cleared',()=>{
     _whItems={};
@@ -4549,6 +4547,43 @@ function renderSessionsList(){
   });
 }
 
+function syncSessionsEmptyState(){
+  const container=$('sessionsContainer');
+  const hasCards=!!container.querySelector('.session-card');
+  container.classList.toggle('is-empty', !hasCards);
+  const empty=container.querySelector('.morning-empty-state');
+  if(hasCards){
+    empty?.remove();
+  }else if(!empty){
+    container.innerHTML='<div class="small morning-empty-state">אין קבוצות בוקר פתוחות להיום</div>';
+  }
+}
+
+function placeSessionCard(session){
+  const container=$('sessionsContainer');
+  container.querySelector('.morning-empty-state')?.remove();
+
+  let card=container.querySelector(`.session-card[data-id="${Number(session.id)}"]`);
+  if(!card){
+    card=document.createElement('div');
+    card.className='session-card';
+    card.dataset.id=session.id;
+  }
+  updateSessionCard(card,session);
+
+  const nextCard=Array.from(container.querySelectorAll('.session-card'))
+    .filter(el=>el!==card)
+    .find(el=>compareMorningSessions(session,_sessions[el.dataset.id])<0);
+  container.insertBefore(card,nextCard||null);
+  syncSessionsEmptyState();
+}
+
+function removeSessionCard(sessionId){
+  delete _sessions[sessionId];
+  $('sessionsContainer').querySelector(`.session-card[data-id="${Number(sessionId)}"]`)?.remove();
+  syncSessionsEmptyState();
+}
+
 function getMorningMissingRows(){
   return Object.values(_sessions)
     .sort(compareMorningSessions)
@@ -4578,7 +4613,7 @@ async function loadSessions(){
 
 function renderSessionCard(s){
   _sessions[s.id]=s;
-  renderSessionsList();
+  placeSessionCard(s);
 }
 
 function updateSessionCard(el,s){
@@ -4611,13 +4646,12 @@ function updateSessionCard(el,s){
 
 function upsertSessionCard(s){
   _sessions[s.id]=s;
-  renderSessionsList();
+  placeSessionCard(s);
   updateStat1();
 }
 
 function onSessionApproved(data){
-  delete _sessions[data.session_id];
-  renderSessionsList();
+  removeSessionCard(data.session_id);
   updateStat1();
 }
 
@@ -4939,7 +4973,7 @@ function renderWhQueue(){
 
   const el=$('missingWhList');
   if(!rows.length){
-    el.innerHTML='<div class="small">אין כרגע פריטים ממתינים בתור 🎉</div>';
+    el.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים בתור 🎉</div>';
     return;
   }
   el.innerHTML='';
@@ -4975,9 +5009,45 @@ function makeWhRow(r){
   return div;
 }
 
+function syncWhEmptyState(){
+  const list=$('missingWhList');
+  const hasRows=!!list.querySelector('.kv[data-id]');
+  const empty=list.querySelector('.wh-empty-state');
+  if(hasRows){
+    empty?.remove();
+  }else if(!empty){
+    list.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים בתור 🎉</div>';
+  }
+}
+
+function placeWhItem(item){
+  const list=$('missingWhList');
+  list.querySelector('.wh-empty-state')?.remove();
+
+  const existing=list.querySelector(`.kv[data-id="${Number(item.id)}"]`);
+  const row=makeWhRow(item);
+  existing?.remove();
+
+  const nextRow=Array.from(list.querySelectorAll('.kv[data-id]'))
+    .find(el=>compareWhByTimeAsc(item,_whItems[el.dataset.id])<0);
+  list.insertBefore(row,nextRow||null);
+  syncWhEmptyState();
+}
+
+function removeWhItem(id){
+  delete _whItems[id];
+  $('missingWhList').querySelector(`.kv[data-id="${Number(id)}"]`)?.remove();
+  syncWhEmptyState();
+  const rows=getWhSortedItems();
+  renderLastScannedWh(rows.length ? rows[rows.length-1] : null);
+  updateStat2();
+}
+
 function appendWhItem(item){
   _whItems[item.id]=item;
-  renderWhQueue();
+  placeWhItem(item);
+  const rows=getWhSortedItems();
+  renderLastScannedWh(rows.length ? rows[rows.length-1] : null);
   updateStat2();
   const card=$('lastScannedWhCard');
   if(card && card.style.display!=='none'){
@@ -4988,9 +5058,7 @@ function appendWhItem(item){
 
 async function markRestocked(id){
   await POST(`/api/missing-warehouse/${id}/restock`);
-  delete _whItems[id];
-  renderWhQueue();
-  updateStat2();
+  removeWhItem(id);
 }
 
 async function markPicked(id){
@@ -5004,9 +5072,7 @@ async function markWarehouseMissing(id){
     toast('לא הצלחתי להעביר לחוסר הכללי');
     return;
   }
-  delete _whItems[id];
-  renderWhQueue();
-  updateStat2();
+  removeWhItem(id);
   loadMissingFloor();
   toast('הועבר לחוסר הכללי');
 }
