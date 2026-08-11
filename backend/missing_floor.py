@@ -123,6 +123,31 @@ def _session_missing_sizes(session_data):
     return [size for size in all_sizes if size not in found_set]
 
 
+def _lock_morning_branch(conn, branch_id):
+    """Serialize morning-list mutations per branch until commit/rollback."""
+    if conn.dialect == "postgres":
+        conn.execute(
+            "SELECT pg_advisory_xact_lock(?, ?)",
+            (127836, int(branch_id)),
+        )
+
+
+def _reset_morning_day_if_empty(conn, branch_id):
+    """Clear completed sessions once the branch has no open morning work."""
+    cursor = conn.execute(
+        """DELETE FROM morning_sessions
+           WHERE branch_id=?
+             AND approved=1
+             AND NOT EXISTS (
+                 SELECT 1
+                 FROM morning_sessions
+                 WHERE branch_id=? AND approved=0
+             )""",
+        (branch_id, branch_id),
+    )
+    return cursor.rowcount > 0
+
+
 def _approve_session_data(conn, branch_id, session_data, session_date=None):
     missing = _session_missing_sizes(session_data)
     location_hint = _location_for_sku(conn, branch_id, session_data["sku"])
@@ -147,12 +172,14 @@ def _approve_session_data(conn, branch_id, session_data, session_date=None):
         "UPDATE morning_sessions SET approved=1 WHERE id=?",
         (session_data["id"],)
     )
+    day_reset = _reset_morning_day_if_empty(conn, branch_id)
     return {
         "session_id": session_data["id"],
         "sku": session_data["sku"],
         "color": session_data["color"],
         "missing_sizes": missing,
         "location_hint": location_hint,
+        "day_reset": day_reset,
     }
 
 
@@ -207,6 +234,7 @@ def scan(branch_id):
         return jsonify({"error": "missing_barcode"}), 400
 
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     _clear_stale_morning_sessions(conn, branch_id, _today())
 
     meta, catalog_created = resolve_barcode_catalog_entry(
@@ -242,7 +270,11 @@ def scan(branch_id):
 
     if approval_payload:
         approval_payload["_source_device_id"] = source_device_id
-        emit_update(branch_id, "tab1_approved", approval_payload)
+        emit_update(
+            branch_id,
+            "tab1_cleared" if approval_payload["day_reset"] else "tab1_approved",
+            approval_payload,
+        )
         return jsonify({
             "ok": True,
             "approved": True,
@@ -270,6 +302,7 @@ def tick_size(branch_id):
     found = bool(data.get("found", True))
 
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     row = conn.execute(
         "SELECT * FROM morning_sessions WHERE id=? AND branch_id=?",
         (session_id, branch_id)
@@ -310,7 +343,11 @@ def tick_size(branch_id):
     conn.close()
 
     if approval_payload:
-        emit_update(branch_id, "tab1_approved", approval_payload)
+        emit_update(
+            branch_id,
+            "tab1_cleared" if approval_payload["day_reset"] else "tab1_approved",
+            approval_payload,
+        )
         return jsonify({"ok": True, "approved": True, "approval": approval_payload})
 
     emit_update(branch_id, "tab1_update", session_data)
@@ -326,6 +363,7 @@ def approve_session(branch_id, session_id):
     - session marked approved
     """
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     row = conn.execute(
         "SELECT * FROM morning_sessions WHERE id=? AND branch_id=?",
         (session_id, branch_id)
@@ -339,11 +377,17 @@ def approve_session(branch_id, session_id):
     conn.commit()
     conn.close()
 
-    emit_update(branch_id, "tab1_approved", approval_payload)
+    emit_update(
+        branch_id,
+        "tab1_cleared" if approval_payload["day_reset"] else "tab1_approved",
+        approval_payload,
+    )
     return jsonify({
         "ok": True,
+        "session_id": approval_payload["session_id"],
         "missing_sizes": approval_payload["missing_sizes"],
         "location_hint": approval_payload["location_hint"],
+        "day_reset": approval_payload["day_reset"],
     })
 
 
@@ -359,6 +403,7 @@ def add_manual_missing(branch_id):
         return jsonify({"error": "missing_fields"}), 400
 
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     _clear_stale_morning_sessions(conn, branch_id, _today())
     session_data = _upsert_manual_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
@@ -374,6 +419,7 @@ def add_manual_missing(branch_id):
 def clear_sessions(branch_id):
     """Clear all morning sessions for the branch (manual reset)."""
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     conn.execute(
         "DELETE FROM morning_sessions WHERE branch_id=?",
         (branch_id,)

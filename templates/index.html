@@ -4651,6 +4651,12 @@ function upsertSessionCard(s){
 }
 
 function onSessionApproved(data){
+  if(data?.day_reset){
+    _sessions={};
+    renderSessionsList();
+    updateStat1();
+    return;
+  }
   removeSessionCard(data.session_id);
   updateStat1();
 }
@@ -4660,7 +4666,7 @@ async function approveSession(sessionId){
   if(res.ok){
     const missing=res.missing_sizes||[];
     toast(missing.length>0?`חוסרים שנרשמו: ${missing.join(', ')}`: 'אושר — הכל נמצא!');
-    onSessionApproved({session_id:sessionId});
+    onSessionApproved({session_id:sessionId,day_reset:res.day_reset});
   }
 }
 
