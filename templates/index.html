@@ -2647,11 +2647,11 @@ function initSocketIO(){
   });
   _socket.on('force_logout', async data=>{
     if(_forceLogoutInProgress) return;
-    if(data?.reason === 'heartbeat_timeout' && _alwaysConnected){
-      toast('החיבור נותק זמנית, אבל המכשיר יישאר מחובר עד יציאה ידנית');
+    if(data?.reason === 'heartbeat_timeout'){
+      toast('החיבור החי נותק זמנית; מתחבר מחדש באופן אוטומטי');
       if(_socket && !_socket.connected){
         setTimeout(()=>{
-          if(_socket && !_socket.connected && _alwaysConnected && !_forceLogoutInProgress){
+          if(_socket && !_socket.connected && !_forceLogoutInProgress){
             _socket.connect();
           }
         }, 1200);

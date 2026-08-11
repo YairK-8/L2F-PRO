@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 try:
@@ -17,6 +18,7 @@ DATABASE_TIMEZONE = os.environ.get("DATABASE_TIMEZONE", "Asia/Jerusalem")
 SQLITE_TIMEOUT_SECONDS = int(os.environ.get("SQLITE_TIMEOUT_SECONDS", "30"))
 POSTGRES_POOL_MIN_CONN = int(os.environ.get("POSTGRES_POOL_MIN_CONN", "1"))
 POSTGRES_POOL_MAX_CONN = int(os.environ.get("POSTGRES_POOL_MAX_CONN", "12"))
+POSTGRES_POOL_WAIT_SECONDS = float(os.environ.get("POSTGRES_POOL_WAIT_SECONDS", "5"))
 
 BARCODE_COLOR_SCALE_SEED = [
     ("0001", "לבן"),
@@ -117,6 +119,12 @@ BARCODE_SIZE_SCALE_SEED = [
 STRUCTURED_BARCODE_RE = re.compile(r"^([A-Z])(\d{5})(\d{4})(\d{2})$")
 
 _postgres_pool = None
+_postgres_pool_slots = None
+_postgres_pool_lock = threading.Lock()
+
+
+class DatabaseBusyError(RuntimeError):
+    """Raised when all pooled PostgreSQL connections remain busy."""
 
 
 if psycopg2 is not None:
@@ -180,6 +188,7 @@ class CompatConnection:
         self._release_callback = release_callback
         self.dialect = dialect
         self._total_changes = 0
+        self._closed = False
 
     def cursor(self):
         return CompatCursor(self, self._native_connection.cursor())
@@ -210,6 +219,9 @@ class CompatConnection:
         self._native_connection.rollback()
 
     def close(self):
+        if self._closed:
+            return
+        self._closed = True
         if self._release_callback:
             try:
                 self._native_connection.rollback()
@@ -219,6 +231,17 @@ class CompatConnection:
             self._release_callback = None
             return
         self._native_connection.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
+        self.close()
+        return False
 
     def _track_changes(self, sql, rowcount):
         if rowcount is None or rowcount < 0:
@@ -343,13 +366,24 @@ def get_connection():
         if psycopg2 is None or psycopg2_pool is None:
             raise RuntimeError("PostgreSQL support is not installed. Run pip install -r requirements.txt.")
 
-        native = _get_postgres_pool().getconn()
+        pool = _get_postgres_pool()
+        if not _postgres_pool_slots.acquire(timeout=POSTGRES_POOL_WAIT_SECONDS):
+            raise DatabaseBusyError(
+                f"PostgreSQL connection pool stayed busy for {POSTGRES_POOL_WAIT_SECONDS:g}s"
+            )
+        try:
+            native = pool.getconn()
+        except Exception:
+            _postgres_pool_slots.release()
+            raise
         native.autocommit = False
-        return CompatConnection(
+        conn = CompatConnection(
             native,
             "postgres",
-            release_callback=_get_postgres_pool().putconn,
+            release_callback=_release_postgres_connection,
         )
+        _track_request_connection(conn)
+        return conn
 
     native = sqlite3.connect(DB_PATH, timeout=SQLITE_TIMEOUT_SECONDS, check_same_thread=False)
     native.row_factory = sqlite3.Row
@@ -370,7 +404,7 @@ def _database_url():
 
 
 def _get_postgres_pool():
-    global _postgres_pool
+    global _postgres_pool, _postgres_pool_slots
     if _postgres_pool is not None:
         return _postgres_pool
 
@@ -378,12 +412,52 @@ def _get_postgres_pool():
     if not database_url:
         raise RuntimeError("DATABASE_URL is required for PostgreSQL mode.")
 
-    _postgres_pool = psycopg2_pool.ThreadedConnectionPool(
-        POSTGRES_POOL_MIN_CONN,
-        POSTGRES_POOL_MAX_CONN,
-        database_url,
-    )
+    with _postgres_pool_lock:
+        if _postgres_pool is None:
+            _postgres_pool = psycopg2_pool.ThreadedConnectionPool(
+                POSTGRES_POOL_MIN_CONN,
+                POSTGRES_POOL_MAX_CONN,
+                database_url,
+            )
+            _postgres_pool_slots = threading.BoundedSemaphore(POSTGRES_POOL_MAX_CONN)
     return _postgres_pool
+
+
+def _release_postgres_connection(native_connection):
+    try:
+        _get_postgres_pool().putconn(native_connection)
+    finally:
+        _postgres_pool_slots.release()
+
+
+def _track_request_connection(conn):
+    """Guarantee cleanup even when an endpoint exits through an exception."""
+    try:
+        from flask import g, has_request_context
+
+        if has_request_context():
+            connections = getattr(g, "_database_connections", None)
+            if connections is None:
+                connections = []
+                g._database_connections = connections
+            connections.append(conn)
+    except (ImportError, RuntimeError):
+        pass
+
+
+def close_request_connections():
+    """Return every connection borrowed during the current request to the pool."""
+    try:
+        from flask import g, has_request_context
+
+        if not has_request_context():
+            return
+        connections = getattr(g, "_database_connections", [])
+        for conn in reversed(connections):
+            conn.close()
+        connections.clear()
+    except (ImportError, RuntimeError):
+        pass
 
 
 def _local_datetime_sql(dialect):

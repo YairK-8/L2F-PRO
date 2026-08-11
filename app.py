@@ -2,8 +2,8 @@
 import os, secrets, time
 from datetime import timedelta
 from pathlib import Path
-from flask import Flask, g, request, send_from_directory
-from database.db import init_db
+from flask import Flask, g, jsonify, request, send_from_directory
+from database.db import DatabaseBusyError, close_request_connections, init_db
 from backend.realtime import (
     ensure_realtime_background_tasks,
     record_error_event,
@@ -66,6 +66,19 @@ ensure_realtime_background_tasks()
 @app.before_request
 def _mark_request_start():
     g._request_started_at = time.perf_counter()
+
+
+@app.teardown_request
+def _release_request_database_connections(_error=None):
+    close_request_connections()
+
+
+@app.errorhandler(DatabaseBusyError)
+def _database_busy(_error):
+    response = jsonify({"error": "database_busy", "retryable": True})
+    response.status_code = 503
+    response.headers["Retry-After"] = "2"
+    return response
 
 
 @app.after_request
