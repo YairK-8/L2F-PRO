@@ -224,11 +224,17 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .session-card.approved{opacity:.5;pointer-events:none}
 .session-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .session-sku{font-size:18px;font-weight:800}
-.wh-aisle-filter{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin}
-.wh-aisle-filter-label{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
-.wh-aisle-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:48px;min-height:38px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.36);color:var(--muted);font-weight:800;white-space:nowrap}
-.wh-aisle-btn.active{background:rgba(23,23,23,.96);border-color:#111;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.12)}
-.wh-aisle-count{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.6);color:var(--text);font-size:11px}
+.wh-aisle-filter{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:4px 0 12px;padding:12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.52);border:1px solid rgba(255,255,255,.72);box-shadow:0 10px 26px rgba(30,35,45,.09),inset 0 1px 0 rgba(255,255,255,.7)}
+.wh-aisle-filter-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px}
+.wh-aisle-filter-title{font-size:14px;font-weight:900;color:var(--text);white-space:nowrap}
+.wh-aisle-filter-hint{font-size:11px;font-weight:600;color:var(--muted);text-align:left}
+.wh-aisle-options{display:flex;align-items:center;gap:8px;direction:rtl;overflow-x:auto;overflow-y:hidden;padding:2px 2px 7px;scrollbar-width:thin;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.wh-aisle-options::-webkit-scrollbar{height:5px}
+.wh-aisle-options::-webkit-scrollbar-thumb{background:rgba(70,70,70,.22);border-radius:999px}
+.wh-aisle-btn{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:9px;min-width:66px;min-height:44px;padding:8px 11px;border-radius:14px;border:1px solid rgba(60,65,75,.12);background:rgba(255,255,255,.88);color:var(--text);font-weight:850;white-space:nowrap;scroll-snap-align:start;box-shadow:0 4px 12px rgba(35,40,50,.08)}
+.wh-aisle-btn:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(35,40,50,.12)}
+.wh-aisle-btn.active{background:rgba(23,23,23,.97);border-color:#111;color:#fff;box-shadow:0 9px 20px rgba(0,0,0,.2)}
+.wh-aisle-count{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:rgba(20,20,20,.07);color:var(--text);font-size:11px;font-weight:900}
 .wh-aisle-btn.active .wh-aisle-count{background:rgba(255,255,255,.18);color:#fff}
 .session-color{font-size:16px;color:var(--muted);font-weight:700}
 
@@ -1717,6 +1723,11 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   }
 }
 
+body.app-dark #appScreen .wh-aisle-filter{background:rgba(30,30,32,.74);border-color:rgba(255,255,255,.12);box-shadow:0 12px 28px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.06)}
+body.app-dark #appScreen .wh-aisle-btn{background:rgba(54,54,57,.92);border-color:rgba(255,255,255,.1);color:#f7f7f7;box-shadow:0 5px 14px rgba(0,0,0,.2)}
+body.app-dark #appScreen .wh-aisle-btn.active{background:#f5f5f5;border-color:#fff;color:#171717;box-shadow:0 9px 20px rgba(0,0,0,.32)}
+body.app-dark #appScreen .wh-aisle-count{background:rgba(255,255,255,.1);color:#f5f5f5}
+body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,0,0,.09);color:#171717}
 </style>
 </head>
 <body>
@@ -4559,7 +4570,6 @@ function renderSessionsList(){
   });
   applyMorningSessionSearch();
 }
-
 function getMorningSessionSearchQuery(){
   return String($('morningSkuSearch')?.value || '').trim().toLowerCase();
 }
@@ -5032,7 +5042,13 @@ function renderWhAisleFilter(){
   if(_whAisleFilter!=='all' && !available.has(_whAisleFilter)) _whAisleFilter='all';
 
   const bar=$('whAisleFilter');
-  bar.innerHTML='<span class="wh-aisle-filter-label">שורת מחסן</span>';
+  bar.innerHTML=`
+    <div class="wh-aisle-filter-heading">
+      <span class="wh-aisle-filter-title">בחירת שורת מחסן</span>
+      <span class="wh-aisle-filter-hint">סינון ומיון לפי מיקום</span>
+    </div>
+    <div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
+  const optionsBar=bar.querySelector('.wh-aisle-options');
   const options=[
     {key:'all',label:'הכול',count:getWhSortedItems().reduce((sum,item)=>sum+Number(item.quantity||1),0)},
     ...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)})),
@@ -5044,7 +5060,7 @@ function renderWhAisleFilter(){
     button.setAttribute('aria-pressed',option.key===_whAisleFilter?'true':'false');
     button.innerHTML=`<span>${esc(option.label)}</span><span class="wh-aisle-count">${Number(option.count||0)}</span>`;
     button.addEventListener('click',()=>selectWhAisle(option.key));
-    bar.appendChild(button);
+    optionsBar.appendChild(button);
   });
   return previous!==_whAisleFilter;
 }

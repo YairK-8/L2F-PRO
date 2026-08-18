@@ -1,4 +1,4 @@
-const APP_VERSION = "20260818-2";
+const APP_VERSION = "20260818-3";
 const APP_SHELL_CACHE = `l2f-shell-${APP_VERSION}`;
 const RUNTIME_CACHE = `l2f-runtime-${APP_VERSION}`;
 const CDN_CACHE = `l2f-cdn-${APP_VERSION}`;
