@@ -215,11 +215,12 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .morning-panel-actions{justify-content:flex-start;margin-top:0}
 .morning-sessions-scroll{min-height:220px;height:min(48vh,420px);max-height:420px;overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
-.morning-empty-state{text-align:center;padding:18px 14px}
+.morning-empty-state,.morning-search-empty-state{text-align:center;padding:18px 14px}
 .morning-sessions-scroll::-webkit-scrollbar{width:8px}
 .morning-sessions-scroll::-webkit-scrollbar-thumb{background:rgba(145,145,145,.38);border-radius:999px}
 .morning-sessions-scroll::-webkit-scrollbar-track{background:transparent}
 .session-card{background:rgba(255,255,255,.34);border:1px solid rgba(255,255,255,.48);border-radius:18px;padding:10px 12px;margin-bottom:8px}
+.session-card[hidden]{display:none !important}
 .session-card.approved{opacity:.5;pointer-events:none}
 .session-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .session-sku{font-size:18px;font-weight:800}
@@ -1802,6 +1803,10 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
           <div class="small" id="lastScan1" style="margin-top:6px">מוכן לסריקה.</div>
 
           <div class="divider"></div>
+          <div class="scanbox" style="margin-bottom:10px">
+            <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="search" oninput="applyMorningSessionSearch()"/>
+            <button class="btn-ghost" type="button" onclick="clearMorningSessionSearch()">נקה</button>
+          </div>
           <div id="sessionsContainer" class="morning-sessions-scroll"></div>
 
           <div class="actions morning-panel-actions">
@@ -4545,17 +4550,45 @@ function renderSessionsList(){
     updateSessionCard(div,s);
     container.appendChild(div);
   });
+  applyMorningSessionSearch();
+}
+
+function getMorningSessionSearchQuery(){
+  return String($('morningSkuSearch')?.value || '').trim().toLowerCase();
+}
+
+function morningSessionMatchesSearch(session, query=getMorningSessionSearchQuery()){
+  if(!query) return true;
+  return String(session?.sku || '').toLowerCase().includes(query);
+}
+
+function applyMorningSessionSearch(){
+  const query=getMorningSessionSearchQuery();
+  $('sessionsContainer').querySelectorAll('.session-card').forEach(card=>{
+    card.hidden=!morningSessionMatchesSearch(_sessions[card.dataset.id],query);
+  });
+  syncSessionsEmptyState();
+}
+
+function clearMorningSessionSearch(){
+  const input=$('morningSkuSearch');
+  if(!input) return;
+  input.value='';
+  applyMorningSessionSearch();
+  input.focus();
 }
 
 function syncSessionsEmptyState(){
   const container=$('sessionsContainer');
-  const hasCards=!!container.querySelector('.session-card');
-  container.classList.toggle('is-empty', !hasCards);
-  const empty=container.querySelector('.morning-empty-state');
-  if(hasCards){
-    empty?.remove();
-  }else if(!empty){
-    container.innerHTML='<div class="small morning-empty-state">אין קבוצות בוקר פתוחות להיום</div>';
+  const cards=Array.from(container.querySelectorAll('.session-card'));
+  const hasVisibleCards=cards.some(card=>!card.hidden);
+  container.classList.toggle('is-empty', !hasVisibleCards);
+  container.querySelector('.morning-empty-state')?.remove();
+  container.querySelector('.morning-search-empty-state')?.remove();
+  if(!cards.length){
+    container.insertAdjacentHTML('beforeend','<div class="small morning-empty-state">אין קבוצות בוקר פתוחות להיום</div>');
+  }else if(!hasVisibleCards && getMorningSessionSearchQuery()){
+    container.insertAdjacentHTML('beforeend','<div class="small morning-search-empty-state">לא נמצאו מק״טים תואמים</div>');
   }
 }
 
@@ -4570,6 +4603,7 @@ function placeSessionCard(session){
     card.dataset.id=session.id;
   }
   updateSessionCard(card,session);
+  card.hidden=!morningSessionMatchesSearch(session);
 
   const nextCard=Array.from(container.querySelectorAll('.session-card'))
     .filter(el=>el!==card)
