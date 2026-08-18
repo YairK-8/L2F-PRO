@@ -224,6 +224,12 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .session-card.approved{opacity:.5;pointer-events:none}
 .session-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .session-sku{font-size:18px;font-weight:800}
+.wh-aisle-filter{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin}
+.wh-aisle-filter-label{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
+.wh-aisle-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:48px;min-height:38px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.36);color:var(--muted);font-weight:800;white-space:nowrap}
+.wh-aisle-btn.active{background:rgba(23,23,23,.96);border-color:#111;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.12)}
+.wh-aisle-count{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.6);color:var(--text);font-size:11px}
+.wh-aisle-btn.active .wh-aisle-count{background:rgba(255,255,255,.18);color:#fff}
 .session-color{font-size:16px;color:var(--muted);font-weight:700}
 
 /* locations big result */
@@ -1885,6 +1891,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
 
         <div class="divider"></div>
         <div id="lastScannedWhCard" class="card last-scanned-card" style="display:none"></div>
+        <div id="whAisleFilter" class="wh-aisle-filter" aria-label="סינון לפי שורת מחסן"></div>
         <div class="queue-box">
           <div class="queue-title">
             <div class="small">רשימת הליקוט בתור</div>
@@ -4969,6 +4976,7 @@ async function addManualMissing(){
 // TAB 2 — MISSING WAREHOUSE
 // ══════════════════════════════════════════════════════════
 let _whItems={};
+let _whAisleFilter='all';
 
 function compareWhByTimeAsc(a,b){
   const ta=String(a.scanned_at||'');
@@ -4979,6 +4987,71 @@ function compareWhByTimeAsc(a,b){
 
 function getWhSortedItems(){
   return Object.values(_whItems).sort(compareWhByTimeAsc);
+}
+
+function getWhAisleKey(item){
+  const location=String(item?.location_hint||'').trim();
+  if(!location) return '__none__';
+  const explicitRow=location.match(/(?:^|\s)שורה\s*([A-Za-z0-9\u0590-\u05FF]+)/i);
+  if(explicitRow) return explicitRow[1].toUpperCase();
+  const leading=location.match(/^\s*([A-Za-z]+|[\u0590-\u05FF]+|\d+)/);
+  return leading ? leading[1].toUpperCase() : location.toUpperCase();
+}
+
+function compareWhNaturalText(left,right){
+  return String(left||'').localeCompare(String(right||''),'en',{numeric:true,sensitivity:'base'});
+}
+
+function compareWhForSelectedAisle(a,b){
+  const locationCompare=compareWhNaturalText(a?.location_hint,b?.location_hint);
+  if(locationCompare) return locationCompare;
+  const skuCompare=compareWhNaturalText(a?.sku,b?.sku);
+  if(skuCompare) return skuCompare;
+  return compareWhByTimeAsc(a,b);
+}
+
+function whItemMatchesAisle(item){
+  return _whAisleFilter==='all' || getWhAisleKey(item)===_whAisleFilter;
+}
+
+function getWhVisibleSortedItems(){
+  const rows=Object.values(_whItems).filter(whItemMatchesAisle);
+  return rows.sort(_whAisleFilter==='all' ? compareWhByTimeAsc : compareWhForSelectedAisle);
+}
+
+function renderWhAisleFilter(){
+  const counts=new Map();
+  Object.values(_whItems).forEach(item=>{
+    const key=getWhAisleKey(item);
+    counts.set(key,(counts.get(key)||0)+Number(item.quantity||1));
+  });
+  const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
+  if(counts.has('__none__')) keys.push('__none__');
+  const available=new Set(keys);
+  const previous=_whAisleFilter;
+  if(_whAisleFilter!=='all' && !available.has(_whAisleFilter)) _whAisleFilter='all';
+
+  const bar=$('whAisleFilter');
+  bar.innerHTML='<span class="wh-aisle-filter-label">שורת מחסן</span>';
+  const options=[
+    {key:'all',label:'הכול',count:getWhSortedItems().reduce((sum,item)=>sum+Number(item.quantity||1),0)},
+    ...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)})),
+  ];
+  options.forEach(option=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className=`wh-aisle-btn${option.key===_whAisleFilter?' active':''}`;
+    button.setAttribute('aria-pressed',option.key===_whAisleFilter?'true':'false');
+    button.innerHTML=`<span>${esc(option.label)}</span><span class="wh-aisle-count">${Number(option.count||0)}</span>`;
+    button.addEventListener('click',()=>selectWhAisle(option.key));
+    bar.appendChild(button);
+  });
+  return previous!==_whAisleFilter;
+}
+
+function selectWhAisle(aisle){
+  _whAisleFilter=String(aisle||'all');
+  renderWhQueue();
 }
 
 function renderLastScannedWh(item){
@@ -5007,13 +5080,15 @@ function renderLastScannedWh(item){
 }
 
 function renderWhQueue(){
-  const rows=getWhSortedItems();
-  const latest=rows.length ? rows[rows.length-1] : null;
+  renderWhAisleFilter();
+  const allRows=getWhSortedItems();
+  const rows=getWhVisibleSortedItems();
+  const latest=allRows.length ? allRows[allRows.length-1] : null;
   renderLastScannedWh(latest);
 
   const el=$('missingWhList');
   if(!rows.length){
-    el.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים בתור 🎉</div>';
+    el.innerHTML=`<div class="small wh-empty-state">${_whAisleFilter==='all'?'אין כרגע פריטים ממתינים בתור 🎉':'אין פריטים בשורה שנבחרה'}</div>`;
     return;
   }
   el.innerHTML='';
@@ -5056,7 +5131,7 @@ function syncWhEmptyState(){
   if(hasRows){
     empty?.remove();
   }else if(!empty){
-    list.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים בתור 🎉</div>';
+    list.innerHTML=`<div class="small wh-empty-state">${_whAisleFilter==='all'?'אין כרגע פריטים ממתינים בתור 🎉':'אין פריטים בשורה שנבחרה'}</div>`;
   }
 }
 
@@ -5065,11 +5140,20 @@ function placeWhItem(item){
   list.querySelector('.wh-empty-state')?.remove();
 
   const existing=list.querySelector(`.kv[data-id="${Number(item.id)}"]`);
-  const row=makeWhRow(item);
   existing?.remove();
 
+  if(renderWhAisleFilter()){
+    renderWhQueue();
+    return;
+  }
+  if(!whItemMatchesAisle(item)){
+    syncWhEmptyState();
+    return;
+  }
+  const row=makeWhRow(item);
+
   const nextRow=Array.from(list.querySelectorAll('.kv[data-id]'))
-    .find(el=>compareWhByTimeAsc(item,_whItems[el.dataset.id])<0);
+    .find(el=>(_whAisleFilter==='all' ? compareWhByTimeAsc : compareWhForSelectedAisle)(item,_whItems[el.dataset.id])<0);
   list.insertBefore(row,nextRow||null);
   syncWhEmptyState();
 }
@@ -5077,6 +5161,11 @@ function placeWhItem(item){
 function removeWhItem(id){
   delete _whItems[id];
   $('missingWhList').querySelector(`.kv[data-id="${Number(id)}"]`)?.remove();
+  if(renderWhAisleFilter()){
+    renderWhQueue();
+    updateStat2();
+    return;
+  }
   syncWhEmptyState();
   const rows=getWhSortedItems();
   renderLastScannedWh(rows.length ? rows[rows.length-1] : null);
