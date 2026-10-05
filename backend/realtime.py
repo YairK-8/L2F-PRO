@@ -8,9 +8,7 @@ from database.db import get_connection
 
 socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 
-HEARTBEAT_TIMEOUT_SECONDS = 15 * 60
 HEALTH_WINDOW_SECONDS = 5 * 60
-HEARTBEAT_CHECK_INTERVAL_SECONDS = 60
 ERROR_BUFFER_LIMIT = 100
 
 _sid_to_conn = {}
@@ -22,7 +20,6 @@ _socket_connect_events = deque()
 _socket_disconnect_events = deque()
 _emit_events = deque()
 _server_started_at = time.time()
-_cleanup_task_started = False
 _lock = Lock()
 
 
@@ -129,39 +126,6 @@ def _schedule_force_disconnect(sids: list[str], reason: str):
             except Exception:
                 record_error_event("socket_disconnect_failed", f"sid={sid}", "realtime")
     socketio.start_background_task(_worker)
-
-
-def _cleanup_stale_connections():
-    while True:
-        socketio.sleep(HEARTBEAT_CHECK_INTERVAL_SECONDS)
-        stale_sids = []
-        cutoff = _now() - HEARTBEAT_TIMEOUT_SECONDS
-        with _lock:
-            for sid, conn in list(_sid_to_conn.items()):
-                if conn["last_seen_ts"] <= cutoff:
-                    conn["disconnect_reason"] = "heartbeat_timeout"
-                    stale_sids.append(sid)
-            for sid in stale_sids:
-                conn = _sid_to_conn.get(sid)
-                if not conn:
-                    continue
-                try:
-                    socketio.server.leave_room(sid, branch_room(conn["branch_id"]), namespace="/")
-                except Exception:
-                    pass
-                _remove_sid_locked(sid)
-        if stale_sids:
-            record_error_event("stale_socket_cleanup", f"cleaned={len(stale_sids)}", "realtime")
-            _schedule_force_disconnect(stale_sids, "heartbeat_timeout")
-
-
-def ensure_realtime_background_tasks():
-    global _cleanup_task_started
-    with _lock:
-        if _cleanup_task_started:
-            return
-        _cleanup_task_started = True
-    socketio.start_background_task(_cleanup_stale_connections)
 
 
 def get_active_device_counts() -> dict[int, int]:
@@ -374,7 +338,6 @@ def disconnect_single_device(branch_id: int, device_id: str, reason: str = "admi
 
 @socketio.on("join_branch")
 def handle_join_branch(data):
-    ensure_realtime_background_tasks()
     branch_id = data.get("branch_id")
     if not branch_id:
         return
@@ -409,7 +372,6 @@ def handle_join_branch(data):
             "device_name": device_name,
             "connected_at": previous["connected_at"] if previous else now,
             "last_seen": now,
-            "last_seen_ts": now,
             "disconnect_reason": "disconnect",
         }
         _branch_to_sids[branch_id].add(sid)
@@ -432,21 +394,6 @@ def handle_join_branch(data):
         "device_id": device_id,
         "device_name": device_name,
     })
-
-
-@socketio.on("heartbeat")
-def handle_heartbeat(data):
-    sid = request.sid
-    now = _now()
-    with _lock:
-        conn = _sid_to_conn.get(sid)
-        if not conn:
-            return
-        conn["last_seen"] = now
-        conn["last_seen_ts"] = now
-        device_name = str(data.get("device_name") or conn["device_name"]).strip() or conn["device_name"]
-        conn["device_name"] = device_name
-    emit("heartbeat_ack", {"ok": True})
 
 
 @socketio.on("disconnect")

@@ -5,7 +5,6 @@ from pathlib import Path
 from flask import Flask, g, jsonify, request, send_from_directory
 from database.db import DatabaseBusyError, close_request_connections, init_db
 from backend.realtime import (
-    ensure_realtime_background_tasks,
     record_error_event,
     record_request_metric,
     socketio,
@@ -60,7 +59,6 @@ for bp in [auth_bp, admin_bp, barcodes_bp, missing_floor_bp,
     app.register_blueprint(bp)
 
 socketio.init_app(app)
-ensure_realtime_background_tasks()
 
 
 @app.before_request

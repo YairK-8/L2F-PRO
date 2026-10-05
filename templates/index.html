@@ -137,7 +137,6 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .btn-ok{background:rgba(121,194,58,.14);border-color:rgba(121,194,58,.32);color:#3f6f18}
 .btn-ghost{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.55);color:var(--text)}
 .btn-warn{background:rgba(217,139,43,.14);border-color:rgba(217,139,43,.3);color:#9f5d14}
-.btn-sticky-on{background:rgba(121,194,58,.16);border-color:rgba(121,194,58,.34);color:#365f16}
 .header-icon-btn{
   width:42px;
   height:42px;
@@ -1045,11 +1044,6 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
 .header-icon-btn .icon{
   font-size:28px;
 }
-.btn-sticky-on{
-  background:#f3faed;
-  border-color:#bfe2a7;
-  color:#345b18;
-}
 .tabs{
   position:fixed;
   left:50%;
@@ -1778,9 +1772,6 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
       <button class="btn-ghost header-icon-btn" id="workThemeBtn" type="button" onclick="toggleWorkTheme()" title="מצב עבודה">
         <i class="bi bi-brightness-high-fill icon" aria-hidden="true"></i>
       </button>
-      <button class="btn-ghost header-icon-btn" id="alwaysConnectedBtn" type="button" onclick="toggleAlwaysConnected()" title="שמירת התחברות במכשיר הזה" aria-label="שמירת התחברות במכשיר הזה">
-        <i class="bi bi-hourglass-split icon" aria-hidden="true"></i>
-      </button>
       <span id="rtIndicator" class="rt-indicator" title="חיבור Realtime" aria-label="חיבור Realtime"><span class="rtdot off"></span></span>
       <span class="badge branch-badge" id="branchBadge">—</span>
     </div>
@@ -2272,7 +2263,7 @@ const DELETE = url     => api('DELETE',url);
 // AUTH
 // ══════════════════════════════════════════════════════════
 let _branchId=null, _socket=null;
-let _deviceId=null, _deviceName=null, _heartbeatTimer=null, _forceLogoutInProgress=false;
+let _deviceId=null, _deviceName=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
 let _realtimeSyncPromise=null, _realtimeLastSyncAt=0, _realtimeSyncTimer=null;
 let _realtimePollingOnly=false, _realtimeFallbackWarned=false;
@@ -2289,7 +2280,6 @@ let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
 let _missingFloorRows=[];
 let _missingFloorSelectedIds=new Set();
-let _alwaysConnected=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_BARCODE_SCAN_INTERVAL_MS = 170;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
@@ -2325,8 +2315,6 @@ let BARCODE_SIZE_CODE_MAP = Object.freeze({
 let _barcodeScaleLoadPromise = null;
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
-const ALWAYS_CONNECTED_KEY = 'l2f_always_connected';
-const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 // Full-state polling is only a disconnected-mode safety net. While Socket.IO is
 // healthy, targeted events below keep every device in the branch up to date.
 const REALTIME_SYNC_INTERVAL_MS = 20000;
@@ -2351,10 +2339,6 @@ function showAuthNotice(title, body, tone='warn'){
 }
 
 function showLogoutNotice(reason){
-  if(reason === 'heartbeat_timeout'){
-    showAuthNotice('החיבור נותק', 'המערכת הוציאה את המשתמש בגלל חוסר פעילות. אפשר להתחבר מחדש בכל רגע.');
-    return;
-  }
   if(reason === 'admin_blocked_device' || reason === 'device_blocked'){
     showAuthNotice('המכשיר נחסם', 'המכשיר הזה נחסם במערכת ולכן לא ניתן להמשיך לעבוד ממנו כרגע.', 'danger');
     return;
@@ -2370,39 +2354,6 @@ function showLogoutNotice(reason){
   showAuthNotice('החיבור נותק', 'המשתמש נותק מהמערכת. אפשר להתחבר מחדש כדי להמשיך לעבוד.');
 }
 
-function loadAlwaysConnectedPreference(){
-  try{
-    _alwaysConnected = localStorage.getItem(ALWAYS_CONNECTED_KEY) === '1';
-  }catch(_err){
-    _alwaysConnected = false;
-  }
-  updateAlwaysConnectedBtn();
-}
-
-function updateAlwaysConnectedBtn(){
-  const btn=$('alwaysConnectedBtn');
-  if(!btn) return;
-  btn.innerHTML=`<i class="bi ${_alwaysConnected ? 'bi-hourglass-split' : 'bi-hourglass'} icon" aria-hidden="true"></i>`;
-  const label = _alwaysConnected ? 'תמיד מחובר פעיל' : 'תמיד מחובר כבוי';
-  btn.title = label;
-  btn.setAttribute('aria-label', label);
-  btn.classList.toggle('btn-sticky-on', _alwaysConnected);
-  btn.classList.toggle('btn-ghost', !_alwaysConnected);
-}
-
-function setAlwaysConnected(enabled){
-  _alwaysConnected=!!enabled;
-  try{
-    localStorage.setItem(ALWAYS_CONNECTED_KEY, _alwaysConnected ? '1' : '0');
-  }catch(_err){}
-  updateAlwaysConnectedBtn();
-  toast(_alwaysConnected ? 'המכשיר יישאר מחובר עד יציאה ידנית' : 'המכשיר יחזור להתנתק אוטומטית במקרה של timeout');
-}
-
-function toggleAlwaysConnected(){
-  setAlwaysConnected(!_alwaysConnected);
-}
-
 async function doLogin(){
   const name=$('loginName').value.trim(), pw=$('loginPass').value;
   if(!name||!pw)return authErr('loginErr','מלא שם וסיסמה');
@@ -2416,7 +2367,6 @@ $('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 async function doLogout(options={}){
   const reason = options.reason || '';
   await closeCameraScanner();
-  stopHeartbeat();
   stopRealtimeSyncTimer();
   await POST('/api/auth/logout');
   if(_socket)_socket.disconnect();
@@ -2508,13 +2458,6 @@ function getDevicePayload(){
   };
 }
 
-function stopHeartbeat(){
-  if(_heartbeatTimer){
-    clearInterval(_heartbeatTimer);
-    _heartbeatTimer=null;
-  }
-}
-
 function stopRealtimeSyncTimer(){
   if(_realtimeSyncTimer){
     clearInterval(_realtimeSyncTimer);
@@ -2525,7 +2468,6 @@ function stopRealtimeSyncTimer(){
 function enableRealtimePollingFallback(message=''){
   _realtimePollingOnly=true;
   setRtDot(false);
-  stopHeartbeat();
   startRealtimeSyncTimer();
   syncRealtimeState({force:true});
   if(message && !_realtimeFallbackWarned){
@@ -2575,7 +2517,6 @@ function ensureRealtimeConnected(opts={}){
     return;
   }
   if(_socket?.connected){
-    _socket.emit('heartbeat', getDevicePayload());
     if(opts.forceSync){
       syncRealtimeState({force:true});
     }
@@ -2584,15 +2525,6 @@ function ensureRealtimeConnected(opts={}){
   try{
     _socket?.connect();
   }catch(_err){}
-}
-
-function startHeartbeat(){
-  stopHeartbeat();
-  _heartbeatTimer=setInterval(()=>{
-    if(_socket?.connected){
-      _socket.emit('heartbeat', getDevicePayload());
-    }
-  }, HEARTBEAT_INTERVAL_MS);
 }
 
 async function enterApp(branch){
@@ -2609,7 +2541,6 @@ async function enterApp(branch){
 }
 
 // Auto-login check
-loadAlwaysConnectedPreference();
 (async()=>{
   const res=await GET('/api/auth/me');
   if(res.error==='branch_blocked'){
@@ -2644,8 +2575,6 @@ function initSocketIO(){
     _realtimePollingOnly=false;
     stopRealtimeSyncTimer();
     _socket.emit('join_branch',{branch_id:_branchId, ...getDevicePayload()});
-    _socket.emit('heartbeat', getDevicePayload());
-    startHeartbeat();
     setRtDot(true);
   });
   _socket.on('joined_branch', ()=>{
@@ -2653,7 +2582,6 @@ function initSocketIO(){
   });
   _socket.on('disconnect', reason=>{
     setRtDot(false);
-    stopHeartbeat();
     _realtimePollingOnly=true;
     startRealtimeSyncTimer();
     if(!_forceLogoutInProgress && reason!=='io client disconnect'){
@@ -2677,25 +2605,12 @@ function initSocketIO(){
   });
   _socket.on('force_logout', async data=>{
     if(_forceLogoutInProgress) return;
-    if(data?.reason === 'heartbeat_timeout'){
-      toast('החיבור החי נותק זמנית; מתחבר מחדש באופן אוטומטי');
-      if(_socket && !_socket.connected){
-        setTimeout(()=>{
-          if(_socket && !_socket.connected && !_forceLogoutInProgress){
-            _socket.connect();
-          }
-        }, 1200);
-      }
-      return;
-    }
     _forceLogoutInProgress=true;
     if(data?.reason === 'admin_deleted_device'){
       clearDeviceIdentity();
     }
     toast(
-      data?.reason === 'heartbeat_timeout'
-        ? 'המכשיר נותק בגלל חוסר פעילות'
-        : data?.reason === 'admin_blocked_device'
+      data?.reason === 'admin_blocked_device'
           ? 'המכשיר הזה נחסם על ידי מפתח'
           : data?.reason === 'admin_deleted_device'
             ? 'המכשיר נמחק ויידרש רישום מחדש'
@@ -5371,7 +5286,7 @@ document.addEventListener('visibilitychange', ()=>{
 
 window.addEventListener('focus', ()=>{ ensureRealtimeConnected({forceSync:true}); });
 window.addEventListener('online', ()=>{ ensureRealtimeConnected({forceSync:true}); });
-window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopHeartbeat(); stopRealtimeSyncTimer(); });
+window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopRealtimeSyncTimer(); });
 
 // ══════════════════════════════════════════════════════════
 // TAB 3 — LOCATIONS
