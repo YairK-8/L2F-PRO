@@ -1326,6 +1326,53 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
 .loc-save-btn i{
   font-size:23px;
 }
+.loc-open-modal-btn{
+  width:100%;
+  min-height:68px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-size:20px;
+}
+.location-modal-overlay{padding:16px;z-index:11000;direction:rtl}
+.location-modal-box{
+  width:min(100%,480px);
+  max-height:min(92vh,760px);
+  overflow:auto;
+  padding:24px;
+  text-align:right;
+}
+.location-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.location-modal-head h3{font-size:25px;margin:0 0 4px}
+.location-modal-head p{margin:0;color:var(--muted);font-size:14px}
+.location-modal-close{width:42px;height:42px;min-width:42px;padding:0;border-radius:50%;font-size:22px}
+.location-scan-stage{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:18px;border:1px solid #e5dfd8;border-radius:16px;background:#f8f5f1;font-weight:700}
+.location-scan-stage i{font-size:20px;color:var(--orange)}
+.location-field{margin-bottom:16px}
+.location-field label{font-size:15px;font-weight:700;color:var(--text);margin-bottom:7px}
+.location-field-row{display:flex;gap:8px;direction:ltr}
+.location-field-row input{flex:1;min-width:0;height:58px;text-align:right;direction:rtl;font-size:17px}
+.location-field-row .camera-btn{width:58px;min-width:58px;height:58px;padding:0;border-radius:16px;font-size:20px}
+.location-field.is-current label{color:#d85d00}
+.location-field.is-current input{border-color:rgba(255,106,0,.55);box-shadow:0 0 0 3px rgba(255,106,0,.10)}
+.location-modal-status{min-height:22px;margin:2px 0 14px;color:var(--muted);font-size:14px}
+.location-modal-status.error{color:#c44b00}
+.location-modal-status.success{color:#20853a}
+.location-modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.location-modal-actions button{min-height:54px;font-size:16px}
+.location-save-success{padding:18px;border:1px solid rgba(41,179,74,.28);border-radius:18px;background:rgba(41,179,74,.08);text-align:center}
+.location-save-success strong{display:block;color:#20853a;font-size:18px;margin-bottom:12px}
+.location-save-success button{width:100%;min-height:50px}
+.location-save-success[hidden],.location-modal-actions[hidden]{display:none!important}
+body.app-dark .location-modal-box{background:#141414;border-color:rgba(255,255,255,.08);color:#f4f4f1}
+body.app-dark .location-scan-stage{background:#1d1d1d;border-color:rgba(255,255,255,.1)}
+@media(max-width:600px){
+  .location-modal-overlay{align-items:flex-end;padding:8px}
+  .location-modal-box{width:100%;max-width:none;max-height:94vh;border-radius:26px 26px 18px 18px;padding:20px}
+  .location-modal-head h3{font-size:22px}
+}
 .loc-collapse-header{
   display:grid;
   grid-template-columns:auto 1fr auto;
@@ -1970,13 +2017,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
 
         <div class="divider"></div>
 
-        <div class="card loc-form-card">
-          <h3>הוספה / עדכון</h3>
-          <input id="locFormSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
-          <input id="locFormLoc" placeholder="מיקום (לדוגמה: A1-03)" style="width:100%;margin-bottom:6px"/>
-          <div class="actions"><button class="btn-primary loc-save-btn" type="button" onclick="upsertLocation()"><span>שמור</span><i class="bi bi-floppy-fill" aria-hidden="true"></i></button></div>
-          <div id="locFormMsg" class="hint" style="display:none"></div>
-        </div>
+        <button class="btn-primary loc-open-modal-btn" type="button" onclick="openLocationModal()"><span>הוסף / עדכן מיקום</span><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></button>
 
         <div class="divider"></div>
 
@@ -2095,6 +2136,42 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
 
 </div><!-- .wrap -->
 </div><!-- #appScreen -->
+
+<div id="locationModal" class="modal-overlay location-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="locationModalTitle" onclick="handleLocationModalBackdrop(event)">
+  <div class="modal-box location-modal-box">
+    <div class="location-modal-head">
+      <div>
+        <h3 id="locationModalTitle">הוסף / עדכן מיקום</h3>
+        <p>אפשר להקליד או לסרוק כל שדה במצלמה</p>
+      </div>
+      <button class="btn-ghost location-modal-close" type="button" onclick="closeLocationModal()" aria-label="סגור">×</button>
+    </div>
+    <div id="locationScanStage" class="location-scan-stage"><i class="bi bi-upc-scan" aria-hidden="true"></i><span>סרוק ברקוד פריט</span></div>
+    <div id="locationSkuField" class="location-field is-current">
+      <label for="locFormSku">1. מק״ט</label>
+      <div class="location-field-row">
+        <input id="locFormSku" placeholder="הקלד מק״ט או סרוק פריט" inputmode="tel" pattern="[0-9]*" autocomplete="off"/>
+        <button class="btn-ghost camera-btn" type="button" onclick="openLocationWorkflowScanner('sku')" title="סרוק ברקוד פריט" aria-label="סרוק ברקוד פריט"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div id="locationValueField" class="location-field">
+      <label for="locFormLoc">2. מיקום</label>
+      <div class="location-field-row">
+        <input id="locFormLoc" placeholder="לדוגמה: A-1-1" autocomplete="off"/>
+        <button class="btn-ghost camera-btn" type="button" onclick="openLocationWorkflowScanner('location')" title="סרוק ברקוד מיקום" aria-label="סרוק ברקוד מיקום"><i class="bi bi-qr-code-scan" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div id="locFormMsg" class="location-modal-status" aria-live="polite"></div>
+    <div id="locationModalActions" class="location-modal-actions">
+      <button class="btn-primary" type="button" onclick="upsertLocation()">שמור מיקום</button>
+      <button class="btn-ghost" type="button" onclick="closeLocationModal()">ביטול</button>
+    </div>
+    <div id="locationSaveSuccess" class="location-save-success" hidden>
+      <strong><i class="bi bi-check-circle-fill" aria-hidden="true"></i> המיקום נשמר בהצלחה</strong>
+      <button class="btn-primary" type="button" onclick="resetLocationModalForNext()">הוסף פריט נוסף</button>
+    </div>
+  </div>
+</div>
 
 <!-- Edit barcode modal -->
 <div id="editModal" class="modal-overlay">
@@ -4479,6 +4556,9 @@ async function handleCameraDetectedBarcode(code){
   if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='fill-input'){
     return fillCameraTargetInput(_cameraMode.inputId, code);
   }
+  if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow'){
+    return handleLocationWorkflowBarcode(code);
+  }
   if(_cameraMode==='t2') return processTab2Barcode(code, {fromCamera:true});
   if(_cameraMode==='t4') return processTab4Barcode(code, {fromCamera:true});
   return processTab1Barcode(code, {fromCamera:true});
@@ -5331,7 +5411,12 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && $('cameraOverlay').classList.contains('open')) closeCameraScanner();
+  if(e.key!=='Escape') return;
+  if($('cameraOverlay').classList.contains('open')){
+    closeCameraScanner();
+    return;
+  }
+  if($('locationModal').classList.contains('open')) closeLocationModal();
 });
 
 document.addEventListener('visibilitychange', ()=>{
@@ -5348,6 +5433,162 @@ window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopRealtimeSyncTi
 // TAB 3 — LOCATIONS
 // ══════════════════════════════════════════════════════════
 let _lastLocationSearchResult=null;
+let _locationModalStage='sku';
+let _locationScanItemBarcode='';
+let _locationStageChangedAt=0;
+let _locationSaveBusy=false;
+
+function setLocationModalMessage(message='', tone=''){
+  const node=$('locFormMsg');
+  node.textContent=message;
+  node.classList.toggle('error', tone==='error');
+  node.classList.toggle('success', tone==='success');
+}
+
+function setLocationModalStage(stage){
+  _locationModalStage=stage === 'location' ? 'location' : 'sku';
+  _locationStageChangedAt=Date.now();
+  const isLocation=_locationModalStage==='location';
+  $('locationScanStage').querySelector('span').textContent=isLocation ? 'סרוק ברקוד מיקום' : 'סרוק ברקוד פריט';
+  $('locationSkuField').classList.toggle('is-current', !isLocation);
+  $('locationValueField').classList.toggle('is-current', isLocation);
+}
+
+function resetLocationModalForNext(){
+  $('locFormSku').value='';
+  $('locFormLoc').value='';
+  _locationScanItemBarcode='';
+  $('locationSaveSuccess').hidden=true;
+  $('locationModalActions').hidden=false;
+  setLocationModalMessage('');
+  setLocationModalStage('sku');
+  setTimeout(()=>$('locFormSku').focus(), 30);
+}
+
+async function openLocationModal(sku='', location=''){
+  $('locationModal').classList.add('open');
+  $('locFormSku').value=String(sku||'').trim();
+  $('locFormLoc').value=String(location||'').trim();
+  _locationScanItemBarcode='';
+  $('locationSaveSuccess').hidden=true;
+  $('locationModalActions').hidden=false;
+  setLocationModalMessage('');
+  if($('locFormSku').value){
+    setLocationModalStage('location');
+    if(!$('locFormLoc').value) await loadExistingLocationForModal();
+    setTimeout(()=>{$('locFormLoc').focus();$('locFormLoc').select();},30);
+  }else{
+    setLocationModalStage('sku');
+    setTimeout(()=>$('locFormSku').focus(),30);
+  }
+}
+
+async function closeLocationModal(){
+  if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow'){
+    await closeCameraScanner();
+  }
+  $('locationModal').classList.remove('open');
+  _locationScanItemBarcode='';
+  setLocationModalMessage('');
+}
+
+function handleLocationModalBackdrop(event){
+  if(event.target === $('locationModal')) closeLocationModal();
+}
+
+async function resolveLocationSkuFromBarcode(rawCode){
+  const code=String(rawCode||'').trim();
+  if(!code) return '';
+  const barcodeRes=await GET(`/api/barcodes/${encodeURIComponent(code)}`);
+  if(!barcodeRes.error && barcodeRes.sku) return String(barcodeRes.sku).trim();
+  const derived=getBarcodeDerivedFields(code);
+  return String(derived.sku||'').trim();
+}
+
+async function loadExistingLocationForModal(){
+  const sku=$('locFormSku').value.trim();
+  if(!sku) return false;
+  const result=await GET(`/api/locations/search?sku=${encodeURIComponent(sku)}`);
+  if(!result.error){
+    $('locFormLoc').value=String(result.location||'');
+    setLocationModalMessage(`המיקום הנוכחי: ${result.location}. אפשר לעדכן ולשמור.`);
+    return true;
+  }
+  setLocationModalMessage('למק״ט הזה עדיין אין מיקום. סרוק או הקלד מיקום חדש.');
+  return false;
+}
+
+async function advanceLocationModalFromManualSku(){
+  let sku=$('locFormSku').value.trim();
+  if(!sku){
+    setLocationModalStage('sku');
+    return;
+  }
+  const resolved=await resolveLocationSkuFromBarcode(sku);
+  if(resolved){
+    sku=resolved;
+    $('locFormSku').value=resolved;
+  }
+  setLocationModalStage('location');
+  await loadExistingLocationForModal();
+  $('locFormLoc').focus();
+  $('locFormLoc').select();
+}
+
+async function openLocationWorkflowScanner(stage){
+  if(!$('locationModal').classList.contains('open')) await openLocationModal();
+  if(stage==='location' && !$('locFormSku').value.trim()){
+    setLocationModalMessage('יש להזין או לסרוק מק״ט לפני סריקת המיקום.', 'error');
+    setLocationModalStage('sku');
+    $('locFormSku').focus();
+    return;
+  }
+  setLocationModalStage(stage);
+  setLocationModalMessage(stage==='location' ? 'המצלמה ממתינה לברקוד מיקום.' : 'המצלמה ממתינה לברקוד פריט.');
+  await openCameraScanner({type:'location-workflow',stage:_locationModalStage});
+  if($('cameraOverlay').classList.contains('open')){
+    setCameraGuide(
+      _locationModalStage==='location' ? 'סרוק ברקוד מיקום' : 'סרוק ברקוד פריט',
+      _locationModalStage==='location' ? 'הסריקה תמלא את שדה המיקום' : 'המערכת תחלץ את המק״ט אוטומטית'
+    );
+    setCameraStatus(_locationModalStage==='location' ? 'ממתין לברקוד מיקום...' : 'ממתין לברקוד פריט...');
+  }else{
+    setLocationModalMessage('לא ניתן לפתוח מצלמה. אפשר להמשיך בהקלדה ידנית.', 'error');
+  }
+}
+
+async function handleLocationWorkflowBarcode(rawCode){
+  const code=String(rawCode||'').trim();
+  if(!code) return false;
+  const stage=_cameraMode?.stage || _locationModalStage;
+  if(stage==='sku'){
+    const sku=await resolveLocationSkuFromBarcode(code);
+    if(!sku){
+      setCameraStatus('הברקוד לא נמצא בקטלוג ולא ניתן היה לחלץ ממנו מק״ט.', true);
+      return false;
+    }
+    _locationScanItemBarcode=code;
+    $('locFormSku').value=sku;
+    await loadExistingLocationForModal();
+    setLocationModalStage('location');
+    _cameraMode.stage='location';
+    _cameraLastValue=code;
+    _cameraCooldownUntil=Date.now()+1600;
+    setCameraGuide('סרוק עכשיו ברקוד מיקום', 'ברקוד הפריט נקלט — ממתין למיקום');
+    setCameraStatus(`המק״ט ${sku} נקלט. סרוק כעת את ברקוד המיקום.`);
+    return true;
+  }
+  if(code===_locationScanItemBarcode || (Date.now()-_locationStageChangedAt<1400 && code===_cameraLastValue)){
+    setCameraStatus('ברקוד הפריט כבר נקלט. כעת יש לסרוק ברקוד מיקום.');
+    return true;
+  }
+  $('locFormLoc').value=code;
+  setLocationModalMessage(`המיקום ${code} נקלט. אפשר לתקן ידנית או לשמור.`, 'success');
+  await closeCameraScanner();
+  $('locFormLoc').focus();
+  $('locFormLoc').select();
+  return true;
+}
 
 async function doLocSearch(){
   const rawValue=$('locSearchSku').value.trim(); if(!rawValue)return;
@@ -5383,6 +5624,9 @@ async function doLocSearch(){
 
   skuValue.textContent=resolvedSku;
   if(locationRes.error){
+    _lastLocationSearchResult={sku:resolvedSku,location:''};
+    editButton.textContent='הוסף מיקום';
+    editButton.hidden=false;
     box.dataset.state='missing';
     stateIcon.className='bi bi-exclamation-circle-fill';
     locationValue.textContent='לא נמצא';
@@ -5392,6 +5636,7 @@ async function doLocSearch(){
       : 'לא נמצא במחסן';
   }else{
     _lastLocationSearchResult={sku:resolvedSku,location:String(locationRes.location||'')};
+    editButton.textContent='שנה מיקום';
     editButton.hidden=false;
     box.dataset.state='found';
     stateIcon.className='bi bi-check-circle-fill';
@@ -5405,6 +5650,22 @@ async function doLocSearch(){
   box.style.display='flex';
 }
 $('locSearchSku').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLocSearch();}});
+$('locFormSku').addEventListener('input',()=>{
+  if(!$('locFormSku').value.trim()) setLocationModalStage('sku');
+});
+$('locFormSku').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    advanceLocationModalFromManualSku();
+  }
+});
+$('locFormSku').addEventListener('change',advanceLocationModalFromManualSku);
+$('locFormLoc').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    upsertLocation();
+  }
+});
 
 $('locCollapseHeader').addEventListener('click',()=>{
   const c=$('locCollapseContent');
@@ -5425,17 +5686,12 @@ $('bcCollapseHeader').addEventListener('click',()=>{
 let _locRows=[];
 
 function fillLocationForm(sku, location){
-  $('locFormSku').value=sku;
-  $('locFormLoc').value=location;
-  $('locFormLoc').focus();
-  $('locFormLoc').select();
-  $('locFormLoc').scrollIntoView({behavior:'smooth',block:'center'});
+  openLocationModal(sku, location);
 }
 
 function editLocationFromSearch(){
   if(!_lastLocationSearchResult?.sku) return;
-  fillLocationForm(_lastLocationSearchResult.sku,_lastLocationSearchResult.location||'');
-  toast('המק״ט מולא — יש להזין מיקום חדש ולשמור');
+  openLocationModal(_lastLocationSearchResult.sku,_lastLocationSearchResult.location||'');
 }
 
 function clearLocListSearch(){
@@ -5490,13 +5746,29 @@ $('locListSearch').addEventListener('keydown',e=>{
 });
 
 async function upsertLocation(){
+  if(_locationSaveBusy) return;
   const sku=$('locFormSku').value.trim(),location=$('locFormLoc').value.trim();
-  if(!sku||!location)return toast('מלא מק״ט ומיקום');
-  await POST('/api/locations',{sku,location});
-  $('locFormSku').value='';$('locFormLoc').value='';
-  const m=$('locFormMsg');m.textContent='נשמר';m.style.display='block';
-  setTimeout(()=>m.style.display='none',1500);
-  loadLocTable();
+  if(!sku||!location){
+    setLocationModalMessage('יש למלא מק״ט ומיקום לפני השמירה.', 'error');
+    (sku ? $('locFormLoc') : $('locFormSku')).focus();
+    return;
+  }
+  _locationSaveBusy=true;
+  try{
+    const result=await POST('/api/locations',{sku,location});
+    if(result.error){
+      setLocationModalMessage('לא ניתן היה לשמור את המיקום. נסה שוב.', 'error');
+      return;
+    }
+    setLocationModalMessage(`המק״ט ${sku} נשמר במיקום ${location}.`, 'success');
+    $('locationModalActions').hidden=true;
+    $('locationSaveSuccess').hidden=false;
+    toast('המיקום נשמר בהצלחה');
+    await loadLocTable();
+    if(($('locSearchSku').value||'').trim()) await doLocSearch();
+  }finally{
+    _locationSaveBusy=false;
+  }
 }
 
 async function deleteLoc(sku){
