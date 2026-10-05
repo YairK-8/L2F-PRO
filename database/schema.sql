@@ -27,6 +27,14 @@ CREATE TABLE IF NOT EXISTS barcodes (
 CREATE INDEX IF NOT EXISTS idx_barcodes_sku     ON barcodes(sku);
 CREATE INDEX IF NOT EXISTS idx_barcodes_barcode ON barcodes(barcode);
 
+CREATE TABLE IF NOT EXISTS catalog_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku        TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku);
+
 -- ============================================================
 -- STRUCTURED BARCODE SCALES
 -- New-format barcode:

@@ -204,6 +204,20 @@ def get_catalog_sizes_for_sku_color(conn, sku, color, include_sizes=None):
     return order_sizes_by_scale(merged_sizes, scale_sizes)
 
 
+def ensure_catalog_model(conn, sku):
+    """Create the shared model row once; safe under concurrent branch writes."""
+    normalized_sku = str(sku or "").strip()
+    if not normalized_sku:
+        return False
+    cursor = conn.execute(
+        """INSERT INTO catalog_models (sku, updated_at)
+           VALUES (?, datetime('now','localtime'))
+           ON CONFLICT(sku) DO NOTHING""",
+        (normalized_sku,),
+    )
+    return cursor.rowcount > 0
+
+
 def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
     row, normalized = find_barcode_catalog_entry(conn, barcode)
     if row:
@@ -254,6 +268,7 @@ def resolve_barcode_catalog_entry(conn, barcode, autocreate_structured=False):
         ),
     )
     created = conn.total_changes > before
+    ensure_catalog_model(conn, parsed["sku"])
 
     row = conn.execute(
         "SELECT * FROM barcodes WHERE barcode=?",
@@ -345,6 +360,28 @@ def sizes_for_sku_color(branch_id):
     rows = get_catalog_sizes_for_sku_color(conn, sku, color)
     conn.close()
     return jsonify(rows)
+
+
+@barcodes_bp.route("/models/<sku>", methods=["GET"])
+@require_branch_or_admin
+def get_catalog_model(branch_id, sku):
+    normalized_sku = str(sku or "").strip()
+    if not normalized_sku:
+        return jsonify({"error": "missing_sku"}), 400
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT sku, created_at, updated_at FROM catalog_models WHERE sku=?",
+        (normalized_sku,),
+    ).fetchone()
+    if not row:
+        row = conn.execute(
+            "SELECT sku, MIN(created_at) AS created_at, MIN(created_at) AS updated_at FROM barcodes WHERE sku=? GROUP BY sku",
+            (normalized_sku,),
+        ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"exists": False, "sku": normalized_sku})
+    return jsonify({"exists": True, **dict(row)})
 
 
 @barcodes_bp.route("/scale", methods=["GET"])
@@ -540,6 +577,7 @@ def add_barcode(branch_id):
 
     conn = get_connection()
     try:
+        model_created = ensure_catalog_model(conn, sku)
         existing = conn.execute(
             "SELECT 1 FROM barcodes WHERE barcode=?",
             (barcode,),
@@ -563,7 +601,13 @@ def add_barcode(branch_id):
         return jsonify({"error": str(exc)}), 409
     conn.close()
     return (
-        jsonify({"ok": True, "action": action, "scale_updates": scale_updates}),
+        jsonify({
+            "ok": True,
+            "action": action,
+            "model_created": model_created,
+            "model_already_exists": not model_created,
+            "scale_updates": scale_updates,
+        }),
         201 if action == "created" else 200,
     )
 
@@ -594,6 +638,7 @@ def update_barcode(barcode):
         "UPDATE barcodes SET sku=?, color=?, size=? WHERE barcode=?",
         (sku, color, size, barcode),
     )
+    ensure_catalog_model(conn, sku)
     scale_updates = learn_structured_scale_mappings(conn, barcode, color=color, size=size)
     conn.commit()
     conn.close()
@@ -678,6 +723,7 @@ def import_csv(branch_id):
                    SET sku=excluded.sku, color=excluded.color, size=excluded.size""",
                 (barcode, sku, color, size),
             )
+            ensure_catalog_model(conn, sku)
             learn_structured_scale_mappings(conn, barcode, color=color, size=size)
             inserted += 1
         except Exception:
@@ -724,6 +770,7 @@ def import_csv_admin():
                    SET sku=excluded.sku, color=excluded.color, size=excluded.size""",
                 (barcode, sku, color, size),
             )
+            ensure_catalog_model(conn, sku)
             learn_structured_scale_mappings(conn, barcode, color=color, size=size)
             inserted += 1
         except Exception:

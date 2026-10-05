@@ -236,6 +236,11 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .wh-aisle-btn.active{background:rgba(23,23,23,.97);border-color:#111;color:#fff;box-shadow:0 9px 20px rgba(0,0,0,.2)}
 .wh-aisle-count{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:rgba(20,20,20,.07);color:var(--text);font-size:11px;font-weight:900}
 .wh-aisle-btn.active .wh-aisle-count{background:rgba(255,255,255,.18);color:#fff}
+.approved-missing-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#fff3cd;border:1px solid #f0c36a;color:#805300;font-size:12px;font-weight:900}
+.loc-result-edit-btn{margin-top:14px;min-height:42px;padding:9px 16px}
+.catalog-model-state{min-height:20px;margin:2px 0 8px;font-size:12px;font-weight:750;color:var(--muted)}
+.catalog-model-state.exists{color:#9a5b00}
+.catalog-model-state.available{color:#28763c}
 .session-color{font-size:16px;color:var(--muted);font-weight:700}
 
 /* locations big result */
@@ -1963,6 +1968,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
                 <div class="locResultDivider"></div>
                 <div class="locResultSkuValue" id="locResultSku">—</div>
                 <div class="locResultSkuLabel">מק״ט</div>
+                <button id="locResultEditBtn" class="btn-primary loc-result-edit-btn" type="button" onclick="editLocationFromSearch()" hidden>שנה מיקום</button>
               </div>
             </div>
           </div>
@@ -2030,6 +2036,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
+          <div id="bcModelState" class="catalog-model-state" aria-live="polite"></div>
           <input id="bcNewColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
           <select id="bcNewSize" style="width:100%">
             <option value="">מידה</option>
@@ -2750,6 +2757,16 @@ $$('.tab').forEach(tab=>tab.addEventListener('click',()=>{
 }));
 $('bcNewBarcode')?.addEventListener('change', ()=>previewDerivedBarcodeFields());
 $('bcNewBarcode')?.addEventListener('blur', ()=>previewDerivedBarcodeFields());
+$('bcNewBarcode')?.addEventListener('keydown', async e=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  await processTab4Barcode(e.currentTarget.value);
+});
+let _catalogModelCheckTimer=null;
+$('bcNewSku')?.addEventListener('input', e=>{
+  clearTimeout(_catalogModelCheckTimer);
+  _catalogModelCheckTimer=setTimeout(()=>checkCatalogModel(e.currentTarget.value),180);
+});
 
 function renderSizeOptionsForSelect(selectId, sizes, fallbackPlaceholder='בחר'){
   const select = $(selectId);
@@ -4900,6 +4917,7 @@ async function processTab1Barcode(code, opts={}){
     }
     return false;
   }
+  (res.sessions || []).forEach(session=>upsertSessionCard(session));
   if(res.already_approved){
     $('lastScan1').textContent=`כבר אושר קודם: ${res.sku}/${res.color}`;
     soundOk();
@@ -4924,7 +4942,7 @@ async function processTab1Barcode(code, opts={}){
   );
   if(res.approved && res.approval){
     onSessionApproved(res.approval);
-  }else{
+  }else if(res.session){
     upsertSessionCard(res.session);
   }
   loadMissingFloor();
@@ -5033,7 +5051,7 @@ function renderWhAisleFilter(){
   const counts=new Map();
   Object.values(_whItems).forEach(item=>{
     const key=getWhAisleKey(item);
-    counts.set(key,(counts.get(key)||0)+Number(item.quantity||1));
+    counts.set(key,(counts.get(key)||0)+1);
   });
   const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
   if(counts.has('__none__')) keys.push('__none__');
@@ -5050,7 +5068,7 @@ function renderWhAisleFilter(){
     <div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
   const optionsBar=bar.querySelector('.wh-aisle-options');
   const options=[
-    {key:'all',label:'הכול',count:getWhSortedItems().reduce((sum,item)=>sum+Number(item.quantity||1),0)},
+    {key:'all',label:'הכול',count:getWhSortedItems().length},
     ...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)})),
   ];
   options.forEach(option=>{
@@ -5084,8 +5102,8 @@ function renderLastScannedWh(item){
       <div class="small" style="color:var(--accent);font-weight:800;font-size:13px" id="lastScannedWhLabel">הפריט האחרון שנסרק</div>
         <div style="font-size:22px;font-weight:900">${esc(item.sku)} · ${esc(item.color)} · ${esc(item.size).toUpperCase()}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="locHintBadge">כמות ${Number(item.quantity||1)}</span>
           ${item.location_hint ? `<span class="locHintBadge">📍 ${esc(item.location_hint)}</span>` : ``}
+          ${item.is_approved_missing ? `<span class="approved-missing-badge">⚠️ ייתכן שחסר במלאי</span>` : ``}
           <span class="small" style="font-weight:700">${esc(item.scanned_at||'')}</span>
         </div>
       </div>
@@ -5126,7 +5144,7 @@ function makeWhRow(r){
     <div style="display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <b>${esc(r.sku)}</b> · ${esc(r.color)} · <b>${esc(r.size).toUpperCase()}</b>
-        <span class="locHintBadge">כמות ${Number(r.quantity||1)}</span>
+        ${r.is_approved_missing ? `<span class="approved-missing-badge">⚠️ ייתכן שחסר במלאי</span>` : ``}
       </div>
       ${r.location_hint ? `<div><span class="locHintBadge">📍 ${esc(r.location_hint)}</span></div>` : ``}
       <div class="small">${r.scanned_at}</div>
@@ -5223,7 +5241,7 @@ async function markWarehouseMissing(id){
 }
 
 function updateStat2(){
-  const total=getWhSortedItems().reduce((sum,item)=>sum + Number(item.quantity||1),0);
+  const total=getWhSortedItems().length;
   $('stat2Pending').textContent=total;
 }
 
@@ -5253,11 +5271,15 @@ async function processTab2Barcode(code, opts={}){
     }
     return false;
   }
-  $('lastScan2').textContent=`נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
+  $('lastScan2').textContent=res.already_pending
+    ? `כבר נמצא ברשימה: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`
+    : `נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
   soundOk();
-  popup(`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
-  if(res.item) appendWhItem(res.item);
-  if(opts.fromCamera) setCameraStatus(`הברקוד ${normalizedCode} נוסף לרשימת המחסן.`);
+  popup(res.already_pending?'כבר ברשימה ✓':`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
+  if(res.item && !res.already_pending) appendWhItem(res.item);
+  if(opts.fromCamera) setCameraStatus(res.already_pending
+    ? `הברקוד ${normalizedCode} כבר נמצא ברשימת המחסן.`
+    : `הברקוד ${normalizedCode} נוסף לרשימת המחסן.`);
   return true;
 }
 
@@ -5271,13 +5293,8 @@ async function undoLastWarehouseScan(){
   const undone=res?.undone_item;
   if(undone){
     const itemText=`${undone.sku}/${undone.color}/${String(undone.size||'').toUpperCase()}`;
-    if(Number(undone.quantity||0) > 0){
-      $('lastScan2').textContent=`בוטלה יחידה אחת: ${itemText} · כמות נוכחית ${undone.quantity}`;
-      toast(`בוטלה יחידה אחת · נשארו ${undone.quantity}`);
-    }else{
-      $('lastScan2').textContent=`בוטלה הסריקה האחרונה: ${itemText}`;
-      toast('הסריקה האחרונה בוטלה');
-    }
+    $('lastScan2').textContent=`בוטלה הסריקה האחרונה: ${itemText}`;
+    toast('הסריקה האחרונה בוטלה');
     return;
   }
   $('lastScan2').textContent='הסריקה האחרונה בוטלה';
@@ -5297,12 +5314,14 @@ async function manualScan2(){
   if(!sku||!color||!size){toast('מלא מק״ט, צבע ומידה');return;}
   const res=await POST('/api/missing-warehouse/scan',{sku,color,size,device_id:_deviceId});
   if(res.error){toast('שגיאה');return;}
-  if(res.item) appendWhItem(res.item);
+  if(res.item && !res.already_pending) appendWhItem(res.item);
   $('man2Sku').value='';$('man2Color').value='';$('man2Size').value='';
   $('colorDropdown').style.display='none';
-  $('lastScan2').textContent=`נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
-  popup(`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
-  toast('נוסף'); soundOk();
+  $('lastScan2').textContent=res.already_pending
+    ? `כבר נמצא ברשימה: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`
+    : `נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
+  popup(res.already_pending?'כבר ברשימה ✓':`${res.item.sku} · ${res.item.color} · ${res.item.size.toUpperCase()}`,'success',1400);
+  toast(res.already_pending?'הפריט כבר ברשימה':'נוסף'); soundOk();
 }
 
 // ── Autocomplete colors for Tab2 ─────────────────────────
@@ -5357,6 +5376,8 @@ window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopHeartbeat(); s
 // ══════════════════════════════════════════════════════════
 // TAB 3 — LOCATIONS
 // ══════════════════════════════════════════════════════════
+let _lastLocationSearchResult=null;
+
 async function doLocSearch(){
   const rawValue=$('locSearchSku').value.trim(); if(!rawValue)return;
   const box=$('locSearchResult');
@@ -5365,12 +5386,15 @@ async function doLocSearch(){
   const locationValue=$('locResultLocation');
   const locationLabel=$('locResultLocationLabel');
   const skuValue=$('locResultSku');
+  const editButton=$('locResultEditBtn');
 
   let resolvedSku=rawValue;
   let foundViaBarcode=false;
   let locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
 
   if(locationRes.error){
+    _lastLocationSearchResult=null;
+    editButton.hidden=true;
     const barcodeRes=await GET(`/api/barcodes/${encodeURIComponent(rawValue)}`);
     if(!barcodeRes.error && barcodeRes.sku){
       resolvedSku=String(barcodeRes.sku).trim();
@@ -5396,6 +5420,8 @@ async function doLocSearch(){
       ? 'הברקוד זוהה, אבל למק״ט אין מיקום'
       : 'לא נמצא במחסן';
   }else{
+    _lastLocationSearchResult={sku:resolvedSku,location:String(locationRes.location||'')};
+    editButton.hidden=false;
     box.dataset.state='found';
     stateIcon.className='bi bi-check-circle-fill';
     locationValue.textContent=locationRes.location;
@@ -5433,6 +5459,12 @@ function fillLocationForm(sku, location){
   $('locFormLoc').focus();
   $('locFormLoc').select();
   $('locFormLoc').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function editLocationFromSearch(){
+  if(!_lastLocationSearchResult?.sku) return;
+  fillLocationForm(_lastLocationSearchResult.sku,_lastLocationSearchResult.location||'');
+  toast('המק״ט מולא — יש להזין מיקום חדש ולשמור');
 }
 
 function clearLocListSearch(){
@@ -5562,6 +5594,7 @@ async function processTab4Barcode(code, opts={}){
     color:derived.color || '',
     size:derived.size || '',
   });
+  if(derived.sku) checkCatalogModel(derived.sku);
   const existing=await GET(`/api/barcodes/${encodeURIComponent(value)}`);
   if(!existing?.error){
     fillBarcodeManagerForm({
@@ -5570,6 +5603,7 @@ async function processTab4Barcode(code, opts={}){
       color: existing.color || '',
       size: existing.size || '',
     }, { focusField:'bcNewColor' });
+    checkCatalogModel(existing.sku || '');
     $('lastScan4').textContent=`נסרק: ${value} · הנתונים מולאו אוטומטית`;
     soundOk();
     popup('נסרק ✓','success',900);
@@ -5592,6 +5626,23 @@ async function processTab4Barcode(code, opts={}){
   return true;
 }
 
+async function checkCatalogModel(sku){
+  const state=$('bcModelState');
+  const normalized=String(sku||'').trim();
+  if(!state) return;
+  state.className='catalog-model-state';
+  if(!normalized){state.textContent='';return;}
+  const result=await GET(`/api/barcodes/models/${encodeURIComponent(normalized)}`);
+  if(String($('bcNewSku')?.value||'').trim()!==normalized) return;
+  if(result?.exists){
+    state.classList.add('exists');
+    state.textContent='הדגם כבר קיים בקטלוג המשותף — ניתן להוסיף לו ברקוד/וריאציה.';
+  }else{
+    state.classList.add('available');
+    state.textContent='דגם חדש — ייווצר פעם אחת בקטלוג המשותף.';
+  }
+}
+
 async function addBarcode(){
   previewDerivedBarcodeFields();
   const barcode=$('bcNewBarcode').value.trim();
@@ -5611,7 +5662,11 @@ async function addBarcode(){
   }else{
     $('lastScan4').textContent=`${res.action==='updated' ? 'עודכן' : 'נוסף'}: ${savedSummary}`;
   }
-  toast(res.action==='updated' ? 'עודכן' : 'נוסף'); loadBarcodes();
+  toast(res.model_already_exists && res.action==='created'
+    ? 'הדגם כבר קיים; הברקוד נוסף כווריאציה'
+    : (res.action==='updated' ? 'עודכן' : 'נוסף'));
+  $('bcModelState').textContent='';
+  loadBarcodes();
 }
 
 async function deleteBarcode(barcode){
@@ -5658,14 +5713,19 @@ let scanBuf='', scanTimer=null;
 document.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.altKey||e.metaKey)return;
   const inInput=['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
+  if(inInput) return;
   clearTimeout(scanTimer);
   scanTimer=setTimeout(()=>{
     if(scanBuf.length>=6){
       const code=scanBuf;
       const activeTab=document.querySelector('.tab.active')?.dataset.tab||'t1';
-      const inp=$(activeTab==='t2'?'scanInput2':'scanInput1');
-      inp.value=code;
-      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      if(activeTab==='t4'){
+        processTab4Barcode(code);
+      }else{
+        const inp=$(activeTab==='t2'?'scanInput2':'scanInput1');
+        inp.value=code;
+        inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      }
     }
     scanBuf='';
   },120);

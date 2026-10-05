@@ -52,6 +52,19 @@ def _get_session_catalog_sizes(conn, sku, color, extra_sizes=None):
     )
 
 
+def _get_catalog_colors_for_sku(conn, sku, include_color=""):
+    rows = conn.execute(
+        "SELECT DISTINCT color FROM barcodes WHERE sku=? ORDER BY color",
+        (sku,),
+    ).fetchall()
+    colors = [str(row["color"] or "").strip() for row in rows]
+    colors = [color for color in colors if color]
+    fallback = str(include_color or "").strip()
+    if fallback and fallback not in colors:
+        colors.append(fallback)
+    return colors
+
+
 def _normalize_session_row(conn, row, persist=False):
     session_data = dict(row)
     stored_sizes = _sizes_list(session_data.get("sizes_all", ""))
@@ -157,16 +170,12 @@ def _approve_session_data(conn, branch_id, session_data, session_date=None):
         _resolve_missing_floor_item(conn, branch_id, session_data["sku"], session_data["color"], size)
 
     for size in missing:
-        exists = conn.execute(
-            """SELECT id FROM missing_floor
-               WHERE branch_id=? AND sku=? AND color=? AND size=? AND status='missing'""",
-            (branch_id, session_data["sku"], session_data["color"], size)
-        ).fetchone()
-        if not exists:
-            conn.execute(
-                "INSERT INTO missing_floor (branch_id,sku,color,size) VALUES (?,?,?,?)",
-                (branch_id, session_data["sku"], session_data["color"], size)
-            )
+        conn.execute(
+            """INSERT INTO missing_floor (branch_id,sku,color,size)
+               VALUES (?,?,?,?)
+               ON CONFLICT(branch_id,sku,color,size) WHERE status='missing' DO NOTHING""",
+            (branch_id, session_data["sku"], session_data["color"], size),
+        )
 
     conn.execute(
         "UPDATE morning_sessions SET approved=1 WHERE id=?",
@@ -253,20 +262,39 @@ def scan(branch_id):
 
     sku, color, size = meta["sku"], meta["color"], meta["size"]
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
-    open_row = conn.execute(
-        """SELECT id
-           FROM morning_sessions
-           WHERE branch_id=? AND sku=? AND color=? AND approved=0
-           ORDER BY created_at DESC, id DESC
-           LIMIT 1""",
-        (branch_id, sku, color)
-    ).fetchone()
-    session_data = _upsert_session(conn, branch_id, sku, color, size)
-    session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
-    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
+    location_hint = _location_for_sku(conn, branch_id, sku)
+    touched_sessions = []
+    scanned_session = None
+    for catalog_color in _get_catalog_colors_for_sku(conn, sku, include_color=color):
+        session_data = _upsert_session(
+            conn,
+            branch_id,
+            sku,
+            catalog_color,
+            size if catalog_color == color else None,
+        )
+        if not session_data:
+            continue
+        session_data["location_hint"] = location_hint
+        touched_sessions.append(session_data)
+        if catalog_color == color:
+            scanned_session = session_data
+
+    approval_payload = (
+        _auto_approve_completed_session(conn, branch_id, scanned_session)
+        if scanned_session else None
+    )
 
     conn.commit()
     conn.close()
+
+    open_sessions = [
+        session for session in touched_sessions
+        if not approval_payload or session["id"] != approval_payload["session_id"]
+    ]
+    for session in open_sessions:
+        session["_source_device_id"] = source_device_id
+        emit_update(branch_id, "tab1_update", session)
 
     if approval_payload:
         approval_payload["_source_device_id"] = source_device_id
@@ -279,14 +307,23 @@ def scan(branch_id):
             "ok": True,
             "approved": True,
             "approval": approval_payload,
+            "sessions": open_sessions,
             "catalog_created": bool(catalog_created),
         })
 
-    session_data["_source_device_id"] = source_device_id
-    emit_update(branch_id, "tab1_update", session_data)
+    if not scanned_session:
+        return jsonify({
+            "ok": True,
+            "already_approved": True,
+            "sku": sku,
+            "color": color,
+            "sessions": open_sessions,
+            "catalog_created": bool(catalog_created),
+        })
     return jsonify({
         "ok": True,
-        "session": session_data,
+        "session": scanned_session,
+        "sessions": open_sessions,
         "approved": False,
         "catalog_created": bool(catalog_created),
     })
@@ -485,7 +522,7 @@ def clear_missing(branch_id):
 
 # ── Internal helper ───────────────────────────────────────────
 
-def _upsert_session(conn, branch_id, sku, color, size):
+def _upsert_session(conn, branch_id, sku, color, size=None):
     size = normalize_size_label(size)
     today = _today()
     row = conn.execute(
@@ -496,19 +533,30 @@ def _upsert_session(conn, branch_id, sku, color, size):
         (branch_id, sku, color)
     ).fetchone()
 
+    if not row:
+        approved_row = conn.execute(
+            """SELECT id FROM morning_sessions
+               WHERE branch_id=? AND sku=? AND color=? AND approved=1
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            (branch_id, sku, color),
+        ).fetchone()
+        if approved_row:
+            return None
+
     stored_sizes = _sizes_list(row["sizes_all"]) if row else []
     found_sizes = _sizes_list(row["sizes_found"]) if row else []
     all_sizes_list = _get_session_catalog_sizes(
         conn,
         sku,
         color,
-        extra_sizes=[*stored_sizes, *found_sizes, size],
+        extra_sizes=[*stored_sizes, *found_sizes, *([size] if size else [])],
     )
     all_sizes = _sizes_str(all_sizes_list)
 
     if row:
         found = set(_sizes_list(row["sizes_found"]))
-        found.add(size)
+        if size:
+            found.add(size)
         ordered_found = _order_found_sizes(all_sizes_list, found)
         new_found = _sizes_str(ordered_found)
         conn.execute(
@@ -522,7 +570,7 @@ def _upsert_session(conn, branch_id, sku, color, size):
             "approved": 0
         }
     else:
-        ordered_found = _order_found_sizes(all_sizes_list, [size])
+        ordered_found = _order_found_sizes(all_sizes_list, [size] if size else [])
         session_id = insert_and_get_id(
             conn,
             """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
