@@ -283,7 +283,7 @@ tr:hover td{background:rgba(255,255,255,.24)}
 .camera-overlay.inline-ticket .camera-shell{width:100%;max-width:100%;height:320px;min-height:320px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:24px;box-shadow:0 16px 32px rgba(0,0,0,.14)}
 .camera-overlay.inline-ticket .camera-shell.ticket-mode{width:100%;height:320px;min-height:320px}
 .camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
-.camera-close,.camera-switch{
+.camera-close,.camera-switch,.camera-torch{
   width:42px;
   height:42px;
   min-width:42px;
@@ -302,6 +302,9 @@ tr:hover td{background:rgba(255,255,255,.24)}
 }
 .camera-close{color:#d84c4c}
 .camera-switch{color:rgba(70,70,70,.92)}
+.camera-torch{color:rgba(70,70,70,.92);font-size:19px}
+.camera-torch.active{background:#fff7cf;border-color:#f4cf55;color:#8a5a00}
+.camera-torch[hidden]{display:none}
 .camera-actions{display:flex;gap:8px;align-items:center;width:100%;justify-content:space-between}
 .camera-body{position:absolute;inset:0;min-height:170px;background:#000;display:flex;align-items:center;justify-content:center}
 .camera-reader{width:100%;height:100%}
@@ -2132,6 +2135,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
     <div class="camera-head">
       <div class="camera-actions">
         <button class="camera-close btn-ghost" type="button" onclick="closeCameraScanner()" title="סגור" aria-label="סגור">×</button>
+        <button id="cameraTorchBtn" class="camera-torch btn-ghost" type="button" onclick="toggleCameraTorch()" title="הפעל תאורה" aria-label="הפעל תאורה" hidden><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i></button>
         <button id="cameraSwitchBtn" class="camera-switch btn-ghost" type="button" onclick="toggleCameraFacing()" title="החלף מצלמה" aria-label="החלף מצלמה">↺</button>
       </div>
     </div>
@@ -2271,6 +2275,7 @@ let _cameraMode=null, _cameraStream=null, _cameraLoopTimer=0, _cameraLoopActive=
 let _cameraCooldownUntil=0, _cameraLastValue='';
 let _cameraCanvas=null, _cameraCtx=null;
 let _cameraFacing='environment';
+let _cameraTorchOn=false, _cameraTorchAvailable=false;
 let _cameraDecodeBusy=false;
 let _cameraSessionToken=0;
 let _cameraOverlayHome=null;
@@ -2281,13 +2286,14 @@ let _ticketScanState=null;
 let _missingFloorRows=[];
 let _missingFloorSelectedIds=new Set();
 const CAMERA_SCAN_INTERVAL_MS = 667;
-const CAMERA_BARCODE_SCAN_INTERVAL_MS = 170;
+const CAMERA_BARCODE_SCAN_INTERVAL_MS = 95;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
 const CAMERA_BARCODE_SUCCESS_PAUSE_MS = 320;
 const CAMERA_DECODE_MAX_WIDTH = 720;
-const CAMERA_BARCODE_DECODE_MAX_WIDTH = 960;
+const CAMERA_BARCODE_DECODE_MAX_WIDTH = 1280;
 const CAMERA_REPEAT_COOLDOWN_MS = 900;
-const CAMERA_FULL_FRAME_FALLBACK_EVERY = 5;
+const CAMERA_FULL_FRAME_FALLBACK_EVERY = 6;
+const CAMERA_AGGRESSIVE_FALLBACK_EVERY = 4;
 const TICKET_OCR_INTERVAL_MS = 900;
 const TICKET_OCR_STABLE_HITS = 2;
 const TICKET_FRAME_TIMEOUT_MS = 18000;
@@ -3322,6 +3328,16 @@ function resizeTicketCanvas(sourceCanvas, factor){
   return out;
 }
 
+function resizeBarcodeCanvas(sourceCanvas, factor){
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.min(2200, Math.round(sourceCanvas.width * factor)));
+  out.height = Math.max(1, Math.min(2200, Math.round(sourceCanvas.height * factor)));
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+  return out;
+}
+
 function getCameraFrameRectOnCanvas(canvasWidth, canvasHeight){
   const video = $('cameraVideo');
   const frame = $('cameraFrame');
@@ -3637,7 +3653,7 @@ function buildCameraBarcodeCandidates(sourceCanvas){
   const focused = createCanvasRegionCopy(sourceCanvas, frameRect);
   const candidates = [focused];
   if(focused.width < 820){
-    candidates.push(resizeTicketCanvas(focused, 1.35));
+    candidates.push(resizeBarcodeCanvas(focused, 1.45));
   }
   if((_cameraFastPassCounter % CAMERA_FULL_FRAME_FALLBACK_EVERY) === 0){
     candidates.push(sourceCanvas);
@@ -3660,6 +3676,9 @@ async function detectCameraFrameBarcode(sourceCanvas){
       downscaleThreshold: 2200,
     });
     if(fastBarcode) return fastBarcode;
+  }
+  if((_cameraFastPassCounter % CAMERA_AGGRESSIVE_FALLBACK_EVERY) !== 0){
+    return '';
   }
   const fallbackCandidate = candidates[candidates.length - 1];
   return decodeBarcodeFromCanvas(fallbackCandidate, {
@@ -4137,6 +4156,9 @@ async function stopCameraStream(){
   _cameraLoopActive=false;
   _cameraDecodeBusy=false;
   _cameraFastPassCounter=0;
+  _cameraTorchOn=false;
+  _cameraTorchAvailable=false;
+  updateCameraTorchButton();
   _cameraSessionToken+=1;
   clearTimeout(_cameraLoopTimer);
   _cameraLoopTimer=0;
@@ -4213,17 +4235,49 @@ function ensureCameraCanvas(){
 async function optimizeCameraTrack(){
   const track = _cameraStream?.getVideoTracks?.()[0];
   if(!track?.applyConstraints) return;
-  try{
-    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-    const advanced = [];
-    if(capabilities.focusMode?.includes?.('continuous')) advanced.push({ focusMode:'continuous' });
-    if(capabilities.exposureMode?.includes?.('continuous')) advanced.push({ exposureMode:'continuous' });
-    if(capabilities.whiteBalanceMode?.includes?.('continuous')) advanced.push({ whiteBalanceMode:'continuous' });
-    if(advanced.length){
-      await track.applyConstraints({ advanced });
+  const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+  const focusMode = capabilities.focusMode?.includes?.('continuous')
+    ? 'continuous'
+    : capabilities.focusMode?.includes?.('single-shot') ? 'single-shot' : '';
+  const optimizations = [
+    focusMode ? { focusMode } : null,
+    capabilities.exposureMode?.includes?.('continuous') ? { exposureMode:'continuous' } : null,
+    capabilities.whiteBalanceMode?.includes?.('continuous') ? { whiteBalanceMode:'continuous' } : null,
+  ].filter(Boolean);
+  for(const settings of optimizations){
+    try{
+      await track.applyConstraints({ advanced:[settings] });
+    }catch(_err){
+      // Apply each camera feature independently so one unsupported feature cannot disable the rest.
     }
+  }
+  _cameraTorchAvailable = Boolean(capabilities.torch) && _cameraFacing === 'environment';
+  updateCameraTorchButton();
+}
+
+function updateCameraTorchButton(){
+  const btn=$('cameraTorchBtn');
+  if(!btn) return;
+  btn.hidden=!_cameraTorchAvailable;
+  btn.classList.toggle('active', _cameraTorchOn);
+  const label = _cameraTorchOn ? 'כבה תאורה' : 'הפעל תאורה';
+  btn.title=label;
+  btn.setAttribute('aria-label', label);
+}
+
+async function toggleCameraTorch(){
+  const track = _cameraStream?.getVideoTracks?.()[0];
+  if(!track?.applyConstraints || !_cameraTorchAvailable) return;
+  const next=!_cameraTorchOn;
+  try{
+    await track.applyConstraints({ advanced:[{ torch:next }] });
+    _cameraTorchOn=next;
+    updateCameraTorchButton();
+    setCameraStatus(next ? 'התאורה הופעלה. מרכז את הברקוד במסגרת.' : 'התאורה כובתה.');
   }catch(_err){
-    // Some browsers expose partial camera controls and reject unsupported combinations.
+    _cameraTorchAvailable=false;
+    _cameraTorchOn=false;
+    updateCameraTorchButton();
   }
 }
 
@@ -4303,8 +4357,10 @@ async function startCameraStream(){
   _cameraStream = await navigator.mediaDevices.getUserMedia({
     video:{
       facingMode:{ ideal:_cameraFacing },
-      width:{ ideal:1920 },
-      height:{ ideal:1080 },
+      width:{ ideal:2560 },
+      height:{ ideal:1440 },
+      aspectRatio:{ ideal:1.7777778 },
+      resizeMode:{ ideal:'none' },
       frameRate: ticketMode
         ? { ideal:24, max:30 }
         : { ideal:30, max:60 }
