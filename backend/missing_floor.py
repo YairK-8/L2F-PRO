@@ -52,19 +52,6 @@ def _get_session_catalog_sizes(conn, sku, color, extra_sizes=None):
     )
 
 
-def _get_catalog_colors_for_sku(conn, sku, include_color=""):
-    rows = conn.execute(
-        "SELECT DISTINCT color FROM barcodes WHERE sku=? ORDER BY color",
-        (sku,),
-    ).fetchall()
-    colors = [str(row["color"] or "").strip() for row in rows]
-    colors = [color for color in colors if color]
-    fallback = str(include_color or "").strip()
-    if fallback and fallback not in colors:
-        colors.append(fallback)
-    return colors
-
-
 def _normalize_session_row(conn, row, persist=False):
     session_data = dict(row)
     stored_sizes = _sizes_list(session_data.get("sizes_all", ""))
@@ -262,39 +249,24 @@ def scan(branch_id):
 
     sku, color, size = meta["sku"], meta["color"], meta["size"]
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
-    location_hint = _location_for_sku(conn, branch_id, sku)
-    touched_sessions = []
-    scanned_session = None
-    for catalog_color in _get_catalog_colors_for_sku(conn, sku, include_color=color):
-        session_data = _upsert_session(
-            conn,
-            branch_id,
-            sku,
-            catalog_color,
-            size if catalog_color == color else None,
-        )
-        if not session_data:
-            continue
-        session_data["location_hint"] = location_hint
-        touched_sessions.append(session_data)
-        if catalog_color == color:
-            scanned_session = session_data
+    session_data = _upsert_session(conn, branch_id, sku, color, size)
+    if not session_data:
+        conn.commit()
+        conn.close()
+        return jsonify({
+            "ok": True,
+            "already_approved": True,
+            "sku": sku,
+            "color": color,
+            "sessions": [],
+            "catalog_created": bool(catalog_created),
+        })
 
-    approval_payload = (
-        _auto_approve_completed_session(conn, branch_id, scanned_session)
-        if scanned_session else None
-    )
+    session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
+    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
 
     conn.commit()
     conn.close()
-
-    open_sessions = [
-        session for session in touched_sessions
-        if not approval_payload or session["id"] != approval_payload["session_id"]
-    ]
-    for session in open_sessions:
-        session["_source_device_id"] = source_device_id
-        emit_update(branch_id, "tab1_update", session)
 
     if approval_payload:
         approval_payload["_source_device_id"] = source_device_id
@@ -307,23 +279,16 @@ def scan(branch_id):
             "ok": True,
             "approved": True,
             "approval": approval_payload,
-            "sessions": open_sessions,
+            "sessions": [],
             "catalog_created": bool(catalog_created),
         })
 
-    if not scanned_session:
-        return jsonify({
-            "ok": True,
-            "already_approved": True,
-            "sku": sku,
-            "color": color,
-            "sessions": open_sessions,
-            "catalog_created": bool(catalog_created),
-        })
+    session_data["_source_device_id"] = source_device_id
+    emit_update(branch_id, "tab1_update", session_data)
     return jsonify({
         "ok": True,
-        "session": scanned_session,
-        "sessions": open_sessions,
+        "session": session_data,
+        "sessions": [],
         "approved": False,
         "catalog_created": bool(catalog_created),
     })
