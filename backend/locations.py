@@ -2,6 +2,8 @@
 from flask import Blueprint, request, jsonify, Response
 from database.db import get_connection
 from backend.auth_utils import require_branch
+from backend.product_images import attach_product_image
+from backend.barcodes import ensure_catalog_model
 import json
 
 locations_bp = Blueprint("locations", __name__, url_prefix="/api/locations")
@@ -30,9 +32,18 @@ def search(branch_id):
         "SELECT * FROM warehouse_locations WHERE branch_id=? AND sku=?",
         (branch_id, sku)
     ).fetchone()
-    conn.close()
     if row:
-        return jsonify(dict(row))
+        result = attach_product_image(conn, dict(row))
+        conn.execute(
+            """UPDATE warehouse_locations
+               SET last_searched_at=datetime('now','localtime')
+               WHERE id=? AND branch_id=?""",
+            (row["id"], branch_id),
+        )
+        conn.commit()
+        conn.close()
+        return jsonify(result)
+    conn.close()
     return jsonify({"error": "not_found"}), 404
 
 
@@ -46,12 +57,16 @@ def upsert(branch_id):
         return jsonify({"error": "missing_fields"}), 400
     conn = get_connection()
     conn.execute(
-        """INSERT INTO warehouse_locations (branch_id,sku,location,updated_at)
-           VALUES (?,?,?,datetime('now','localtime'))
+        """INSERT INTO warehouse_locations
+               (branch_id,sku,location,updated_at,last_searched_at)
+           VALUES (?,?,?,datetime('now','localtime'),datetime('now','localtime'))
            ON CONFLICT(branch_id,sku) DO UPDATE
-           SET location=excluded.location, updated_at=excluded.updated_at""",
+           SET location=excluded.location,
+               updated_at=excluded.updated_at,
+               last_searched_at=excluded.last_searched_at""",
         (branch_id, sku, loc)
     )
+    ensure_catalog_model(conn, sku)
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -106,12 +121,16 @@ def import_json(branch_id):
         if not sku or not loc:
             skipped += 1; continue
         conn.execute(
-            """INSERT INTO warehouse_locations (branch_id,sku,location,updated_at)
-               VALUES (?,?,?,datetime('now','localtime'))
+            """INSERT INTO warehouse_locations
+                   (branch_id,sku,location,updated_at,last_searched_at)
+               VALUES (?,?,?,datetime('now','localtime'),datetime('now','localtime'))
                ON CONFLICT(branch_id,sku) DO UPDATE
-               SET location=excluded.location, updated_at=excluded.updated_at""",
+               SET location=excluded.location,
+                   updated_at=excluded.updated_at,
+                   last_searched_at=excluded.last_searched_at""",
             (branch_id, sku, loc)
         )
+        ensure_catalog_model(conn, sku)
         inserted += 1
     conn.commit()
     conn.close()

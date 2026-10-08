@@ -7,7 +7,9 @@ from backend.barcodes import (
     normalize_size_label,
     resolve_barcode_catalog_entry,
 )
+from backend.product_images import attach_product_image, attach_product_images
 from backend.realtime import emit_update
+from backend.daily_cleanup import clear_expired_missing_floor
 from backend.utils import today as _today
 
 missing_floor_bp = Blueprint("missing_floor", __name__, url_prefix="/api/missing-floor")
@@ -44,11 +46,25 @@ def _order_found_sizes(all_sizes, found_sizes):
 
 
 def _get_session_catalog_sizes(conn, sku, color, extra_sizes=None):
+    catalog_sizes = get_catalog_sizes_for_sku_color(conn, sku, color)
+    extras = _sizes_list(_sizes_str(extra_sizes or []))
+    if not catalog_sizes:
+        return get_catalog_sizes_for_sku_color(
+            conn, sku, color, include_sizes=extras
+        )
+
+    catalog_is_numeric = all(size.isdigit() for size in catalog_sizes)
+    catalog_is_alpha = all(not size.isdigit() for size in catalog_sizes)
+    if catalog_is_numeric:
+        extras = [size for size in extras if size.isdigit()]
+    elif catalog_is_alpha:
+        extras = [size for size in extras if not size.isdigit()]
+
     return get_catalog_sizes_for_sku_color(
         conn,
         sku,
         color,
-        include_sizes=extra_sizes,
+        include_sizes=extras,
     )
 
 
@@ -192,6 +208,7 @@ def _auto_approve_completed_session(conn, branch_id, session_data, session_date=
 def get_sessions(branch_id):
     """Return all open (unapproved) morning sessions, with location hint."""
     conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
     _clear_stale_morning_sessions(conn, branch_id, _today())
     rows = conn.execute(
         """SELECT ms.*, wl.location AS location_hint
@@ -199,17 +216,38 @@ def get_sessions(branch_id):
            LEFT JOIN warehouse_locations wl
              ON wl.branch_id = ms.branch_id AND wl.sku = ms.sku
            WHERE ms.branch_id=? AND ms.approved=0
-           ORDER BY ms.sku, ms.color, ms.session_date, ms.created_at, ms.id""",
+           ORDER BY ms.last_activity_at DESC, ms.id DESC""",
         (branch_id,)
     ).fetchall()
     result = []
+    completed_payloads = []
     for r in rows:
-        # GET must stay read-only. Normalization and auto-approval are persisted
-        # by scan/tick operations, not by every device's refresh request.
-        session_data = _normalize_session_row(conn, r, persist=False)
+        # Catalog aliases can make an older open session complete during
+        # synchronization (for example XS/S + XS-S becoming one size). Persist
+        # that normalized state and finish it instead of rendering a card whose
+        # every size is already marked as found.
+        session_data = _normalize_session_row(conn, r, persist=True)
+        approval_payload = _auto_approve_completed_session(
+            conn,
+            branch_id,
+            session_data,
+            r["session_date"],
+        )
+        if approval_payload:
+            completed_payloads.append(approval_payload)
+            continue
         session_data["location_hint"] = r["location_hint"] or ""
         result.append(session_data)
+    result = attach_product_images(conn, result)
+    conn.commit()
     conn.close()
+
+    for approval_payload in completed_payloads:
+        emit_update(
+            branch_id,
+            "tab1_cleared" if approval_payload["day_reset"] else "tab1_approved",
+            approval_payload,
+        )
     return jsonify(result)
 
 
@@ -263,6 +301,7 @@ def scan(branch_id):
         })
 
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
+    session_data = attach_product_image(conn, session_data)
     approval_payload = _auto_approve_completed_session(conn, branch_id, session_data)
 
     conn.commit()
@@ -302,6 +341,7 @@ def tick_size(branch_id):
     session_id = data.get("session_id")
     size = normalize_size_label(data.get("size", ""))
     found = bool(data.get("found", True))
+    auto_approve = bool(data.get("auto_approve", True))
 
     conn = get_connection()
     _lock_morning_branch(conn, branch_id)
@@ -340,7 +380,12 @@ def tick_size(branch_id):
         "sizes_found": ordered_found,
         "location_hint": _location_for_sku(conn, branch_id, row["sku"]),
     }
-    approval_payload = _auto_approve_completed_session(conn, branch_id, session_data, row["session_date"])
+    session_data = attach_product_image(conn, session_data)
+    approval_payload = (
+        _auto_approve_completed_session(conn, branch_id, session_data, row["session_date"])
+        if auto_approve
+        else None
+    )
     conn.commit()
     conn.close()
 
@@ -409,6 +454,7 @@ def add_manual_missing(branch_id):
     _clear_stale_morning_sessions(conn, branch_id, _today())
     session_data = _upsert_manual_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
+    session_data = attach_product_image(conn, session_data)
     conn.commit()
     conn.close()
 
@@ -437,6 +483,7 @@ def clear_sessions(branch_id):
 @missing_floor_bp.route("", methods=["GET"])
 @require_branch
 def list_missing(branch_id):
+    clear_expired_missing_floor()
     conn = get_connection()
     rows = conn.execute(
         """SELECT mf.*, wl.location AS location_hint
@@ -472,6 +519,7 @@ def resolve(branch_id, item_id):
     conn.close()
     if not changed:
         return jsonify({"error": "not_found"}), 404
+    emit_update(branch_id, "tab1_floor_missing_cleared", {"id": item_id})
     return jsonify({"ok": True})
 
 
@@ -482,6 +530,7 @@ def clear_missing(branch_id):
     conn.execute("DELETE FROM missing_floor WHERE branch_id=?", (branch_id,))
     conn.commit()
     conn.close()
+    emit_update(branch_id, "tab1_floor_missing_cleared", {})
     return jsonify({"ok": True})
 
 
@@ -490,6 +539,7 @@ def clear_missing(branch_id):
 def _upsert_session(conn, branch_id, sku, color, size=None):
     size = normalize_size_label(size)
     today = _today()
+    activity_at = conn.execute("SELECT datetime('now','localtime') AS ts").fetchone()["ts"]
     row = conn.execute(
         """SELECT * FROM morning_sessions
            WHERE branch_id=? AND sku=? AND color=? AND approved=0
@@ -525,34 +575,36 @@ def _upsert_session(conn, branch_id, sku, color, size=None):
         ordered_found = _order_found_sizes(all_sizes_list, found)
         new_found = _sizes_str(ordered_found)
         conn.execute(
-            "UPDATE morning_sessions SET sizes_found=?, sizes_all=? WHERE id=?",
-            (new_found, all_sizes, row["id"])
+            "UPDATE morning_sessions SET sizes_found=?, sizes_all=?, last_activity_at=? WHERE id=?",
+            (new_found, all_sizes, activity_at, row["id"])
         )
         return {
             "id": row["id"], "sku": sku, "color": color,
             "sizes_all": all_sizes_list,
             "sizes_found": ordered_found,
-            "approved": 0
+            "approved": 0, "last_activity_at": activity_at
         }
     else:
         ordered_found = _order_found_sizes(all_sizes_list, [size] if size else [])
         session_id = insert_and_get_id(
             conn,
-            """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
-               VALUES (?,?,?,?,?,?)""",
-            (branch_id, today, sku, color, all_sizes, _sizes_str(ordered_found)),
+            """INSERT INTO morning_sessions
+                   (branch_id,session_date,sku,color,sizes_all,sizes_found,last_activity_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (branch_id, today, sku, color, all_sizes, _sizes_str(ordered_found), activity_at),
         )
         return {
             "id": session_id, "sku": sku, "color": color,
             "sizes_all": all_sizes_list,
             "sizes_found": ordered_found,
-            "approved": 0
+            "approved": 0, "last_activity_at": activity_at
         }
 
 
 def _upsert_manual_session(conn, branch_id, sku, color, size):
     size = normalize_size_label(size)
     today = _today()
+    activity_at = conn.execute("SELECT datetime('now','localtime') AS ts").fetchone()["ts"]
     row = conn.execute(
         """SELECT * FROM morning_sessions
            WHERE branch_id=? AND sku=? AND color=? AND approved=0
@@ -574,25 +626,26 @@ def _upsert_manual_session(conn, branch_id, sku, color, size):
     if row:
         ordered_found = _order_found_sizes(all_sizes_list, _sizes_list(row["sizes_found"]))
         conn.execute(
-            "UPDATE morning_sessions SET sizes_all=?, sizes_found=? WHERE id=?",
-            (all_sizes_str, _sizes_str(ordered_found), row["id"])
+            "UPDATE morning_sessions SET sizes_all=?, sizes_found=?, last_activity_at=? WHERE id=?",
+            (all_sizes_str, _sizes_str(ordered_found), activity_at, row["id"])
         )
         return {
             "id": row["id"], "sku": sku, "color": color,
             "sizes_all": all_sizes_list,
             "sizes_found": ordered_found,
-            "approved": 0
+            "approved": 0, "last_activity_at": activity_at
         }
 
     session_id = insert_and_get_id(
         conn,
-        """INSERT INTO morning_sessions (branch_id,session_date,sku,color,sizes_all,sizes_found)
-           VALUES (?,?,?,?,?,?)""",
-        (branch_id, today, sku, color, all_sizes_str, ""),
+        """INSERT INTO morning_sessions
+               (branch_id,session_date,sku,color,sizes_all,sizes_found,last_activity_at)
+           VALUES (?,?,?,?,?,?,?)""",
+        (branch_id, today, sku, color, all_sizes_str, "", activity_at),
     )
     return {
         "id": session_id, "sku": sku, "color": color,
         "sizes_all": all_sizes_list,
         "sizes_found": [],
-        "approved": 0
+        "approved": 0, "last_activity_at": activity_at
     }

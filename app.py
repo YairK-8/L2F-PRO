@@ -15,6 +15,9 @@ from backend.barcodes import barcodes_bp
 from backend.missing_floor import missing_floor_bp
 from backend.missing_warehouse import missing_warehouse_bp
 from backend.locations import locations_bp
+from backend.product_image_sync import start_product_image_sync
+from backend.catalog_sync import start_catalog_sync
+from backend.daily_cleanup import start_daily_cleanup
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 PWA_ASSET_DIR = "static"
@@ -85,6 +88,8 @@ def _capture_request_metrics(response):
     if started is not None:
         duration_ms = (time.perf_counter() - started) * 1000
         record_request_metric(request.path, response.status_code, duration_ms)
+    if request.path.startswith("/static/product_images/"):
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
     return response
 
 
@@ -145,6 +150,9 @@ def apple_touch_icon():
 
 if __name__ == "__main__":
     init_db()
+    start_daily_cleanup()
+    start_product_image_sync()
+    start_catalog_sync()
     port = int(os.environ.get("PORT", 5000))
     print(f"\n🚀 L2F v4 → http://localhost:{port}")
     print(f"   Admin panel → http://localhost:{port}/admin\n")

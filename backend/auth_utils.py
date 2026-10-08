@@ -5,7 +5,30 @@ Decorators for protecting routes.
   - require_admin   : super-admin session
 """
 from functools import wraps
-from flask import session, jsonify
+from flask import session, jsonify, request
+
+from database.db import get_connection
+
+
+def _check_branch_access(branch_id):
+    """Return an API error when a branch is limited to warehouse locations."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT locations_only FROM branches WHERE id=?", (branch_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": "not_logged_in"}), 401
+    if not row["locations_only"]:
+        return None
+    location_barcode_lookup = (
+        request.method == "GET" and request.endpoint == "barcodes.get_barcode"
+    )
+    if request.blueprint == "locations" or location_barcode_lookup:
+        return None
+    return jsonify({"error": "locations_only"}), 403
 
 
 def require_branch(f):
@@ -14,7 +37,11 @@ def require_branch(f):
     def decorated(*args, **kwargs):
         if "branch_id" not in session:
             return jsonify({"error": "not_logged_in"}), 401
-        kwargs["branch_id"] = session["branch_id"]
+        branch_id = session["branch_id"]
+        denied = _check_branch_access(branch_id)
+        if denied:
+            return denied
+        kwargs["branch_id"] = branch_id
         return f(*args, **kwargs)
     return decorated
 
@@ -28,7 +55,11 @@ def require_branch_or_admin(f):
             return f(*args, **kwargs)
         if "branch_id" not in session:
             return jsonify({"error": "not_logged_in"}), 401
-        kwargs["branch_id"] = session["branch_id"]
+        branch_id = session["branch_id"]
+        denied = _check_branch_access(branch_id)
+        if denied:
+            return denied
+        kwargs["branch_id"] = branch_id
         return f(*args, **kwargs)
     return decorated
 

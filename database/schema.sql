@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS branches (
     name       TEXT NOT NULL UNIQUE,
     password   TEXT NOT NULL,
     is_blocked INTEGER NOT NULL DEFAULT 0,
+    locations_only INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -27,6 +28,14 @@ CREATE TABLE IF NOT EXISTS barcodes (
 CREATE INDEX IF NOT EXISTS idx_barcodes_sku     ON barcodes(sku);
 CREATE INDEX IF NOT EXISTS idx_barcodes_barcode ON barcodes(barcode);
 
+CREATE TABLE IF NOT EXISTS barcode_aliases (
+    alias             TEXT PRIMARY KEY,
+    canonical_barcode TEXT NOT NULL REFERENCES barcodes(barcode) ON DELETE CASCADE,
+    source            TEXT NOT NULL DEFAULT '',
+    created_at        TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_barcode_aliases_canonical ON barcode_aliases(canonical_barcode);
+
 CREATE TABLE IF NOT EXISTS catalog_models (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     sku        TEXT NOT NULL UNIQUE,
@@ -34,6 +43,52 @@ CREATE TABLE IF NOT EXISTS catalog_models (
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku);
+
+CREATE TABLE IF NOT EXISTS product_images (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku              TEXT NOT NULL,
+    color_code       TEXT NOT NULL DEFAULT '',
+    color            TEXT NOT NULL DEFAULT '',
+    title            TEXT NOT NULL DEFAULT '',
+    image_path       TEXT NOT NULL,
+    product_url      TEXT NOT NULL DEFAULT '',
+    source_image_url TEXT NOT NULL DEFAULT '',
+    is_primary       INTEGER NOT NULL DEFAULT 0,
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    UNIQUE(sku, color_code)
+);
+CREATE INDEX IF NOT EXISTS idx_product_images_sku_color ON product_images(sku, color);
+
+CREATE TABLE IF NOT EXISTS product_image_sync_jobs (
+    sku          TEXT PRIMARY KEY,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    attempts     INTEGER NOT NULL DEFAULT 0,
+    last_error   TEXT NOT NULL DEFAULT '',
+    created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_image_sync_jobs_status ON product_image_sync_jobs(status, updated_at);
+
+CREATE TABLE IF NOT EXISTS external_catalog_sync_state (
+    source          TEXT PRIMARY KEY,
+    status          TEXT NOT NULL DEFAULT 'idle',
+    last_started    TEXT NOT NULL DEFAULT '',
+    last_completed  TEXT NOT NULL DEFAULT '',
+    last_error      TEXT NOT NULL DEFAULT '',
+    products_seen   INTEGER NOT NULL DEFAULT 0,
+    variants_seen   INTEGER NOT NULL DEFAULT 0,
+    barcodes_added  INTEGER NOT NULL DEFAULT 0,
+    aliases_added   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS external_catalog_products (
+    handle       TEXT PRIMARY KEY,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    attempts     INTEGER NOT NULL DEFAULT 0,
+    last_error   TEXT NOT NULL DEFAULT '',
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_external_catalog_products_status ON external_catalog_products(status, updated_at);
 
 -- ============================================================
 -- STRUCTURED BARCODE SCALES
@@ -72,10 +127,12 @@ CREATE TABLE IF NOT EXISTS morning_sessions (
     sizes_found  TEXT NOT NULL DEFAULT '',
     approved     INTEGER NOT NULL DEFAULT 0,  -- 0=open, 1=approved
     created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    last_activity_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     UNIQUE(branch_id, session_date, sku, color)
 );
 CREATE INDEX IF NOT EXISTS idx_msession_branch ON morning_sessions(branch_id, session_date);
 CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color, approved);
+CREATE INDEX IF NOT EXISTS idx_msession_open_activity ON morning_sessions(branch_id, approved, last_activity_at DESC, id DESC);
 
 -- ============================================================
 -- TAB 1 — MISSING FLOOR  (result after approval)
@@ -94,6 +151,7 @@ CREATE TABLE IF NOT EXISTS missing_floor (
 );
 CREATE INDEX IF NOT EXISTS idx_missing_floor_branch ON missing_floor(branch_id, status);
 CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size, status);
+CREATE INDEX IF NOT EXISTS idx_missing_floor_open_list ON missing_floor(branch_id, status, sku, color, size, id);
 
 -- ============================================================
 -- TAB 2 — MISSING WAREHOUSE  (per branch, FIFO)
@@ -112,6 +170,7 @@ CREATE TABLE IF NOT EXISTS missing_warehouse (
 );
 CREATE INDEX IF NOT EXISTS idx_missing_wh_branch  ON missing_warehouse(branch_id, status);
 CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size, status);
+CREATE INDEX IF NOT EXISTS idx_missing_wh_pending_time ON missing_warehouse(branch_id, status, scanned_at, id);
 
 -- ============================================================
 -- TAB 3 — WAREHOUSE LOCATIONS  (per branch)
@@ -122,6 +181,7 @@ CREATE TABLE IF NOT EXISTS warehouse_locations (
     sku        TEXT NOT NULL,
     location   TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    last_searched_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     UNIQUE(branch_id, sku)
 );
 CREATE INDEX IF NOT EXISTS idx_locations_branch ON warehouse_locations(branch_id);

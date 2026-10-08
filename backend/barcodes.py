@@ -114,6 +114,16 @@ def find_barcode_catalog_entry(conn, barcode):
     if row:
         return dict(row), normalized
 
+    alias_row = conn.execute(
+        """SELECT barcode.*
+             FROM barcode_aliases alias
+             JOIN barcodes barcode ON barcode.barcode=alias.canonical_barcode
+            WHERE alias.alias=?""",
+        (normalized,),
+    ).fetchone()
+    if alias_row:
+        return dict(alias_row), alias_row["barcode"]
+
     parsed_without_prefix = parse_structured_barcode_body(normalized)
     if not parsed_without_prefix:
         return None, normalized
@@ -142,7 +152,19 @@ def normalize_scale_code(value, expected_length):
 
 
 def normalize_size_label(value):
-    return str(value or "").strip().lower()
+    normalized = str(value or "").strip().lower()
+    normalized = re.sub(r"[־–—_/\\]+", "-", normalized)
+    normalized = re.sub(r"\s*-\s*", "-", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    compact = normalized.replace(" ", "")
+    aliases = {
+        "young": "y",
+        "xs-s": "xs-s",
+        "xss": "xs-s",
+        "m-l": "m-l",
+        "ml": "m-l",
+    }
+    return aliases.get(normalized, aliases.get(compact, normalized))
 
 
 def fetch_barcode_scale(conn):
@@ -204,7 +226,7 @@ def get_catalog_sizes_for_sku_color(conn, sku, color, include_sizes=None):
     return order_sizes_by_scale(merged_sizes, scale_sizes)
 
 
-def ensure_catalog_model(conn, sku):
+def ensure_catalog_model(conn, sku, requeue_not_found=True):
     """Create the shared model row once; safe under concurrent branch writes."""
     normalized_sku = str(sku or "").strip()
     if not normalized_sku:
@@ -215,6 +237,32 @@ def ensure_catalog_model(conn, sku):
            ON CONFLICT(sku) DO NOTHING""",
         (normalized_sku,),
     )
+    if requeue_not_found:
+        conn.execute(
+            """INSERT INTO product_image_sync_jobs (sku, status, updated_at)
+               VALUES (?, 'pending', datetime('now','localtime'))
+               ON CONFLICT(sku) DO UPDATE SET
+                   status=CASE
+                       WHEN product_image_sync_jobs.status='not_found' THEN 'pending'
+                       ELSE product_image_sync_jobs.status
+                   END,
+                   last_error=CASE
+                       WHEN product_image_sync_jobs.status='not_found' THEN ''
+                       ELSE product_image_sync_jobs.last_error
+                   END,
+                   updated_at=CASE
+                       WHEN product_image_sync_jobs.status='not_found' THEN excluded.updated_at
+                       ELSE product_image_sync_jobs.updated_at
+                   END""",
+            (normalized_sku,),
+        )
+    else:
+        conn.execute(
+            """INSERT INTO product_image_sync_jobs (sku, status, updated_at)
+               VALUES (?, 'pending', datetime('now','localtime'))
+               ON CONFLICT(sku) DO NOTHING""",
+            (normalized_sku,),
+        )
     return cursor.rowcount > 0
 
 

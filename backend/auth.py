@@ -32,7 +32,7 @@ def login():
     pw   = str(data.get("password", "")).strip()
     conn = get_connection()
     row  = conn.execute(
-        "SELECT id, name, password, is_blocked FROM branches WHERE name=?", (name,)
+        "SELECT id, name, password, is_blocked, locations_only FROM branches WHERE name=?", (name,)
     ).fetchone()
     if not row or not check_password_hash(row["password"], pw):
         conn.close()
@@ -48,7 +48,14 @@ def login():
     conn.commit()
     conn.close()
     _set_branch_session(row["id"], row["name"])
-    return jsonify({"ok": True, "branch": {"id": row["id"], "name": row["name"]}})
+    return jsonify({
+        "ok": True,
+        "branch": {
+            "id": row["id"],
+            "name": row["name"],
+            "locations_only": bool(row["locations_only"]),
+        },
+    })
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -63,7 +70,7 @@ def me():
         return jsonify({"error": "not_logged_in"}), 401
     conn = get_connection()
     row = conn.execute(
-        "SELECT name, is_blocked FROM branches WHERE id=?",
+        "SELECT name, is_blocked, locations_only FROM branches WHERE id=?",
         (session["branch_id"],)
     ).fetchone()
     conn.close()
@@ -76,4 +83,5 @@ def me():
     return jsonify({
         "branch_id":   session["branch_id"],
         "branch_name": row["name"],
+        "locations_only": bool(row["locations_only"]),
     })

@@ -1,0 +1,32 @@
+[
+  {
+    "sku": "10742",
+    "color_code": "0001",
+    "color": "לבן",
+    "is_primary": true,
+    "title": "טי-שרט קרעים במראה פשתן",
+    "local_path": "/static/product_images/10742-0001.jpg",
+    "product_url": "https://itaybrands.co.il/products/i107420001",
+    "source_image_url": "https://itaybrands.co.il/cdn/shop/files/ITAYBRANDS_140426_0932.jpg?v=1776237032&width=1024"
+  },
+  {
+    "sku": "10742",
+    "color_code": "0002",
+    "color": "אבן",
+    "is_primary": false,
+    "title": "טי-שרט קרעים במראה פשתן",
+    "local_path": "/static/product_images/10742-0002.jpg",
+    "product_url": "https://itaybrands.co.il/products/i107420002",
+    "source_image_url": "https://itaybrands.co.il/cdn/shop/files/ITAYBRANDS_140426_0429.jpg?v=1776237232&width=1024"
+  },
+  {
+    "sku": "40449",
+    "color_code": "0001",
+    "color": "לבן",
+    "is_primary": true,
+    "title": "שורט ברמודה בד סריג",
+    "local_path": "/static/product_images/40449-0001.jpg",
+    "product_url": "https://itaybrands.co.il/products/i404490001",
+    "source_image_url": "https://itaybrands.co.il/cdn/shop/files/ITAYBRANDS_030826_15602.jpg?v=1785832864&width=1024"
+  }
+]

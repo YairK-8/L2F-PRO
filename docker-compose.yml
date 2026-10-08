@@ -1,0 +1,22 @@
+services:
+  l2f:
+    build: .
+    container_name: l2f-pro
+    network_mode: host
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REQUIRE_POSTGRES: "1"
+      PRODUCT_IMAGE_SYNC_ENABLED: ${PRODUCT_IMAGE_SYNC_ENABLED:-1}
+      PRODUCT_IMAGE_SYNC_INTERVAL: ${PRODUCT_IMAGE_SYNC_INTERVAL:-0.6}
+      PRODUCT_IMAGE_SYNC_TIMEOUT: ${PRODUCT_IMAGE_SYNC_TIMEOUT:-15}
+      CATALOG_SYNC_ENABLED: ${CATALOG_SYNC_ENABLED:-1}
+      CATALOG_SYNC_HOUR: ${CATALOG_SYNC_HOUR:-3}
+      CATALOG_SYNC_STARTUP_DELAY: ${CATALOG_SYNC_STARTUP_DELAY:-20}
+      DAILY_MISSING_FLOOR_RESET_ENABLED: ${DAILY_MISSING_FLOOR_RESET_ENABLED:-1}
+      DAILY_RESET_TIMEZONE: ${DAILY_RESET_TIMEZONE:-Asia/Jerusalem}
+      MISSING_FLOOR_RESET_HOUR: ${MISSING_FLOOR_RESET_HOUR:-6}
+      LOCATION_INACTIVITY_MONTHS: ${LOCATION_INACTIVITY_MONTHS:-3}
+    volumes:
+      - ./database:/app/database
+      - ./static/product_images:/app/static/product_images
+    restart: unless-stopped

@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from database.db import get_connection, insert_and_get_id
 from backend.auth_utils import require_branch
 from backend.barcodes import normalize_size_label, normalize_barcode as _normalize_barcode, resolve_barcode_catalog_entry
+from backend.product_images import attach_product_image, attach_product_images
 from backend.realtime import emit_update
 from backend.utils import today as _today
 
@@ -31,7 +32,7 @@ def _load_item_with_location(conn, item_id):
     item = dict(row)
     item["size"] = normalize_size_label(item.get("size", ""))
     item["location_hint"] = row["location_hint"] or ""
-    return item
+    return attach_product_image(conn, item)
 
 
 def _find_pending_item(conn, branch_id, sku, color, size):
@@ -61,7 +62,7 @@ def _clear_stale_pending_missing_warehouse(conn, branch_id):
         """DELETE FROM missing_warehouse
            WHERE branch_id=?
              AND status='pending'
-             AND substr(scanned_at, 1, 10) < ?""",
+             AND scanned_at < ?""",
         (branch_id, _today())
     )
 
@@ -114,18 +115,18 @@ def list_pending(branch_id):
            LEFT JOIN warehouse_locations wl
              ON wl.branch_id = mw.branch_id AND wl.sku = mw.sku
            WHERE mw.branch_id=? AND mw.status='pending'
-             AND substr(mw.scanned_at, 1, 10) >= ?
+             AND mw.scanned_at >= ?
            ORDER BY mw.scanned_at ASC, mw.id ASC""",
         (branch_id, _today())
     ).fetchall()
-    conn.close()
-
     result = []
     for r in rows:
         item = dict(r)
         item["size"] = normalize_size_label(item.get("size", ""))
         item["location_hint"] = r["location_hint"] or ""
         result.append(item)
+    result = attach_product_images(conn, result)
+    conn.close()
     return jsonify(result)
 
 

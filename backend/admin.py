@@ -11,6 +11,12 @@ Super-Admin API:
   DELETE /api/admin/branches/<id> — hard delete with full cascade
   POST /api/admin/setup          — first-time admin account creation (only if no admin exists)
 """
+import os
+import shutil
+import threading
+import time
+from pathlib import Path
+
 from flask import Blueprint, request, jsonify, session
 from database.db import (
     get_connection,
@@ -20,7 +26,7 @@ from database.db import (
     table_exists,
 )
 from backend.auth_utils import require_admin
-from backend.barcodes import get_catalog_sizes_for_sku_color, normalize_size_label
+from backend.barcodes import ensure_catalog_model, get_catalog_sizes_for_sku_color, normalize_size_label
 from backend.realtime import (
     disconnect_branch_devices,
     disconnect_single_device,
@@ -33,6 +39,116 @@ from backend.realtime import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+_APP_ROOT = Path(__file__).resolve().parent.parent
+_RESOURCE_CACHE_SECONDS = 30
+_resource_cache = {"measured_at": 0.0, "value": None}
+_resource_cache_lock = threading.Lock()
+
+
+def _path_size(path, excluded=None):
+    """Return regular-file bytes without following symlinks."""
+    root = Path(path)
+    excluded = {Path(item).resolve() for item in (excluded or [])}
+    total = 0
+    if not root.exists():
+        return 0
+    for current_root, directories, files in os.walk(root, followlinks=False):
+        current = Path(current_root)
+        directories[:] = [
+            name for name in directories
+            if (current / name).resolve() not in excluded
+            and name not in {".git", "__pycache__", "deploy-backups"}
+        ]
+        for filename in files:
+            candidate = current / filename
+            try:
+                if not candidate.is_symlink():
+                    total += candidate.stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _path_file_count(path):
+    """Count regular files below a path without following symlinks."""
+    root = Path(path)
+    if not root.exists():
+        return 0
+    total = 0
+    for current_root, directories, files in os.walk(root, followlinks=False):
+        directories[:] = [name for name in directories if name != "__pycache__"]
+        current = Path(current_root)
+        for filename in files:
+            try:
+                if not (current / filename).is_symlink():
+                    total += 1
+            except OSError:
+                continue
+    return total
+
+
+def _current_process_rss_bytes():
+    """Read current Linux RSS; return zero on unsupported platforms."""
+    try:
+        for line in Path("/proc/self/status").read_text(encoding="utf-8").splitlines():
+            if line.startswith("VmRSS:"):
+                return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
+def _database_storage_bytes():
+    conn = get_connection()
+    try:
+        if conn.dialect == "postgres":
+            row = conn.execute("SELECT pg_database_size(current_database()) AS size").fetchone()
+            return int(row["size"] if row else 0)
+        db_file = _APP_ROOT / "database" / "l2f.db"
+        return db_file.stat().st_size if db_file.exists() else 0
+    except (OSError, TypeError, ValueError):
+        return 0
+    finally:
+        conn.close()
+
+
+def _get_resource_usage():
+    now = time.monotonic()
+    cached = _resource_cache.get("value")
+    if cached and now - _resource_cache["measured_at"] < _RESOURCE_CACHE_SECONDS:
+        return cached
+    with _resource_cache_lock:
+        now = time.monotonic()
+        cached = _resource_cache.get("value")
+        if cached and now - _resource_cache["measured_at"] < _RESOURCE_CACHE_SECONDS:
+            return cached
+
+        image_dir = _APP_ROOT / "static" / "product_images"
+        database_dir = _APP_ROOT / "database"
+        code_bytes = _path_size(_APP_ROOT, excluded={image_dir, database_dir})
+        image_bytes = _path_size(image_dir)
+        database_files_bytes = _path_size(database_dir)
+        database_bytes = _database_storage_bytes()
+        try:
+            disk = shutil.disk_usage(image_dir if image_dir.exists() else _APP_ROOT)
+            disk_total_bytes, disk_used_bytes, disk_free_bytes = disk.total, disk.used, disk.free
+        except OSError:
+            disk_total_bytes = disk_used_bytes = disk_free_bytes = 0
+
+        value = {
+            "software_total_bytes": code_bytes + image_bytes + database_files_bytes + database_bytes,
+            "application_files_bytes": code_bytes + database_files_bytes,
+            "product_images_bytes": image_bytes,
+            "product_image_files": _path_file_count(image_dir),
+            "database_bytes": database_bytes,
+            "process_rss_bytes": _current_process_rss_bytes(),
+            "disk_total_bytes": disk_total_bytes,
+            "disk_used_bytes": disk_used_bytes,
+            "disk_free_bytes": disk_free_bytes,
+        }
+        _resource_cache.update({"measured_at": now, "value": value})
+        return value
 
 
 def _clear_admin_session():
@@ -140,7 +256,7 @@ def list_branches():
     q    = request.args.get("q", "").strip().lower()
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, name, store_id, created_at, last_login, is_blocked FROM branches ORDER BY created_at DESC"
+        "SELECT id, name, store_id, created_at, last_login, is_blocked, locations_only FROM branches ORDER BY created_at DESC"
     ).fetchall()
     conn.close()
     active_counts = get_active_device_counts()
@@ -192,6 +308,7 @@ def get_system_health():
         meta = branch_map.get(branch["branch_id"], {})
         branch["name"] = meta.get("name", f"סניף {branch['branch_id']}")
         branch["store_id"] = meta.get("store_id") or ""
+    health["resources"] = _get_resource_usage()
     return jsonify(health)
 
 
@@ -308,6 +425,40 @@ def admin_unblock_branch(branch_id):
     if not changed or not row:
         return jsonify({"error": "not_found"}), 404
     return jsonify({"ok": True, "branch": dict(row)})
+
+
+@admin_bp.route("/branches/<int:branch_id>/locations-only", methods=["POST"])
+@require_admin
+def admin_limit_branch_to_locations(branch_id):
+    conn = get_connection()
+    conn.execute("UPDATE branches SET locations_only=1 WHERE id=?", (branch_id,))
+    conn.commit()
+    row = conn.execute(
+        "SELECT id,name,is_blocked,locations_only FROM branches WHERE id=?",
+        (branch_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    disconnected = disconnect_branch_devices(branch_id, "branch_access_changed")
+    return jsonify({"ok": True, "branch": dict(row), "disconnected": disconnected})
+
+
+@admin_bp.route("/branches/<int:branch_id>/full-access", methods=["POST"])
+@require_admin
+def admin_restore_branch_full_access(branch_id):
+    conn = get_connection()
+    conn.execute("UPDATE branches SET locations_only=0 WHERE id=?", (branch_id,))
+    conn.commit()
+    row = conn.execute(
+        "SELECT id,name,is_blocked,locations_only FROM branches WHERE id=?",
+        (branch_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "not_found"}), 404
+    disconnected = disconnect_branch_devices(branch_id, "branch_access_changed")
+    return jsonify({"ok": True, "branch": dict(row), "disconnected": disconnected})
 
 
 @admin_bp.route("/branches/<int:branch_id>/devices/<path:device_id>/disconnect", methods=["POST"])
@@ -724,12 +875,16 @@ def admin_upsert_location(branch_id):
         return jsonify({"error": "missing_fields"}), 400
     conn = get_connection()
     conn.execute(
-        """INSERT INTO warehouse_locations (branch_id,sku,location,updated_at)
-           VALUES (?,?,?,datetime('now','localtime'))
+        """INSERT INTO warehouse_locations
+               (branch_id,sku,location,updated_at,last_searched_at)
+           VALUES (?,?,?,datetime('now','localtime'),datetime('now','localtime'))
            ON CONFLICT(branch_id,sku) DO UPDATE
-           SET location=excluded.location, updated_at=excluded.updated_at""",
+           SET location=excluded.location,
+               updated_at=excluded.updated_at,
+               last_searched_at=excluded.last_searched_at""",
         (branch_id, sku, loc)
     )
+    ensure_catalog_model(conn, sku)
     conn.commit(); conn.close()
     return jsonify({"ok": True})
 

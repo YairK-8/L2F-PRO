@@ -1,4 +1,5 @@
 import os
+import json
 import re
 import sqlite3
 import threading
@@ -14,6 +15,7 @@ except ImportError:  # pragma: no cover - dependency may be absent until install
 DB_PATH = os.path.join(os.path.dirname(__file__), "l2f.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 POSTGRES_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.postgres.sql")
+PRODUCT_IMAGE_MANIFEST_PATH = Path(__file__).resolve().parent.parent / "static" / "product_images" / "manifest.json"
 DATABASE_TIMEZONE = os.environ.get("DATABASE_TIMEZONE", "Asia/Jerusalem")
 SQLITE_TIMEOUT_SECONDS = int(os.environ.get("SQLITE_TIMEOUT_SECONDS", "30"))
 POSTGRES_POOL_MIN_CONN = int(os.environ.get("POSTGRES_POOL_MIN_CONN", "1"))
@@ -660,6 +662,125 @@ def _restore_structured_barcode_sizes(conn):
             )
 
 
+def _canonical_size_label(value):
+    normalized = str(value or "").strip().lower()
+    normalized = re.sub(r"[־–—_/\\]+", "-", normalized)
+    normalized = re.sub(r"\s*-\s*", "-", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    compact = normalized.replace(" ", "")
+    aliases = {
+        "young": "y",
+        "xs-s": "xs-s",
+        "xss": "xs-s",
+        "m-l": "m-l",
+        "ml": "m-l",
+    }
+    return aliases.get(normalized, aliases.get(compact, normalized))
+
+
+def _normalize_size_aliases(conn):
+    """Merge legacy/manual spellings into the canonical catalog size labels."""
+    for table in ("missing_warehouse", "missing_floor"):
+        rows = conn.execute(
+            f"SELECT id, branch_id, sku, color, size, status FROM {table}"
+        ).fetchall()
+        for row in rows:
+            canonical = _canonical_size_label(row["size"])
+            if not canonical or canonical == str(row["size"] or ""):
+                continue
+            existing = conn.execute(
+                f"""SELECT id FROM {table}
+                      WHERE branch_id=? AND sku=? AND color=? AND size=? AND status=?
+                        AND id<>?
+                      LIMIT 1""",
+                (
+                    row["branch_id"], row["sku"], row["color"], canonical,
+                    row["status"], row["id"],
+                ),
+            ).fetchone()
+            if existing:
+                conn.execute(f"DELETE FROM {table} WHERE id=?", (row["id"],))
+            else:
+                conn.execute(
+                    f"UPDATE {table} SET size=? WHERE id=?",
+                    (canonical, row["id"]),
+                )
+
+    for table in ("barcodes", "barcode_size_scale"):
+        rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+        key_column = "id" if table == "barcodes" else "code"
+        for row in rows:
+            canonical = _canonical_size_label(row["size"])
+            if canonical and canonical != str(row["size"] or ""):
+                conn.execute(
+                    f"UPDATE {table} SET size=? WHERE {key_column}=?",
+                    (canonical, row[key_column]),
+                )
+
+    rows = conn.execute(
+        "SELECT id, sizes_all, sizes_found FROM morning_sessions"
+    ).fetchall()
+    for row in rows:
+        normalized_columns = []
+        changed = False
+        for column in ("sizes_all", "sizes_found"):
+            seen = set()
+            values = []
+            for raw_value in str(row[column] or "").split(","):
+                value = _canonical_size_label(raw_value)
+                if value and value not in seen:
+                    seen.add(value)
+                    values.append(value)
+            normalized = ",".join(values)
+            normalized_columns.append(normalized)
+            changed = changed or normalized != str(row[column] or "")
+        if changed:
+            conn.execute(
+                "UPDATE morning_sessions SET sizes_all=?, sizes_found=? WHERE id=?",
+                (*normalized_columns, row["id"]),
+            )
+
+
+def _seed_product_images(conn):
+    """Import bundled, verified product-image metadata without duplicating rows."""
+    if not PRODUCT_IMAGE_MANIFEST_PATH.exists():
+        return
+    try:
+        entries = json.loads(PRODUCT_IMAGE_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+
+    for entry in entries if isinstance(entries, list) else []:
+        sku = str(entry.get("sku") or "").strip()
+        color_code = str(entry.get("color_code") or "").strip()
+        image_path = str(entry.get("local_path") or "").strip()
+        if not sku or not color_code or not image_path:
+            continue
+        conn.execute(
+            """INSERT INTO product_images
+                   (sku,color_code,color,title,image_path,product_url,source_image_url,is_primary,updated_at)
+               VALUES (?,?,?,?,?,?,?,?,datetime('now','localtime'))
+               ON CONFLICT(sku,color_code) DO UPDATE SET
+                   color=excluded.color,
+                   title=excluded.title,
+                   image_path=excluded.image_path,
+                   product_url=excluded.product_url,
+                   source_image_url=excluded.source_image_url,
+                   is_primary=excluded.is_primary,
+                   updated_at=excluded.updated_at""",
+            (
+                sku,
+                color_code,
+                str(entry.get("color") or "").strip(),
+                str(entry.get("title") or "").strip(),
+                image_path,
+                str(entry.get("product_url") or "").strip(),
+                str(entry.get("source_image_url") or "").strip(),
+                1 if entry.get("is_primary") else 0,
+            ),
+        )
+
+
 def _migrate_sqlite():
     conn = get_connection()
     try:
@@ -675,6 +796,11 @@ def _migrate_sqlite():
 
         try:
             conn.execute("ALTER TABLE branches ADD COLUMN is_blocked INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            conn.execute("ALTER TABLE branches ADD COLUMN locations_only INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
             pass
 
@@ -698,6 +824,23 @@ def _migrate_sqlite():
         except sqlite3.OperationalError:
             pass
 
+        try:
+            conn.execute("ALTER TABLE morning_sessions ADD COLUMN last_activity_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            "UPDATE morning_sessions SET last_activity_at=created_at WHERE last_activity_at IS NULL OR last_activity_at=''"
+        )
+
+        try:
+            conn.execute("ALTER TABLE warehouse_locations ADD COLUMN last_searched_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            "UPDATE warehouse_locations SET last_searched_at=datetime('now','localtime') WHERE last_searched_at IS NULL OR last_searched_at=''"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_locations_last_searched ON warehouse_locations(last_searched_at)")
+
         conn.execute(
             """CREATE TABLE IF NOT EXISTS catalog_models (
                    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -707,6 +850,7 @@ def _migrate_sqlite():
                )"""
         )
         conn.execute("INSERT OR IGNORE INTO catalog_models (sku) SELECT DISTINCT sku FROM barcodes WHERE sku<>''")
+        conn.execute("INSERT OR IGNORE INTO catalog_models (sku) SELECT DISTINCT sku FROM warehouse_locations WHERE sku<>''")
         conn.execute(
             """DELETE FROM missing_warehouse
                WHERE status='pending'
@@ -729,8 +873,11 @@ def _migrate_sqlite():
 
         conn.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color, approved)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_activity ON morning_sessions(branch_id, approved, last_activity_at DESC, id DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_open_list ON missing_floor(branch_id, status, sku, color, size, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_pending_time ON missing_warehouse(branch_id, status, scanned_at, id)")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_wh_pending_item ON missing_warehouse(branch_id, sku, color, size) WHERE status='pending'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_floor_active_item ON missing_floor(branch_id, sku, color, size) WHERE status='missing'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku)")
@@ -738,6 +885,8 @@ def _migrate_sqlite():
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)
         _restore_structured_barcode_sizes(conn)
+        _normalize_size_aliases(conn)
+        _seed_product_images(conn)
         conn.commit()
     finally:
         conn.close()
@@ -749,10 +898,20 @@ def _migrate_postgres():
         conn.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT ''")
         conn.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS last_login TEXT")
         conn.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS is_blocked INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS locations_only INTEGER NOT NULL DEFAULT 0")
         conn.execute("ALTER TABLE missing_floor ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'session'")
         conn.execute("ALTER TABLE missing_floor ADD COLUMN IF NOT EXISTS manual_session_date TEXT")
         conn.execute("ALTER TABLE missing_warehouse ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1")
         conn.execute("ALTER TABLE missing_warehouse ADD COLUMN IF NOT EXISTS scan_history TEXT NOT NULL DEFAULT ''")
+        conn.execute("ALTER TABLE morning_sessions ADD COLUMN IF NOT EXISTS last_activity_at TEXT")
+        conn.execute(
+            "UPDATE morning_sessions SET last_activity_at=created_at WHERE last_activity_at IS NULL OR last_activity_at=''"
+        )
+        conn.execute("ALTER TABLE warehouse_locations ADD COLUMN IF NOT EXISTS last_searched_at TEXT")
+        conn.execute(
+            "UPDATE warehouse_locations SET last_searched_at=datetime('now','localtime') WHERE last_searched_at IS NULL OR last_searched_at=''"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_locations_last_searched ON warehouse_locations(last_searched_at)")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS catalog_models (
                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -764,6 +923,11 @@ def _migrate_postgres():
         conn.execute(
             """INSERT INTO catalog_models (sku)
                SELECT DISTINCT sku FROM barcodes WHERE sku<>''
+               ON CONFLICT(sku) DO NOTHING"""
+        )
+        conn.execute(
+            """INSERT INTO catalog_models (sku)
+               SELECT DISTINCT sku FROM warehouse_locations WHERE sku<>''
                ON CONFLICT(sku) DO NOTHING"""
         )
         conn.execute(
@@ -791,8 +955,11 @@ def _migrate_postgres():
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_branch ON blocked_devices(branch_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color) WHERE approved = 0")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msession_open_activity ON morning_sessions(branch_id, last_activity_at DESC, id DESC) WHERE approved = 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_item ON missing_floor(branch_id, sku, color, size) WHERE status = 'missing'")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_floor_open_list ON missing_floor(branch_id, sku, color, size, id) WHERE status = 'missing'")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_item ON missing_warehouse(branch_id, sku, color, size) WHERE status = 'pending'")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_missing_wh_pending_time ON missing_warehouse(branch_id, scanned_at, id) WHERE status = 'pending'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_wh_pending_item ON missing_warehouse(branch_id, sku, color, size) WHERE status='pending'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_floor_active_item ON missing_floor(branch_id, sku, color, size) WHERE status='missing'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku)")
@@ -800,6 +967,8 @@ def _migrate_postgres():
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)
         _restore_structured_barcode_sizes(conn)
+        _normalize_size_aliases(conn)
+        _seed_product_images(conn)
         conn.commit()
     finally:
         conn.close()

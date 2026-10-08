@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>L2F — ניהול מפתח</title>
-<link rel="manifest" href="/manifest.json?v=20260716-2">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260716-2">
-<link rel="shortcut icon" href="/APP-icon.png?v=20260716-2">
+<link rel="manifest" href="/manifest.json?v=20261006-icon-2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20261006-icon-2">
+<link rel="shortcut icon" href="/APP-icon.png?v=20261006-icon-2">
 <meta name="theme-color" content="#F47820">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -26,7 +26,9 @@ window.__l2fSwapScriptSource = function(el, fallback){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260806-1").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=20261007-missing-location-action-9", {
+      updateViaCache: "none",
+    }).catch(() => {});
   });
 }
 </script>
@@ -94,6 +96,23 @@ color:var(--text);font-family:Poppins,system-ui,-apple-system,Segoe UI,sans-seri
 .mini-stat{background:rgba(255,255,255,.44);border:1px solid rgba(255,255,255,.56);border-radius:18px;padding:12px}
 .mini-stat .val{font-size:22px;font-weight:800}
 .mini-stat .lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.overview-clickable{cursor:pointer;position:relative;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.overview-clickable::after{content:'פרטים';position:absolute;left:12px;bottom:9px;font-size:9px;color:var(--muted);opacity:0;transition:opacity .18s ease}
+.overview-clickable:hover,.overview-clickable:focus-visible{transform:translateY(-2px);border-color:rgba(121,194,58,.48);box-shadow:12px 14px 30px rgba(0,0,0,.12),-8px -8px 20px rgba(255,255,255,.58);outline:none}
+.overview-clickable:hover::after,.overview-clickable:focus-visible::after{opacity:1}
+.overview-detail-modal{max-width:760px;max-height:min(82vh,760px);display:flex;flex-direction:column;padding:0;overflow:hidden}
+.overview-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 14px;border-bottom:1px solid var(--border)}
+.overview-detail-head h3{margin:0;font-size:19px}
+.overview-detail-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.overview-detail-close{width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.44);cursor:pointer;font-size:20px}
+.overview-detail-content{padding:18px 22px 22px;overflow:auto}
+.overview-detail-list{display:flex;flex-direction:column;gap:8px}
+.overview-detail-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.54)}
+.overview-detail-main{font-size:13px;font-weight:750;word-break:break-word}
+.overview-detail-meta{font-size:11px;color:var(--muted);margin-top:3px;word-break:break-word}
+.overview-detail-value{font-size:13px;font-weight:800;text-align:left;white-space:nowrap}
+.overview-detail-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-bottom:14px}
+.overview-detail-summary .mini-stat{min-height:74px}
 .branch-device-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
 .branch-device-card{background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.54);border-radius:18px;padding:14px}
 .branch-device-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
@@ -432,6 +451,15 @@ tr:hover td{
 }
 .modal{
   background:#121212;
+}
+.overview-detail-row,.overview-detail-close{
+  background:#1b1b1b;
+  color:#f5f5f3;
+  border-color:rgba(255,255,255,.08);
+}
+.overview-clickable:hover,.overview-clickable:focus-visible{
+  border-color:rgba(131,184,107,.45);
+  box-shadow:none;
 }
 .danger-zone{
   background:rgba(255,106,0,.12);
@@ -819,6 +847,19 @@ tr:hover td{
   </div>
 </div>
 
+<div id="overviewDetailModal" class="modal-bg" onclick="if(event.target===this) closeOverviewDetail()">
+  <div class="modal overview-detail-modal" role="dialog" aria-modal="true" aria-labelledby="overviewDetailTitle">
+    <div class="overview-detail-head">
+      <div>
+        <h3 id="overviewDetailTitle">פירוט</h3>
+        <div id="overviewDetailSubtitle" class="overview-detail-sub"></div>
+      </div>
+      <button class="overview-detail-close" type="button" aria-label="סגירה" onclick="closeOverviewDetail()">×</button>
+    </div>
+    <div id="overviewDetailContent" class="overview-detail-content"></div>
+  </div>
+</div>
+
 <!-- ══ MODAL: Reset Password ══ -->
 <div id="resetModal" class="modal-bg">
   <div class="modal">
@@ -1057,6 +1098,9 @@ const POST   = (url,b,options) => apiWithOptions('POST',   url, b, options);
 const PUT    = (url,b,options) => apiWithOptions('PUT',    url, b, options);
 const DELETE = (url,b,options) => apiWithOptions('DELETE', url, b, options);
 let _overviewTimer=null;
+let _overviewBranches=[];
+let _overviewData={};
+let _overviewHealth={};
 let _dbSchema=[];
 let _dbSelectedTable='';
 let _adminAuthLost=false;
@@ -1083,6 +1127,15 @@ function handleAdminSessionExpired(){
   showErr('loginErr','פג תוקף ההתחברות לאזור האדמין. יש להתחבר מחדש.');
 }
 const fmtDate = s => s ? s.slice(0,16) : '—';
+function formatBytes(value){
+  const bytes=Number(value);
+  if(!Number.isFinite(bytes) || bytes<0) return '—';
+  if(bytes===0) return '0 B';
+  const units=['B','KB','MB','GB','TB'];
+  const index=Math.min(Math.floor(Math.log(bytes)/Math.log(1024)),units.length-1);
+  const amount=bytes/Math.pow(1024,index);
+  return `${amount.toLocaleString('he-IL',{maximumFractionDigits:index===0?0:1})} ${units[index]}`;
+}
 
 function setAdminCameraStatus(msg, isError=false){
   const el=$('adminCameraStatus');
@@ -1412,11 +1465,6 @@ function enterAdmin(){
   loadAdminBarcodes().catch(()=>{});
   loadAdmins().catch(()=>{});
   loadDatabaseSchema().catch(()=>{});
-  if(!_overviewTimer){
-    _overviewTimer=setInterval(()=>{
-      if($('appScreen').style.display==='block') loadOverview().catch(()=>{});
-    },15000);
-  }
 }
 
 // ══════════════════════════════════════════
@@ -1610,37 +1658,164 @@ async function loadDatabaseSchema(){
 // ══════════════════════════════════════════
 // OVERVIEW
 // ══════════════════════════════════════════
+function overviewCard(metric, value, label, kind='mini-stat'){
+  return `<div class="${kind} overview-clickable" role="button" tabindex="0" aria-label="${esc(label)} — פתיחת פירוט"
+    onclick="openOverviewDetail('${metric}')" onkeydown="activateOverviewCard(event,'${metric}')">
+    <div class="val">${value}</div><div class="lbl">${esc(label)}</div>
+  </div>`;
+}
+
+function activateOverviewCard(event, metric){
+  if(event.key==='Enter' || event.key===' '){
+    event.preventDefault();
+    openOverviewDetail(metric);
+  }
+}
+
+function closeOverviewDetail(){ closeModal('overviewDetailModal'); }
+
+function overviewBranchName(branchId){
+  const branch=_overviewBranches.find(item=>Number(item.id)===Number(branchId));
+  return branch ? branch.name : `סניף ${branchId ?? '—'}`;
+}
+
+function overviewRows(items, renderer, empty='אין נתונים להצגה'){
+  if(!items?.length) return `<div class="empty-state">${esc(empty)}</div>`;
+  return `<div class="overview-detail-list">${items.map(renderer).join('')}</div>`;
+}
+
+function overviewRow(main, meta='', value=''){
+  return `<div class="overview-detail-row"><div><div class="overview-detail-main">${esc(main)}</div>${meta ? `<div class="overview-detail-meta">${esc(meta)}</div>` : ''}</div>${value ? `<div class="overview-detail-value">${esc(value)}</div>` : ''}</div>`;
+}
+
+function overviewSummary(cards){
+  return `<div class="overview-detail-summary">${cards.map(([value,label])=>`<div class="mini-stat"><div class="val">${value}</div><div class="lbl">${esc(label)}</div></div>`).join('')}</div>`;
+}
+
+function formatDuration(seconds){
+  const total=Math.max(0,Number(seconds)||0);
+  const days=Math.floor(total/86400), hours=Math.floor((total%86400)/3600), minutes=Math.floor((total%3600)/60);
+  return [days ? `${days} ימים` : '', hours ? `${hours} שעות` : '', `${minutes} דקות`].filter(Boolean).join(' · ');
+}
+
+async function openOverviewDetail(metric){
+  const modal=$('overviewDetailModal');
+  const title=$('overviewDetailTitle');
+  const subtitle=$('overviewDetailSubtitle');
+  const content=$('overviewDetailContent');
+  const health=_overviewHealth||{}, resources=health.resources||{};
+  const windowMinutes=Math.round((health.window_seconds||300)/60);
+  title.textContent='פירוט'; subtitle.textContent='';
+  content.innerHTML='<div class="empty-state">טוען...</div>';
+  openModal('overviewDetailModal');
+
+  const devices=(health.branches||[]).flatMap(branch=>(branch.devices||[]).map(device=>({...device,branch_name:branch.name||overviewBranchName(branch.branch_id)})));
+  const eventRows=(items, labeler)=>overviewRows([...(items||[])].reverse(), item=>overviewRow(labeler(item), fmtUnix(item.ts)));
+  let html='';
+  if(metric==='branches'){
+    title.textContent='כל הסניפים'; subtitle.textContent=`${_overviewBranches.length} סניפים בקטלוג`;
+    html=overviewRows(_overviewBranches, branch=>overviewRow(branch.name, `Store ID: ${branch.store_id||'—'} · כניסה אחרונה: ${fmtDate(branch.last_login)}`, branch.is_blocked ? 'חסום' : branch.locations_only ? 'מיקומים בלבד' : 'גישה מלאה'));
+  }else if(metric==='devices'){
+    title.textContent='מכשירים מחוברים'; subtitle.textContent='חיבורי realtime פעילים כרגע';
+    html=overviewSummary([[devices.length,'מכשירים'],[health.active_sockets||0,'חיבורי Socket'],[health.connected_branches||0,'סניפים']])+overviewRows(devices, device=>overviewRow(device.device_name||'מכשיר ללא שם', `${device.branch_name} · ${device.device_id} · נראה: ${fmtUnix(device.last_seen)}`, `${device.socket_count||1} חיבורים`),'אין מכשירים מחוברים כרגע');
+  }else if(metric==='connected_branches'){
+    title.textContent='סניפים מחוברים'; subtitle.textContent='סניפים עם לפחות מכשיר פעיל אחד';
+    html=overviewRows(health.branches, branch=>overviewRow(branch.name||overviewBranchName(branch.branch_id), `Store ID: ${branch.store_id||'—'}`, `${branch.active_devices||0} מכשירים · ${branch.active_sockets||0} חיבורים`),'אין סניפים מחוברים כרגע');
+  }else if(metric==='health'){
+    title.textContent='דופק המערכת'; subtitle.textContent=`מדידה בחלון של ${windowMinutes} דקות`;
+    html=overviewSummary([[health.health_score??'—','ציון'],[`${health.avg_request_ms||0}ms`,'זמן תגובה'],[health.errors_last_window||0,'שגיאות'],[health.stale_devices||0,'מכשירים רדומים']])+overviewRows([
+      ['זמן פעילות השרת',formatDuration(health.server_uptime_seconds)],['בקשות בחלון',health.requests_last_window||0],['סריקות בחלון',health.scans_last_window||0],['אירועי realtime',health.socket_emits_last_window||0]
+    ], item=>overviewRow(item[0],'',String(item[1])));
+  }else if(metric==='software'){
+    title.textContent='נפח L2F הכולל'; subtitle.textContent='חלוקת שטח האחסון של המערכת';
+    html=overviewRows([['קבצי יישום',resources.application_files_bytes],['תמונות מוצרים',resources.product_images_bytes],['מסד הנתונים',resources.database_bytes]],item=>overviewRow(item[0],'',formatBytes(item[1])));
+  }else if(metric==='images'){
+    title.textContent='תמונות מוצרים'; subtitle.textContent='קבצי התמונות השמורים מקומית';
+    html=overviewSummary([[resources.product_image_files??'—','קבצי תמונה'],[formatBytes(resources.product_images_bytes),'נפח כולל']]);
+  }else if(metric==='database'){
+    title.textContent='מסד הנתונים'; subtitle.textContent='גודל ופירוט הרשומות בכל טבלה';
+    try{
+      const schema=await GET('/api/admin/database-schema');
+      const tables=schema.tables||[];
+      html=overviewSummary([[formatBytes(resources.database_bytes),'נפח'],[tables.length,'טבלאות'],[tables.reduce((sum,t)=>sum+(Number(t.row_count)||0),0).toLocaleString('he-IL'),'רשומות']])+overviewRows(tables.sort((a,b)=>(b.row_count||0)-(a.row_count||0)),table=>overviewRow(table.name,`${table.columns?.length||0} עמודות`,table.row_count==null?'שגיאה':Number(table.row_count).toLocaleString('he-IL')));
+    }catch(_err){ html='<div class="empty-state">לא ניתן לטעון כעת את פירוט מסד הנתונים</div>'; }
+  }else if(metric==='ram'){
+    title.textContent='זיכרון RAM'; subtitle.textContent='צריכת תהליך השרת ברגע המדידה';
+    html=overviewSummary([[formatBytes(resources.process_rss_bytes),'RAM בשימוש']])+overviewRow('הנתון מתעדכן בכל טעינת הסקירה','זהו זיכרון התהליך של L2F, לא כלל הזיכרון בשרת');
+  }else if(metric==='disk'){
+    title.textContent='אחסון השרת'; subtitle.textContent='שטח דיסק זמין ובשימוש';
+    const usedPct=resources.disk_total_bytes ? Math.round((resources.disk_used_bytes/resources.disk_total_bytes)*100) : 0;
+    html=overviewSummary([[formatBytes(resources.disk_free_bytes),'פנוי'],[formatBytes(resources.disk_used_bytes),'בשימוש'],[formatBytes(resources.disk_total_bytes),'סה״כ'],[`${usedPct}%`,'אחוז בשימוש']]);
+  }else if(metric==='requests' || metric==='response'){
+    title.textContent=metric==='response'?'זמני תגובה':'בקשות אחרונות'; subtitle.textContent=`עד 50 אירועים אחרונים בחלון של ${windowMinutes} דקות`;
+    html=overviewSummary([[health.requests_last_window||0,'בקשות'],[`${health.avg_request_ms||0}ms`,'ממוצע']])+overviewRows([...(health.recent_requests||[])].reverse(),item=>overviewRow(item.path||'בקשה',`${fmtUnix(item.ts)} · HTTP ${item.status_code}`,`${Number(item.duration_ms||0).toFixed(1)}ms`),'לא נרשמו בקשות בחלון הנוכחי');
+  }else if(metric==='scans'){
+    title.textContent='סריקות אחרונות'; subtitle.textContent=`אירועי סריקה ב-${windowMinutes} הדקות האחרונות`;
+    html=eventRows(health.recent_scans,item=>item.path||'סריקה');
+  }else if(metric==='errors'){
+    title.textContent='שגיאות אחרונות'; subtitle.textContent=`שגיאות ב-${windowMinutes} הדקות האחרונות`;
+    html=overviewRows([...(health.recent_errors||[])].reverse(),item=>overviewRow(item.kind||'שגיאה',`${item.scope||'system'} · ${fmtUnix(item.ts)}`,item.message||''),'אין שגיאות בחלון הנוכחי');
+  }else if(metric==='connects'){
+    title.textContent='חיבורים חדשים'; subtitle.textContent=`חיבורי מכשירים ב-${windowMinutes} הדקות האחרונות`;
+    html=eventRows(health.recent_socket_connects,item=>`${overviewBranchName(item.branch_id)} · ${item.device_id||'מכשיר'}`);
+  }else if(metric==='disconnects'){
+    title.textContent='ניתוקים'; subtitle.textContent=`ניתוקי מכשירים ב-${windowMinutes} הדקות האחרונות`;
+    html=overviewRows([...(health.recent_socket_disconnects||[])].reverse(),item=>overviewRow(`${overviewBranchName(item.branch_id)} · ${item.device_id||'מכשיר'}`,fmtUnix(item.ts),item.reason||'ניתוק'),'לא נרשמו ניתוקים בחלון הנוכחי');
+  }else if(metric==='emits'){
+    title.textContent='אירועי realtime'; subtitle.textContent=`עדכונים שנשלחו למכשירים ב-${windowMinutes} הדקות האחרונות`;
+    html=eventRows(health.recent_socket_emits,item=>`${item.event||'אירוע'} · ${overviewBranchName(item.branch_id)}`);
+  }else if(metric==='stale'){
+    title.textContent='מכשירים רדומים'; subtitle.textContent='מכשירים שלא שלחו פעילות במשך יותר משתי דקות';
+    html=overviewRows(devices.filter(device=>device.stale),device=>overviewRow(device.device_name||'מכשיר',`${device.branch_name} · ${device.device_id}`,fmtUnix(device.last_seen)),'אין מכשירים רדומים כרגע');
+  }
+  content.innerHTML=html||'<div class="empty-state">אין מידע נוסף להצגה</div>';
+}
+
 async function loadOverview(){
   const [branches, overview, health] = await Promise.all([
     GET('/api/admin/branches'),
     GET('/api/admin/overview'),
     GET('/api/admin/system-health')
   ]);
+  _overviewBranches=Array.isArray(branches)?branches:[];
+  _overviewData=overview||{};
+  _overviewHealth=health||{};
   $('overviewStats').innerHTML=`
-    <div class="stat-card"><div class="val">${overview.total_branches ?? branches.length}</div><div class="lbl">סה״כ סניפים</div></div>
-    <div class="stat-card"><div class="val">${overview.active_devices ?? 0}</div><div class="lbl">מכשירים מחוברים כרגע</div></div>
-    <div class="stat-card"><div class="val">${overview.connected_branches ?? 0}</div><div class="lbl">סניפים מחוברים כרגע</div></div>`;
+    ${overviewCard('branches',overview.total_branches ?? branches.length,'סה״כ סניפים','stat-card')}
+    ${overviewCard('devices',overview.active_devices ?? 0,'מכשירים מחוברים כרגע','stat-card')}
+    ${overviewCard('connected_branches',overview.connected_branches ?? 0,'סניפים מחוברים כרגע','stat-card')}`;
   const numericScore = Number(health.health_score ?? 0);
   const scoreClass =
     numericScore >= 85 ? 'good' :
     numericScore >= 60 ? 'warning' :
     'critical';
   $('healthScoreCard').className=`health-score ${scoreClass}`;
+  $('healthScoreCard').classList.add('overview-clickable');
+  $('healthScoreCard').setAttribute('role','button');
+  $('healthScoreCard').tabIndex=0;
+  $('healthScoreCard').onclick=()=>openOverviewDetail('health');
+  $('healthScoreCard').onkeydown=event=>activateOverviewCard(event,'health');
   $('healthScoreValue').textContent=health.health_score ?? '—';
   $('healthScoreStatus').textContent=
     scoreClass==='critical' ? 'מצב קריטי' :
     scoreClass==='warning' ? 'דורש תשומת לב' :
     'תקין';
   $('healthScoreWindow').textContent=`נמדד על חלון של ${Math.round((health.window_seconds||300)/60)} דקות`;
+  const resources=health.resources||{};
   $('healthGrid').innerHTML=`
-    <div class="mini-stat"><div class="val">${health.avg_request_ms ?? 0}ms</div><div class="lbl">זמן תגובה ממוצע</div></div>
-    <div class="mini-stat"><div class="val">${health.requests_last_window ?? 0}</div><div class="lbl">בקשות ב-5 דקות</div></div>
-    <div class="mini-stat"><div class="val">${health.scans_last_window ?? 0}</div><div class="lbl">סריקות ב-5 דקות</div></div>
-    <div class="mini-stat"><div class="val">${health.errors_last_window ?? 0}</div><div class="lbl">שגיאות ב-5 דקות</div></div>
-    <div class="mini-stat"><div class="val">${health.socket_connects_last_window ?? 0}</div><div class="lbl">חיבורים חדשים</div></div>
-    <div class="mini-stat"><div class="val">${health.socket_disconnects_last_window ?? 0}</div><div class="lbl">ניתוקים</div></div>
-    <div class="mini-stat"><div class="val">${health.socket_emits_last_window ?? 0}</div><div class="lbl">אירועי realtime</div></div>
-    <div class="mini-stat"><div class="val">${health.stale_devices ?? 0}</div><div class="lbl">מכשירים רדומים</div></div>`;
+    ${overviewCard('software',formatBytes(resources.software_total_bytes),'נפח L2F הכולל')}
+    ${overviewCard('images',formatBytes(resources.product_images_bytes),'תמונות מוצרים')}
+    ${overviewCard('database',formatBytes(resources.database_bytes),'PostgreSQL')}
+    ${overviewCard('ram',formatBytes(resources.process_rss_bytes),'RAM בשימוש כעת')}
+    ${overviewCard('disk',formatBytes(resources.disk_free_bytes),'שטח פנוי בשרת')}
+    ${overviewCard('response',`${health.avg_request_ms ?? 0}ms`,'זמן תגובה ממוצע')}
+    ${overviewCard('requests',health.requests_last_window ?? 0,`בקשות ב-${Math.round((health.window_seconds||300)/60)} דקות`)}
+    ${overviewCard('scans',health.scans_last_window ?? 0,`סריקות ב-${Math.round((health.window_seconds||300)/60)} דקות`)}
+    ${overviewCard('errors',health.errors_last_window ?? 0,`שגיאות ב-${Math.round((health.window_seconds||300)/60)} דקות`)}
+    ${overviewCard('connects',health.socket_connects_last_window ?? 0,'חיבורים חדשים')}
+    ${overviewCard('disconnects',health.socket_disconnects_last_window ?? 0,'ניתוקים')}
+    ${overviewCard('emits',health.socket_emits_last_window ?? 0,'אירועי realtime')}
+    ${overviewCard('stale',health.stale_devices ?? 0,'מכשירים רדומים')}`;
   $('recentErrors').innerHTML=health.recent_errors?.length ? health.recent_errors.slice().reverse().map(err=>`
     <div class="error-row">
       <div class="kind">${esc(err.kind)}</div>
@@ -1708,6 +1883,22 @@ async function unblockBranch(branchId, branchName){
     loadViewerDevices();
     refreshViewerSub(false);
   }
+}
+
+async function limitBranchToLocations(branchId, branchName){
+  if(!confirm(`להגביל את ${branchName} למיקומי מחסן בלבד? כל המכשירים המחוברים ינותקו.`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/locations-only`);
+  if(res.error) return toast('לא הצלחתי להגביל את הסניף');
+  toast(`הסניף "${branchName}" הוגבל למיקומי מחסן בלבד`);
+  loadOverview(); loadBranches();
+}
+
+async function restoreBranchFullAccess(branchId, branchName){
+  if(!confirm(`להחזיר גישה מלאה לסניף ${branchName}?`)) return;
+  const res=await POST(`/api/admin/branches/${branchId}/full-access`);
+  if(res.error) return toast('לא הצלחתי להחזיר גישה מלאה');
+  toast(`לסניף "${branchName}" הוחזרה גישה מלאה`);
+  loadOverview(); loadBranches();
 }
 
 function renderViewerDevices(data){
@@ -1826,6 +2017,7 @@ function renderBranches(list){
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" onclick="openBranchViewer(${b.id},'${esc(b.name)}','${esc(b.store_id||'')}')">👁 צפה</button>
           ${b.is_blocked ? `<button class="btn btn-ok btn-sm" onclick="unblockBranch(${b.id},'${esc(b.name)}')">בטל חסימה</button>` : `<button class="btn btn-danger btn-sm" onclick="blockBranch(${b.id},'${esc(b.name)}')">חסום</button>`}
+          ${b.locations_only ? `<button class="btn btn-ok btn-sm" onclick="restoreBranchFullAccess(${b.id},'${esc(b.name)}')">גישה מלאה</button>` : `<button class="btn btn-warn btn-sm" onclick="limitBranchToLocations(${b.id},'${esc(b.name)}')">מיקומים בלבד</button>`}
           <button class="btn btn-ghost btn-sm" onclick="openEdit(${b.id},'${esc(b.name)}','${esc(b.store_id||'')}')">ערוך</button>
           <button class="btn btn-warn btn-sm" onclick="openReset(${b.id},'${esc(b.name)}')">סיסמה</button>
           <button class="btn btn-danger btn-sm" onclick="openDelete(${b.id},'${esc(b.name)}')">מחק</button>

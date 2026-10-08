@@ -239,12 +239,47 @@ def get_health_snapshot() -> dict:
                 }
                 for item in list(_error_events)[-10:]
             ],
+            "recent_requests": [
+                {"ts": int(timestamp), **details}
+                for timestamp, details in list(_request_metrics)[-50:]
+            ],
+            "recent_scans": [
+                {"ts": int(timestamp), **details}
+                for timestamp, details in list(_scan_events)[-50:]
+            ],
+            "recent_socket_connects": [
+                {
+                    "ts": int(timestamp),
+                    "branch_id": details.get("branch_id"),
+                    "device_id": details.get("device_id"),
+                }
+                for timestamp, details in list(_socket_connect_events)[-50:]
+            ],
+            "recent_socket_disconnects": [
+                {
+                    "ts": int(timestamp),
+                    "branch_id": details.get("branch_id"),
+                    "device_id": details.get("device_id"),
+                    "reason": details.get("reason", "disconnect"),
+                }
+                for timestamp, details in list(_socket_disconnect_events)[-50:]
+            ],
+            "recent_socket_emits": [
+                {"ts": int(timestamp), **details}
+                for timestamp, details in list(_emit_events)[-50:]
+            ],
             "branches": [
                 {
                     "branch_id": branch_id,
                     "active_devices": item["active_devices"],
                     "active_sockets": item["active_sockets"],
-                    "devices": item["devices"],
+                    "devices": [
+                        {
+                            **device,
+                            "stale": bool(now - device["last_seen"] > 120),
+                        }
+                        for device in item["devices"]
+                    ],
                 }
                 for branch_id, item in sorted(branch_summary.items())
             ],

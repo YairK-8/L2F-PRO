@@ -1,15 +1,17 @@
-const APP_VERSION = "20261005-4";
+const APP_VERSION = "20261008-delayed-loader-only-66";
 const APP_SHELL_CACHE = `l2f-shell-${APP_VERSION}`;
 const RUNTIME_CACHE = `l2f-runtime-${APP_VERSION}`;
 const CDN_CACHE = `l2f-cdn-${APP_VERSION}`;
 const APP_SHELL_URLS = [
   "/",
   "/admin",
-  "/manifest.json?v=20260716-2",
-  "/APP-icon.png?v=20260716-2",
-  "/icon-512.png?v=20260716-2",
-  "/icon-192.png?v=20260716-2",
+  "/manifest.json?v=20261006-icon-2",
+  "/APP-icon.png?v=20261006-icon-2",
+  "/icon-512.png?v=20261006-icon-2",
+  "/icon-192.png?v=20261006-icon-2",
+  "/apple-touch-icon.png?v=20261006-icon-2",
   "/apple-touch-icon.png?v=20260716-2",
+  "/static/socket.io.min.js?v=4.7.5",
 ];
 const CDN_HOSTS = new Set([
   "cdnjs.cloudflare.com",

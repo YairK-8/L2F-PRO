@@ -1,0 +1,9 @@
+.git
+deploy-backups
+deploy-staging
+**/__pycache__
+*.pyc
+static/product_images/*.jpg
+static/product_images/*.jpeg
+static/product_images/*.png
+static/product_images/*.webp

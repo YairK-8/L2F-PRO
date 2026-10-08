@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>L2F</title>
-<link rel="manifest" href="/manifest.json?v=20260716-2">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260716-2">
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260716-2">
-<link rel="shortcut icon" href="/APP-icon.png?v=20260716-2">
+<link rel="manifest" href="/manifest.json?v=20261006-icon-2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="1024x1024" href="/APP-icon.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20261006-icon-2">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20261006-icon-2">
+<link rel="shortcut icon" href="/APP-icon.png?v=20261006-icon-2">
 <meta name="theme-color" content="#F47820">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -39,7 +39,7 @@ window.__l2fVerifyIconFont = async function(){
   }
 };
 </script>
-<script src="/socket.io/socket.io.js" onerror="window.__l2fSwapScriptSource(this,'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js')"></script>
+<script src="/static/socket.io.min.js?v=4.7.5" onerror="window.__l2fSwapScriptSource(this,'https://cdn.socket.io/4.7.5/socket.io.min.js')"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.2/dist/iife/reader/index.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/zxing-wasm@2.2.2/dist/iife/reader/index.js')"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="window.__l2fSwapScriptSource(this,'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js')"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,7 +49,9 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260806-1").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=20261007-missing-location-action-9", {
+      updateViaCache: "none",
+    }).catch(() => {});
   });
 }
 window.addEventListener("load", () => {
@@ -88,9 +90,13 @@ color:var(--text);font-family:"Heebo",system-ui,-apple-system,Segoe UI,sans-seri
 
 /* ── AUTH ── */
 #authScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
-.screen-credit{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);font-size:12px;color:var(--muted);opacity:.9;z-index:30;pointer-events:none}
-.authBox{background:rgba(255,255,255,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.58);border-radius:24px;padding:32px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.18)}
+.screen-credit{position:fixed;left:50%;bottom:max(3px,env(safe-area-inset-bottom,0px));z-index:20000;width:max-content;max-width:calc(100vw - 24px);margin:0;padding:2px 8px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,.58);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);text-align:center;font-size:10px;line-height:1.35;color:var(--muted);opacity:.78;white-space:nowrap;pointer-events:none}
+.barcode-page-fit{overflow-y:hidden}
+body.app-dark .screen-credit{background:rgba(18,18,18,.62);color:#c4c1bc}
+.authBox{position:relative;background:rgba(255,255,255,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.58);border-radius:24px;padding:32px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.18)}
 .authBox h1{margin:0 0 4px;font-size:28px}
+.auth-logo{display:block;width:104px;height:104px;margin:0 auto 5px;object-fit:contain}
+.auth-brand-title{position:absolute;top:26px;left:28px;margin:0;font-size:30px;line-height:1;font-weight:900;letter-spacing:-.05em;color:var(--text)}
 .authSub{color:var(--muted);font-size:13px;margin-bottom:24px}
 .authField{width:100%;padding:12px;border:1px solid rgba(255,255,255,.55);border-radius:14px;font-size:15px;margin-bottom:12px;outline:none;background:rgba(255,255,255,.44);color:var(--text)}
 .authField:focus{border-color:rgba(121,194,58,.55);box-shadow:0 0 0 3px rgba(121,194,58,.14)}
@@ -110,6 +116,25 @@ color:var(--text);font-family:"Heebo",system-ui,-apple-system,Segoe UI,sans-seri
 
 /* ── APP ── */
 #appScreen{display:none}
+.global-loader{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(247,245,241,.58);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:1;transition:opacity .22s ease;cursor:progress}
+.global-loader[hidden]{display:none!important}
+.global-loader-card{display:flex;min-width:138px;align-items:center;justify-content:center;flex-direction:column;gap:9px;padding:18px 22px 14px;border:1px solid rgba(255,255,255,.78);border-radius:28px;background:rgba(255,255,255,.82);box-shadow:0 18px 55px rgba(42,35,27,.14)}
+.global-loader-mark{position:relative;display:grid;width:78px;height:78px;place-items:center}
+.global-loader-mark::before{content:"";position:absolute;inset:0;border:2px solid rgba(255,106,0,.14);border-top-color:#ff6a00;border-radius:50%;animation:l2f-loader-ring 1.15s linear infinite}
+.global-loader-logo{display:block;width:57px;height:57px;object-fit:contain;animation:l2f-loader-logo 1.15s ease-in-out infinite}
+.global-loader-text{font-size:12px;font-weight:800;color:#68645e;letter-spacing:.01em}
+.global-loader.is-stalled .global-loader-card{border-color:rgba(255,106,0,.26);animation:l2f-loader-card-alert 1.5s ease-in-out infinite}
+.global-loader.is-stalled .global-loader-mark::before{border-color:rgba(255,106,0,.12);border-top-color:#ff6a00;border-right-color:#ff9a52;animation:l2f-loader-stalled-ring 2.2s ease-in-out infinite}
+.global-loader.is-stalled .global-loader-logo{animation:l2f-loader-stalled-logo .82s ease-in-out infinite}
+.global-loader.is-stalled .global-loader-text{color:#b54b00}
+@keyframes l2f-loader-ring{to{transform:rotate(360deg)}}
+@keyframes l2f-loader-logo{0%,100%{transform:translateY(2px) scale(.94)}50%{transform:translateY(-3px) scale(1.04)}}
+@keyframes l2f-loader-stalled-ring{0%{transform:rotate(0) scale(.94)}50%{transform:rotate(210deg) scale(1.06)}100%{transform:rotate(360deg) scale(.94)}}
+@keyframes l2f-loader-stalled-logo{0%,100%{transform:rotate(-4deg) scale(.98)}50%{transform:rotate(4deg) scale(1.04)}}
+@keyframes l2f-loader-card-alert{0%,100%{box-shadow:0 18px 55px rgba(42,35,27,.14)}50%{box-shadow:0 20px 64px rgba(255,106,0,.2)}}
+body.app-dark .global-loader{background:rgba(5,5,5,.62)}
+body.app-dark .global-loader-card{border-color:rgba(255,255,255,.1);background:rgba(22,22,22,.9);box-shadow:0 20px 60px rgba(0,0,0,.36)}
+body.app-dark .global-loader-text{color:#d2cec7}
 .wrap{max-width:1300px;margin:0 auto;padding:16px}
 header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
 .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -121,6 +146,8 @@ header{display:flex;gap:12px;align-items:center;justify-content:space-between;ma
 .tab{padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--muted);font-size:14px;white-space:nowrap}
 .tab.active{background:rgba(255,255,255,.72);color:var(--text);border:1px solid rgba(255,255,255,.7);box-shadow:0 8px 20px rgba(0,0,0,.08);font-weight:700}
 section[hidden]{display:none}
+.tab[hidden]{display:none !important}
+.tabs[hidden]{display:none !important}
 
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .col{flex:1 1 360px;min-width:320px;background:linear-gradient(180deg,rgba(255,255,255,.52) 0%, rgba(245,245,242,.42) 100%);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.55);border-radius:22px;padding:12px;box-shadow:0 24px 52px rgba(0,0,0,.12)}
@@ -164,10 +191,25 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .card{background:rgba(255,255,255,.34);border:1px solid rgba(255,255,255,.52);border-radius:18px;padding:10px}
 .last-scanned-card{
   margin-bottom:14px;
-  border:2px solid rgba(121,194,58,.28);
-  background:linear-gradient(180deg,rgba(255,255,255,.62) 0%, rgba(237,237,233,.48) 100%);
+  padding:12px;
+  overflow:hidden;
+  border:1px solid rgba(20,20,20,.08);
+  border-radius:24px;
+  background:linear-gradient(145deg,#f8f8f7 0%,#eeeeeb 100%);
   box-shadow:0 10px 26px rgba(0,0,0,.08);
 }
+.last-scanned-layout{display:grid;grid-template-columns:minmax(0,1fr) 118px;grid-template-rows:minmax(0,1fr) auto;column-gap:12px;row-gap:10px;min-height:176px;direction:ltr;align-items:stretch}
+.last-scanned-details{grid-column:1;grid-row:1;display:flex;min-width:0;flex-direction:column;justify-content:center;gap:7px;direction:rtl;text-align:right}
+.last-scanned-media{grid-column:2;grid-row:1/3;display:flex;width:118px;min-width:118px;height:100%;min-height:176px;overflow:hidden;border-radius:18px;background:#e9e7e3}
+.last-scanned-media .product-thumb-lg{width:118px;height:100%;min-height:176px;flex:1 1 118px;border:0;border-radius:18px}
+.last-scanned-eyebrow{display:inline-flex;align-self:flex-start;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(41,179,74,.11);color:#27843d;font-size:11px;font-weight:900}
+.last-scanned-product{display:flex;align-items:baseline;gap:7px;min-width:0;flex-wrap:wrap}
+.last-scanned-sku{font-size:27px;line-height:1;font-weight:950;letter-spacing:-.03em}
+.last-scanned-variant{font-size:15px;font-weight:850;color:#3f3f3d}
+.last-scanned-meta{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+.last-scanned-time{padding:5px 8px;border:1px solid rgba(20,20,20,.08);border-radius:999px;background:rgba(255,255,255,.8);color:#62625e;font-size:11px}
+.last-scanned-action{grid-column:1;grid-row:2;direction:rtl}
+.last-scanned-action button{width:100%;min-height:42px;border-radius:14px}
 .queue-box{
   border-top:2px dashed rgba(255,255,255,.42);
   padding-top:12px;
@@ -205,14 +247,103 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .morning-header-actions{display:flex;gap:8px;flex-wrap:wrap;margin:0}
 .morning-header-actions button{white-space:nowrap}
 .morning-view-switch{display:flex;gap:8px;flex-wrap:wrap}
-.morning-view-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.36);color:var(--muted);font-weight:700;min-height:44px}
+.morning-view-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:999px;border:1.5px solid #d8d2ca;background:rgba(255,255,255,.62);color:var(--muted);font-weight:700;min-height:44px}
 .morning-view-btn.active{background:rgba(23,23,23,.96);border-color:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.12)}
 .morning-view-count{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.55);color:var(--text);font-size:12px;font-weight:800}
 .morning-view-btn.active .morning-view-count{background:rgba(255,255,255,.18);color:#fff}
 .morning-view-panel{display:flex;flex-direction:column;gap:10px}
 .morning-view-panel[hidden]{display:none !important}
+.morning-pick-card{display:flex;flex-direction:column;gap:16px;padding:16px;border:1px solid #ebe6e0;border-radius:26px;background:#fff;box-shadow:0 12px 30px rgba(35,30,24,.08);overflow:hidden}
+.morning-pick-top{display:grid;grid-template-columns:170px minmax(0,1fr);direction:ltr;gap:20px;align-items:start}
+.morning-pick-media{display:flex;width:170px;height:210px;min-width:170px;border-radius:20px;overflow:hidden;background:#eeeae5}
+.morning-pick-image{display:block;width:170px;height:210px;object-fit:cover;object-position:center top}
+.morning-pick-placeholder{display:flex;width:170px;height:210px;align-items:center;justify-content:center;color:var(--muted);font-size:46px;background:linear-gradient(145deg,#f6f3ef,#eae5df)}
+.morning-pick-details{direction:rtl;display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:210px;padding:4px 0;text-align:right}
+.morning-pick-progress{align-self:flex-start;padding:5px 9px;border-radius:999px;background:#f3f1ee;font-size:11px;font-weight:850;color:var(--muted);margin-bottom:13px}
+.warehouse-pick-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:13px}
+.warehouse-pick-meta .morning-pick-progress{margin-bottom:0}
+.warehouse-pick-time{padding:5px 8px;border:1px solid rgba(20,20,20,.08);border-radius:999px;background:#f8f7f5;color:#62625e;font-size:11px}
+.morning-pick-sku{font-size:clamp(34px,7vw,58px);line-height:1;font-weight:900;letter-spacing:-.04em;overflow-wrap:anywhere}
+.morning-pick-color{margin-top:8px;font-size:20px;font-weight:750;color:var(--muted)}
+.morning-pick-location{display:flex;align-items:center;gap:8px;min-height:48px;margin:13px 0 0;padding:10px 13px;border-radius:15px;background:rgba(255,106,0,.1);color:#d85a00;font-size:19px;font-weight:900}
+.morning-pick-location.is-missing-location,.warehouse-pick-location-summary.is-missing-location{width:100%;border:0;font:inherit;cursor:pointer;text-align:start;transition:transform .18s ease,background-color .18s ease}
+.morning-pick-location.is-missing-location:active,.warehouse-pick-location-summary.is-missing-location:active{transform:scale(.98);background:rgba(255,106,0,.18)}
+.morning-pick-lower{width:100%;direction:rtl;padding:14px;border:1px solid #eee9e3;border-radius:18px;background:#faf8f5;text-align:center}
+.morning-pick-sizes-title{font-size:13px;font-weight:800;color:var(--muted);margin-bottom:10px}
+.morning-pick-sizes{display:flex;justify-content:safe center;gap:8px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:2px 0 7px;scrollbar-width:thin;overscroll-behavior-x:contain}
+.morning-pick-size{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:48px;min-height:42px;padding:7px 11px;border-radius:13px;border:1px solid rgba(217,139,43,.3);background:rgba(217,139,43,.12);color:#9f5d14;font-weight:900}
+.morning-pick-size.found{border-color:rgba(74,164,91,.3);background:rgba(74,164,91,.13);color:#28763c}
+.morning-pick-actions{display:grid;grid-template-columns:54px minmax(0,1fr) 54px;gap:10px;width:100%;padding:0 2px 2px;direction:rtl;align-items:stretch}
+.morning-pick-actions button{min-height:52px;border-radius:16px;font-weight:850}
+.pick-nav-btn{display:inline-flex;align-items:center;justify-content:center;padding:0!important;font-size:22px!important}
+.pick-primary-actions{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}
+.warehouse-pick-actions .pick-primary-actions{grid-template-columns:1fr 1fr}
+.morning-pick-empty{display:flex;min-height:260px;align-items:center;justify-content:center;text-align:center;padding:26px;border:1px dashed rgba(120,120,120,.25);border-radius:24px;color:var(--muted);font-weight:750}
+.pick-complete{position:relative;display:flex;min-height:330px;overflow:hidden;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:34px 22px;border:1px solid rgba(39,184,74,.18);border-radius:24px;background:linear-gradient(180deg,rgba(245,255,247,.96),rgba(255,255,255,.98));text-align:center}
+.pick-complete-icon{display:flex;width:88px;height:88px;align-items:center;justify-content:center;border-radius:50%;background:#27b84a;color:#fff;font-size:44px;box-shadow:0 16px 36px rgba(39,184,74,.22)}
+.pick-complete h3{margin:5px 0 0;font-size:30px;line-height:1.1;color:#171717}
+.pick-complete p{max-width:340px;margin:0;color:#6f706b;font-size:15px;font-weight:700}
+.pick-complete button{min-width:160px;min-height:46px;margin-top:10px;border-radius:14px}
+.pick-complete-spark{position:absolute;width:9px;height:9px;border-radius:3px;background:#ff6500;opacity:0}
+.pick-complete-spark:nth-child(1){top:23%;left:18%;background:#ff6500;animation-delay:.05s}
+.pick-complete-spark:nth-child(2){top:16%;right:20%;background:#27b84a;animation-delay:.16s}
+.pick-complete-spark:nth-child(3){top:48%;left:10%;background:#f5b51b;animation-delay:.28s}
+.pick-complete-spark:nth-child(4){top:43%;right:11%;background:#ff8a3b;animation-delay:.38s}
+.pick-complete-spark:nth-child(5){bottom:17%;left:25%;background:#27b84a;animation-delay:.48s}
+.pick-complete-spark:nth-child(6){bottom:14%;right:25%;background:#f5b51b;animation-delay:.58s}
+.morning-picking-overlay{z-index:10500;padding:8px;direction:rtl}
+.morning-picking-modal{width:min(100%,860px);max-width:860px;max-height:97vh;overflow:auto;padding:22px;border-radius:30px}
+.morning-picking-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;padding:0 2px 14px;border-bottom:1px solid #eee9e3}
+.morning-picking-head h3{margin:0;font-size:22px;line-height:1.25}
+.morning-picking-close{width:42px;height:42px;min-width:42px;padding:0;border-radius:50%;font-size:22px}
+.morning-picking-modal>.wh-aisle-filter{margin:0 0 14px}
+.morning-pick-size{cursor:pointer;font-family:inherit}
+.morning-pick-window-meta{display:flex;align-items:center;gap:12px;margin:-3px 2px 14px;color:#77746f;font-size:12px;font-weight:800}
+.morning-pick-window-meta>span{white-space:nowrap}
+.morning-pick-window-progress{height:4px;flex:1;overflow:hidden;border-radius:999px;background:#ece8e2}
+.morning-pick-window-progress>i{display:block;height:100%;border-radius:inherit;background:#ff6500;transition:width .24s ease}
+.morning-pick-size-summary-text{margin-top:8px;color:#77746f;font-size:11px;font-weight:750}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{width:min(94vw,720px);max-height:min(92vh,780px);padding:20px;border:1px solid #eee9e3;border-radius:26px;background:#fff;box-shadow:0 24px 70px rgba(24,20,16,.18)}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-head{margin-bottom:14px;padding:0 0 14px}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-head h3{font-size:23px;font-weight:900;letter-spacing:-.02em}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-close{width:40px;height:40px;min-width:40px;border:1px solid #e9e4de;background:#fff;box-shadow:none}
+:is(#morningPickingModal,#warehousePickingModal) .wh-aisle-filter{padding:0;margin-bottom:16px;border:0;border-radius:0;background:transparent;box-shadow:none}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-card{gap:0;padding:0;border:1px solid #ebe6e0;border-radius:22px;box-shadow:none}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-top{grid-template-columns:minmax(150px,42%) minmax(0,1fr);gap:18px;padding:16px;align-items:center}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-media,
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-image,
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-placeholder{width:100%;height:auto;min-width:0;aspect-ratio:1/1;border-radius:18px}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-details{min-height:0;padding:0}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-sku{font-size:clamp(30px,6vw,44px)}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-color{margin-top:7px;font-size:17px}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-location{min-height:44px;margin-top:13px;padding:9px 12px;border-radius:14px;font-size:17px;justify-content:flex-start}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-lower{padding:15px 16px;border:0;border-top:1px solid #eee9e3;border-radius:0;background:#fff}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-sizes-title{margin-bottom:11px;font-size:13px}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-sizes{width:100%;gap:4px;padding:1px 0 3px;overflow:visible}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-size{flex:1 1 0;min-width:0;min-height:38px;padding:5px 3px;border-radius:11px;font-size:11px;white-space:nowrap}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions{grid-template-columns:48px minmax(0,1fr) 48px;gap:9px;padding:14px 16px 16px;border-top:1px solid #eee9e3}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions button{min-height:48px;border-radius:14px}
+#morningPickingModal .morning-pick-confirm{background:#27b84a;border-color:#27b84a;color:#fff;box-shadow:none}
+:is(#morningPickingModal,#warehousePickingModal) .pick-nav-btn{background:#fff;border:1px solid #e8e3dd;color:#171717}
+#warehousePickingModal .warehouse-pick-actions .btn-ok{background:#27b84a;border-color:#27b84a;color:#fff;box-shadow:none}
+#warehousePickingModal .warehouse-pick-actions .btn-danger{background:#fff0ef;border-color:#f6c4c0;color:#b92f29;box-shadow:none}
+.warehouse-pick-size{display:inline-flex;align-items:center;justify-content:center;min-width:64px;min-height:44px;padding:8px 15px;border-radius:14px;background:rgba(23,23,23,.96);color:#fff;font-size:16px;font-weight:900}
+.warehouse-pick-size-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;margin:13px 0 0;padding:7px 9px 7px 13px;border:1px solid #ebe6e0;border-radius:15px;background:#f8f7f5;color:var(--muted);font-size:13px;font-weight:850}
+.warehouse-pick-size-summary .warehouse-pick-size{min-width:54px;min-height:38px;padding:6px 13px;border-radius:12px}
+.warehouse-pick-location-summary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;min-width:min(100%,220px);padding:9px 16px;border-radius:14px;background:rgba(255,106,0,.1);color:#d85a00;font-size:19px;font-weight:900}
+.warehouse-pick-note{margin-top:10px}
+.manual-entry-overlay{z-index:10600;padding:12px;direction:rtl}
+.manual-entry-modal{width:min(100%,520px);max-width:520px;max-height:94vh;overflow:auto;padding:22px;text-align:right}
+.manual-entry-section{padding:14px;border:1px solid #ece7e1;border-radius:18px;background:rgba(255,255,255,.55)}
+.manual-entry-section + .manual-entry-section{margin-top:14px}
+.manual-entry-section h4{margin:0 0 12px;font-size:17px}
+body.app-dark .manual-entry-modal{background:#141414;border-color:rgba(255,255,255,.08);color:#f4f4f1}
+body.app-dark .manual-entry-section{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)}
 .morning-panel-actions{justify-content:flex-start;margin-top:0}
-.morning-sessions-scroll{min-height:220px;height:min(48vh,420px);max-height:420px;overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
+.replenishment-list-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:12px}
+.replenishment-list-actions button{display:inline-flex;width:100%;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:clamp(11px,2.7vw,13px);font-weight:850;white-space:nowrap}
+.replenishment-status-panel{display:none!important}
+.morning-sessions-scroll{min-height:var(--morning-list-height,220px);height:var(--morning-list-height,420px);max-height:var(--morning-list-height,420px);overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
 .morning-empty-state,.morning-search-empty-state{text-align:center;padding:18px 14px}
 .morning-sessions-scroll::-webkit-scrollbar{width:8px}
@@ -223,20 +354,72 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .session-card.approved{opacity:.5;pointer-events:none}
 .session-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .session-sku{font-size:18px;font-weight:800}
-.wh-aisle-filter{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:4px 0 12px;padding:12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.52);border:1px solid rgba(255,255,255,.72);box-shadow:0 10px 26px rgba(30,35,45,.09),inset 0 1px 0 rgba(255,255,255,.7)}
-.wh-aisle-filter-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px}
-.wh-aisle-filter-title{font-size:14px;font-weight:900;color:var(--text);white-space:nowrap}
-.wh-aisle-filter-hint{font-size:11px;font-weight:600;color:var(--muted);text-align:left}
-.wh-aisle-options{display:flex;align-items:center;gap:8px;direction:rtl;overflow-x:auto;overflow-y:hidden;padding:2px 2px 7px;scrollbar-width:thin;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
-.wh-aisle-options::-webkit-scrollbar{height:5px}
-.wh-aisle-options::-webkit-scrollbar-thumb{background:rgba(70,70,70,.22);border-radius:999px}
-.wh-aisle-btn{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:9px;min-width:66px;min-height:44px;padding:8px 11px;border-radius:14px;border:1px solid rgba(60,65,75,.12);background:rgba(255,255,255,.88);color:var(--text);font-weight:850;white-space:nowrap;scroll-snap-align:start;box-shadow:0 4px 12px rgba(35,40,50,.08)}
-.wh-aisle-btn:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(35,40,50,.12)}
-.wh-aisle-btn.active{background:rgba(23,23,23,.97);border-color:#111;color:#fff;box-shadow:0 9px 20px rgba(0,0,0,.2)}
-.wh-aisle-count{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:rgba(20,20,20,.07);color:var(--text);font-size:11px;font-weight:900}
-.wh-aisle-btn.active .wh-aisle-count{background:rgba(255,255,255,.18);color:#fff}
+.morning-sessions-scroll .session-card{padding:8px 9px;border-radius:14px;margin-bottom:6px}
+.morning-sessions-scroll .session-header{gap:8px;margin-bottom:5px}
+.morning-session-identity{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap}
+.morning-sessions-scroll .session-sku{font-size:16px}
+.morning-sessions-scroll .session-color{font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.morning-session-status{flex:0 0 auto;font-size:11px;font-weight:800}
+.morning-sessions-scroll .locHintBadge{padding:3px 6px;font-size:10px;white-space:nowrap}
+.morning-sessions-scroll .chips-row{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:1px 0 4px;scrollbar-width:thin;overscroll-behavior-x:contain}
+.morning-sessions-scroll .chip{flex:0 0 auto;min-width:38px;justify-content:center;margin:0;padding:4px 8px;font-size:11px}
+.approved-missing-list .missing-approved-row{padding:5px 7px;gap:8px;min-height:38px;align-items:center}
+.approved-missing-list{min-height:var(--approved-missing-list-height,220px);height:var(--approved-missing-list-height,420px);max-height:var(--approved-missing-list-height,600px);overflow-y:auto;overscroll-behavior-y:contain;padding:5px;border-radius:20px}
+.missing-approved-copy{display:grid;grid-template-columns:minmax(120px,max-content) minmax(90px,1fr) max-content;align-items:center;gap:8px;min-width:0;flex:1}
+.missing-approved-head{display:flex;align-items:center;gap:4px;min-width:0;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.missing-approved-sizes{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:0;scrollbar-width:thin}
+.approved-missing-list .missing-chip{flex:0 0 auto;min-width:30px;margin:0;padding:3px 6px;font-size:9px}
+.missing-approved-meta{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;white-space:nowrap;font-size:9px;line-height:1.2;color:var(--muted)}
+.missing-approved-meta .locHintBadge{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.missing-approved-action{display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto}
+.missing-approved-action button{min-height:30px!important;padding:4px 8px!important;font-size:10px!important}
+.missing-approved-action:empty{display:none}
+@media(max-width:640px){
+  .approved-missing-list .missing-approved-row{align-items:flex-start;padding:6px 7px}
+  .missing-approved-copy{grid-template-columns:minmax(0,1fr) auto;column-gap:6px;row-gap:3px}
+  .missing-approved-sizes{max-width:46vw}
+  .missing-approved-meta{grid-column:1/-1}
+}
+.wh-aisle-filter{display:flex;flex-direction:column;align-items:stretch;gap:9px;margin:4px 0 12px;padding:11px;border-radius:16px;overflow:hidden;background:#f6f5f2;border:1px solid #ebe7e1;box-shadow:none}
+.wh-aisle-filter-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 3px}
+.wh-aisle-filter-title{font-size:13px;font-weight:900;color:var(--text);white-space:nowrap}
+.wh-aisle-filter-hint{font-size:10px;font-weight:650;color:#8a8883;text-align:left}
+.wh-aisle-options{display:flex;align-items:center;gap:6px;direction:rtl;overflow-x:auto;overflow-y:hidden;padding:1px;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.wh-aisle-options::-webkit-scrollbar{display:none}
+.wh-aisle-btn{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:8px;min-width:62px;min-height:40px;padding:6px 9px;border-radius:12px;border:1px solid #e4e0da;background:#fff;color:#292927;font-weight:850;white-space:nowrap;scroll-snap-align:start;box-shadow:none;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.wh-aisle-btn:hover{transform:none;background:#fbfaf8;border-color:#d7d1ca;box-shadow:none}
+.wh-aisle-btn:focus-visible{outline:2px solid rgba(255,101,0,.38);outline-offset:2px}
+.wh-aisle-btn.active{background:#191918;border-color:#191918;color:#fff;box-shadow:none}
+.wh-aisle-count{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#efede9;color:#62605c;font-size:10px;font-weight:900}
+.wh-aisle-btn.active .wh-aisle-count{background:#ff6500;color:#fff}
 .approved-missing-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#fff3cd;border:1px solid #f0c36a;color:#805300;font-size:12px;font-weight:900}
-.loc-result-edit-btn{margin-top:14px;min-height:42px;padding:9px 16px}
+.product-thumb{width:72px;height:88px;flex:0 0 72px;object-fit:cover;object-position:center top;border-radius:12px;background:#eee;border:1px solid rgba(20,20,20,.08)}
+.product-thumb-lg{width:106px;height:132px;flex-basis:106px;border-radius:16px}
+.product-thumb-placeholder{display:inline-flex;align-items:center;justify-content:center;color:#aaa;background:linear-gradient(145deg,#f3f1ee,#e5e1dc);font-size:22px}
+.product-thumb-placeholder.product-thumb-lg{font-size:32px}
+.wh-item-main{display:flex;align-items:center;gap:12px;min-width:0}
+.wh-item-copy{display:flex;flex-direction:column;gap:6px;min-width:0}
+.wh-item-actions{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.warehouse-scan-queue{margin-top:10px;padding-top:9px}
+.warehouse-scan-queue .list{min-height:var(--warehouse-list-height,220px);height:var(--warehouse-list-height,360px);max-height:var(--warehouse-list-height,360px);overflow-y:auto;overscroll-behavior-y:contain;padding:4px;scrollbar-width:thin}
+.warehouse-scan-queue .list::-webkit-scrollbar{width:7px}
+.warehouse-scan-queue .list::-webkit-scrollbar-thumb{background:rgba(120,120,120,.32);border-radius:999px}
+.warehouse-scan-queue .kv{padding:6px;gap:7px;min-height:58px}
+.warehouse-scan-queue .product-thumb{width:44px;height:54px;flex:0 0 44px;border-radius:9px}
+.warehouse-scan-queue .wh-item-main{gap:8px}
+.warehouse-scan-queue .wh-item-copy{gap:2px;font-size:13px}
+.warehouse-scan-queue .product-image-note,.warehouse-scan-queue .wh-item-copy>.small{display:none}
+.warehouse-scan-queue .approved-missing-badge{padding:3px 6px;font-size:10px}
+.warehouse-scan-queue .wh-empty-state{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:100%;padding:20px;text-align:center}
+.warehouse-scan-time{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;font-weight:750;direction:ltr;white-space:nowrap}
+.warehouse-queue-product-line{display:flex;align-items:center;justify-content:space-between;gap:8px;direction:rtl;min-width:0}
+.warehouse-queue-identity{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.warehouse-queue-time{flex:0 0 auto;padding:3px 6px;border:1px solid rgba(20,20,20,.07);border-radius:999px;background:rgba(255,255,255,.72)}
+#appScreen .warehouse-cancel-scan{padding:6px 9px;font-size:11px;white-space:nowrap;background:rgba(255,101,0,.11);border-color:rgba(255,101,0,.22);color:#c84f00;box-shadow:none}
+.locProductImage{width:150px;height:100%;min-height:170px;object-fit:cover;object-position:center top;border-radius:18px;border:1px solid #e8e2dc;background:#f1efec;margin:0}
+.product-image-link{display:inline-flex;color:inherit;text-decoration:none}
+.product-image-note{font-size:11px;font-weight:750;color:var(--muted)}
+.loc-result-edit-btn{margin-top:10px;min-height:38px;padding:7px 14px}
 .catalog-model-state{min-height:20px;margin:2px 0 8px;font-size:12px;font-weight:750;color:var(--muted)}
 .catalog-model-state.exists{color:#9a5b00}
 .catalog-model-state.available{color:#28763c}
@@ -269,17 +452,33 @@ tr:hover td{background:rgba(255,255,255,.24)}
 /* modal overlay for barcode edit */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
+.product-image-lightbox{position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(8,8,8,.78);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease}
+.product-image-lightbox.open{opacity:1;visibility:visible}
+.product-image-lightbox-dialog{position:relative;display:flex;align-items:center;justify-content:center;width:min(94vw,920px);height:min(90vh,920px);padding:0;border:0;background:transparent;box-shadow:none;transform:translateY(18px) scale(.88);opacity:.35;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .24s ease}
+.product-image-lightbox.open .product-image-lightbox-dialog{transform:translateY(0) scale(1);opacity:1}
+.product-image-lightbox-image{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:18px;box-shadow:none}
+.product-image-lightbox-close{position:absolute;top:12px;right:12px;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1px solid rgba(20,20,20,.12);border-radius:50%;background:rgba(255,255,255,.9);color:#171717;font-size:25px;box-shadow:0 6px 20px rgba(0,0,0,.16)}
+img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
+@media(prefers-reduced-motion:reduce){.product-image-lightbox,.product-image-lightbox-dialog{transition:none}}
 .modal-box{background:rgba(245,245,242,.88);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.62);color:var(--text);border-radius:22px;padding:24px;width:100%;max-width:420px;box-shadow:0 16px 48px rgba(0,0,0,.18)}
 .modal-box h3{margin:0 0 16px;font-size:17px}
 .camera-btn{display:inline-flex;align-items:center;justify-content:center;min-width:46px}
+.camera-btn i{font-size:18px;line-height:1}
 .camera-btn.active{background:rgba(41,179,74,.12);border-color:rgba(41,179,74,.28);color:#1f6a30}
 .ticket-camera-mount{display:none;margin-top:12px}
 .ticket-camera-mount.open{display:block}
+.location-camera-mount{display:none;margin:0 0 14px}
+.location-camera-mount.open{display:block}
 .camera-overlay{position:fixed;inset:0;background:rgba(15,23,42,.10);backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);z-index:12000;display:none;align-items:flex-end;justify-content:center;padding:24px 20px 7vh;pointer-events:none}
 .camera-overlay.open{display:flex}
 .camera-shell{width:min(90vw,430px);height:min(42vh,320px);min-height:260px;background:transparent;border:none;border-radius:24px;overflow:hidden;display:block;position:relative;box-shadow:none;pointer-events:auto}
 .camera-overlay.inline-ticket{position:relative;inset:auto;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:auto;padding:0;pointer-events:auto;align-items:stretch;justify-content:stretch}
 .camera-overlay.inline-ticket.open{display:block}
+.camera-overlay.inline-location{position:relative;inset:auto;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:auto;padding:0;pointer-events:auto;align-items:stretch;justify-content:stretch}
+.camera-overlay.inline-location.open{display:block}
+.camera-overlay.inline-location .camera-shell{width:100%;max-width:100%;height:210px;min-height:210px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:20px;box-shadow:none}
+.camera-overlay.inline-location .camera-frame{width:calc(100% - 46px);height:92px;max-height:92px;border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.08)}
+.camera-overlay.inline-location .camera-status{right:10px;left:10px;bottom:10px;padding:7px 10px;font-size:12px}
 .camera-overlay.inline-ticket .camera-shell{width:100%;max-width:100%;height:320px;min-height:320px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:24px;box-shadow:0 16px 32px rgba(0,0,0,.14)}
 .camera-overlay.inline-ticket .camera-shell.ticket-mode{width:100%;height:320px;min-height:320px}
 .camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
@@ -500,6 +699,8 @@ tr:hover td{background:rgba(255,255,255,.24)}
   .camera-shell.ticket-mode{width:min(96vw,420px);height:min(76vh,620px);min-height:400px}
   .camera-overlay.inline-ticket .camera-shell,
   .camera-overlay.inline-ticket .camera-shell.ticket-mode{height:292px;min-height:292px}
+  .camera-overlay.inline-location .camera-shell{height:190px;min-height:190px}
+  .camera-overlay.inline-location .camera-frame{width:calc(100% - 34px);height:82px;max-height:82px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
   .camera-frame.ticket-mode{inset:40% auto auto 50%;width:min(86vw,330px);height:min(28vh,200px);max-height:200px}
   .camera-overlay.inline-ticket .camera-frame.ticket-mode{inset:42% auto auto 50%;width:calc(100% - 26px);height:150px}
@@ -723,7 +924,12 @@ input:focus,select:focus{
   background:#fff;
   border-color:#ece7e1;
 }
-.btn-danger,.btn-warn{
+.btn-danger{
+  background:#d9423a;
+  border-color:#d9423a;
+  color:#fff;
+}
+.btn-warn{
   background:#ff6a00;
   border-color:#ff6a00;
   color:#fff;
@@ -897,7 +1103,11 @@ body.app-dark #appScreen .chip{
   color:#e6e6e1;
   border-color:rgba(255,255,255,.10);
 }
-body.app-dark #appScreen .btn-danger,
+body.app-dark #appScreen .btn-danger{
+  background:#e04a42;
+  color:#fff;
+  border-color:#e04a42;
+}
 body.app-dark #appScreen .btn-warn{
   background:#ff6a00;
   color:#fff;
@@ -915,6 +1125,10 @@ body.app-dark #appScreen .last-scanned-card{
   color:#f4f4f1;
   border-color:rgba(255,255,255,.10);
 }
+body.app-dark #appScreen .last-scanned-variant{color:#d6d6d1}
+body.app-dark #appScreen .last-scanned-time,
+body.app-dark #appScreen .warehouse-queue-time{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.1);color:#b6b6b0}
+body.app-dark #appScreen .warehouse-cancel-scan{background:rgba(255,101,0,.16);border-color:rgba(255,130,45,.28);color:#ff9a52}
 body.app-dark #appScreen .err-hint,
 body.app-dark #appScreen .chip.missing-chip{
   background:rgba(255,106,0,.12);
@@ -960,7 +1174,7 @@ body.app-dark #appScreen .morning-sessions-scroll{
 }
 body.app-dark #appScreen .morning-view-btn{
   background:rgba(255,255,255,.08);
-  border-color:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.28);
   color:#d0d0cc;
 }
 body.app-dark #appScreen .morning-view-btn.active{
@@ -976,15 +1190,26 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   background:rgba(16,16,16,.12);
   color:#101010;
 }
+body.app-dark .morning-picking-modal{background:#141414;border-color:rgba(255,255,255,.08);color:#f4f4f1}
+body.app-dark .morning-pick-card{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.09)}
+body.app-dark .morning-pick-media{background:#202020}
+body.app-dark .morning-picking-head{border-color:rgba(255,255,255,.08)}
+body.app-dark .morning-pick-progress{background:rgba(255,255,255,.08)}
+body.app-dark .warehouse-pick-time{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.1);color:#b6b6b0}
+body.app-dark .morning-pick-lower{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+body.app-dark .morning-pick-location{background:rgba(255,106,0,.16);color:#ff8a3b}
+body.app-dark .warehouse-pick-size-summary{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.09);color:#b6b6b0}
+body.app-dark .warehouse-pick-location-summary{background:rgba(255,106,0,.16);color:#ff8a3b}
+body.app-dark .pick-complete{background:linear-gradient(180deg,rgba(26,48,31,.96),#171717);border-color:rgba(75,210,103,.2)}
+body.app-dark .pick-complete h3{color:#f4f4f1}
+body.app-dark .pick-complete p{color:#b6b6b0}
 
 /* refined mobile shell */
 #appScreen .wrap{
   max-width:920px;
   padding:18px 12px 132px;
 }
-.screen-credit#indexCredit{
-  bottom:96px;
-}
+.screen-credit#indexCredit{margin:0}
 .app-header{
   align-items:center;
   gap:16px;
@@ -1009,6 +1234,13 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
 .header-brand i{
   color:#c79042;
   font-size:28px;
+}
+.header-brand-logo{
+  display:block;
+  width:72px;
+  height:72px;
+  flex:0 0 72px;
+  object-fit:contain;
 }
 .branch-badge{
   display:inline-flex;
@@ -1051,61 +1283,209 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   position:fixed;
   left:50%;
   top:auto;
-  bottom:14px;
+  bottom:max(22px, env(safe-area-inset-bottom, 0px));
   transform:translateX(-50%);
-  width:min(680px, calc(100vw - 16px));
-  padding:12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
-  gap:8px;
+  width:min(470px, calc(100vw - 48px));
+  min-height:42px;
+  padding:2px 6px;
+  gap:3px;
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
   align-items:center;
   margin:0;
-  z-index:60;
+  z-index:120;
+  overflow:hidden;
+  background:rgba(255,255,255,.96);
+  border:1px solid #ece7e1;
+  border-radius:999px;
+  box-shadow:0 14px 36px rgba(38,31,24,.12);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.tabs.locations-only{
+  grid-template-columns:1fr;
+  width:min(150px,calc(100vw - 48px));
 }
 .tab{
   border:none;
-  border-radius:22px;
+  border-radius:999px;
   background:transparent;
-  padding:10px 8px 12px;
-  color:#9a9a9a;
-  font-size:13px;
-  font-weight:500;
+  padding:0;
+  color:#8f8b86;
   display:inline-flex;
-  flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:8px;
-  min-height:70px;
+  min-height:34px;
   position:relative;
   text-align:center;
+  transition:background .18s ease,color .18s ease,transform .18s ease;
 }
 .tab span{
-  line-height:1.15;
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
 }
 .tab.active{
-  background:#fff;
-  border:1px solid #ece7e1;
-  box-shadow:0 10px 24px rgba(17,17,17,.06);
-  color:#161616;
-  font-weight:800;
+  background:#f3f0eb;
+  border:none;
+  box-shadow:none;
+  color:#171717;
 }
 .tab.active::after{
+  display:block;
   content:"";
   position:absolute;
+  bottom:3px;
   left:50%;
   transform:translateX(-50%);
-  bottom:8px;
-  width:28px;
-  height:4px;
+  width:18px;
+  height:2px;
   border-radius:999px;
   background:#ff6a00;
 }
 .tab-icon{
-  font-size:24px;
+  font-size:18px;
   line-height:1;
 }
-.tab-icon-sun{
-  color:#ffae1a;
+.tabs .tab-icon-sun{color:#ffae1a}
+.tab:active{transform:scale(.94)}
+body.app-dark #appScreen .tabs{background:#141414;border-color:rgba(255,255,255,.09);box-shadow:0 14px 36px rgba(0,0,0,.38)}
+body.app-dark #appScreen .tab{color:#a2a29d}
+body.app-dark #appScreen .tab.active{background:#f3f3ef;border:none;color:#111;box-shadow:none}
+body.app-dark #appScreen .tab.active::after{background:#ff6a00}
+body.app-dark #appScreen .tabs .tab-icon-sun{color:#ffae1a}
+
+@media(min-width:641px){
+  body.desktop-warehouse-fit{overflow-y:hidden}
+  #appScreen{--desktop-sheet-surface:#fff;--desktop-tab-rest:#f2efea}
+  #appScreen .wrap{padding-bottom:18px}
+  .tabs{
+    position:relative;
+    left:auto;
+    top:0;
+    bottom:auto;
+    transform:none;
+    width:calc(100% - 24px);
+    min-height:0;
+    padding:0 18px;
+    gap:8px;
+    display:flex;
+    align-items:flex-end;
+    margin:-12px auto -1px;
+    z-index:24;
+    overflow:visible;
+    flex-wrap:wrap;
+    background:transparent;
+    border:0;
+    border-radius:0;
+    box-shadow:none;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+  }
+  .tab{
+    display:block;
+    min-height:0;
+    padding:11px 18px 13px;
+    border:1px solid #e8e3dd;
+    border-bottom-color:#ddd7cf;
+    border-radius:17px 17px 4px 4px;
+    background:var(--desktop-tab-rest);
+    color:var(--muted);
+    font-size:14px;
+    cursor:pointer;
+    box-shadow:0 -2px 8px rgba(28,24,20,.025);
+    transform:none;
+    transition:transform .22s ease,background-color .22s ease,color .22s ease,box-shadow .22s ease;
+  }
+  .tab span{
+    position:static;
+    width:auto;
+    height:auto;
+    padding:0;
+    margin:0;
+    overflow:visible;
+    clip:auto;
+    white-space:nowrap;
+  }
+  .tab.active{
+    position:relative;
+    z-index:3;
+    padding-top:13px;
+    padding-bottom:14px;
+    margin-bottom:-1px;
+    background:var(--desktop-sheet-surface);
+    color:var(--text);
+    border:1px solid rgba(226,220,213,.96);
+    border-bottom-color:var(--desktop-sheet-surface);
+    border-radius:18px 18px 0 0;
+    box-shadow:0 -8px 20px rgba(24,20,16,.055);
+    font-weight:850;
+    transform:translateY(1px);
+  }
+  .tab.active::after{
+    display:block;
+    content:"";
+    position:absolute;
+    left:-1px;
+    bottom:-4px;
+    width:calc(100% + 2px);
+    height:6px;
+    transform:none;
+    border-radius:0;
+    background:var(--desktop-sheet-surface);
+  }
+  .tab-icon{font-size:inherit;margin-inline-end:6px}
+  #appScreen section:not([hidden]){
+    position:relative;
+    z-index:3;
+  }
+  #appScreen section:not([hidden])>.row{
+    position:relative;
+    z-index:1;
+    isolation:isolate;
+  }
+  #appScreen section:not([hidden])>.row::before,
+  #appScreen section:not([hidden])>.row::after{
+    content:"";
+    position:absolute;
+    pointer-events:none;
+    border:1px solid rgba(225,219,211,.82);
+    background:rgba(250,248,245,.92);
+  }
+  #appScreen section:not([hidden])>.row::before{
+    z-index:-2;
+    inset:10px -7px -9px 7px;
+    border-radius:31px 25px 34px 29px;
+    transform:rotate(.18deg);
+    box-shadow:0 14px 30px rgba(37,31,25,.05);
+  }
+  #appScreen section:not([hidden])>.row::after{
+    z-index:-1;
+    inset:5px -3px -5px 3px;
+    border-radius:29px 27px 32px 29px;
+    background:rgba(255,255,255,.96);
+  }
+  #appScreen section:not([hidden])>.row>.col{
+    position:relative;
+    z-index:2;
+    border-color:rgba(226,220,213,.92);
+    border-radius:30px;
+    background:var(--desktop-sheet-surface);
+    box-shadow:0 20px 46px rgba(31,27,22,.085);
+  }
+  body.app-dark #appScreen{--desktop-sheet-surface:#141414;--desktop-tab-rest:#1c1c1c}
+  body.app-dark #appScreen .tabs{background:transparent;border:0;box-shadow:none}
+  body.app-dark #appScreen .tab{background:#1c1c1c;border-color:rgba(255,255,255,.08);color:#aaa7a2}
+  body.app-dark #appScreen .tab.active{background:#141414;border-bottom-color:#141414;color:#f4f4f1}
+  body.app-dark #appScreen section:not([hidden])>.row::before,
+  body.app-dark #appScreen section:not([hidden])>.row::after{background:#101010;border-color:rgba(255,255,255,.07)}
+  body.app-dark #appScreen section:not([hidden])>.row>.col{background:#141414;border-color:rgba(255,255,255,.08)}
 }
 
 /* locations screen redesign */
@@ -1179,8 +1559,8 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   display:flex;
   align-items:stretch;
   justify-content:center;
-  min-height:360px;
-  padding:32px;
+  min-height:210px;
+  padding:22px;
   margin-top:22px;
   border-radius:34px;
   border:1px solid #dbecc9;
@@ -1210,24 +1590,17 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   z-index:1;
   width:100%;
   display:grid;
-  grid-template-columns:160px 1fr;
-  gap:30px;
+  grid-template-columns:1fr;
+  gap:22px;
   align-items:center;
   direction:ltr;
 }
-.locResultIcon{
-  width:148px;
-  height:148px;
-  border-radius:50%;
-  border:2px solid #e7f0db;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(255,255,255,.9);
+.locations-screen .locResultBox.has-product-image .locResultShell{
+  grid-template-columns:152px minmax(0,1fr);
 }
-.locResultIcon i{
-  font-size:74px;
-  color:#ff6a00;
+.locations-screen .product-image-link{
+  display:flex;
+  align-self:stretch;
 }
 .locResultDetails{
   direction:rtl;
@@ -1237,43 +1610,43 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding:10px 18px;
+  padding:7px 13px;
   border-radius:999px;
   background:#ecf9e5;
   color:#2f9a44;
-  font-size:16px;
+  font-size:13px;
   font-weight:700;
-  margin-bottom:22px;
+  margin-bottom:10px;
 }
 .loc-result-state i{
   font-size:16px;
 }
 .locResultLocation{
-  font-size:clamp(58px,16vw,112px);
+  font-size:clamp(42px,8vw,72px);
   line-height:.94;
   letter-spacing:-.05em;
   font-weight:800;
   color:#ff6a00;
 }
 .locResultLabel{
-  margin-top:8px;
-  font-size:18px;
+  margin-top:4px;
+  font-size:14px;
   color:#707070;
 }
 .locResultDivider{
   height:1px;
   background:#ece7e1;
-  margin:24px 0;
+  margin:12px 0;
 }
 .locResultSkuValue{
-  font-size:clamp(38px,9vw,62px);
+  font-size:clamp(28px,5vw,42px);
   line-height:1;
   font-weight:700;
   color:#111;
 }
 .locResultSkuLabel{
-  margin-top:6px;
-  font-size:18px;
+  margin-top:3px;
+  font-size:13px;
   color:#909090;
 }
 .locations-screen .locResultBox.is-empty{
@@ -1336,6 +1709,8 @@ body.app-dark #appScreen .morning-view-btn.active .morning-view-count{
   gap:10px;
   font-size:20px;
 }
+.morning-open-picking-btn{margin-top:4px;background:linear-gradient(135deg,#f07718 0%,#d85a00 100%);border-color:#d85a00;color:#fff;box-shadow:0 10px 24px rgba(216,90,0,.18)}
+body.app-dark #appScreen .morning-open-picking-btn{background:linear-gradient(135deg,#ff7b20 0%,#df6200 100%);border-color:#ff7b20;color:#fff;box-shadow:0 10px 26px rgba(255,106,0,.2)}
 .location-modal-overlay{padding:16px;z-index:11000;direction:rtl}
 .location-modal-box{
   width:min(100%,480px);
@@ -1547,6 +1922,43 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   background:rgba(255,255,255,.08);
 }
 @media(max-width:640px){
+  #t2>.row>.col:first-child{
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #t2 .warehouse-scan-queue{
+    display:flex;
+    flex:1 1 auto;
+    min-height:160px;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #t2 .warehouse-scan-queue .list{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto;
+    max-height:none;
+  }
+  #t2 .replenishment-list-actions{flex:0 0 auto}
+  .locations-screen .loc-shell{
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .locations-screen .loc-list-card{
+    display:flex;
+    flex:1 1 auto;
+    min-height:92px;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .locations-screen .loc-list-card .collapse-content{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+  }
   .morning-list-col{order:1}
   .morning-actions-col{order:2}
   .morning-header{align-items:stretch}
@@ -1554,11 +1966,38 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   .morning-header-actions{width:100%}
   .morning-view-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   .morning-view-btn{width:100%;justify-content:center}
-  .morning-sessions-scroll{min-height:250px;height:min(42vh,360px);max-height:360px}
+  .morning-sessions-scroll{
+    min-height:var(--morning-list-height,250px);
+    height:var(--morning-list-height,250px);
+    max-height:var(--morning-list-height,250px);
+  }
+  .morning-view-btn{padding:9px 7px;font-size:12px;gap:5px}
+  .morning-view-count{min-width:22px;height:22px;padding:0 6px;font-size:10px}
+  .morning-picking-modal{padding:14px 10px;border-radius:26px}
+  .morning-picking-head{margin-bottom:12px;padding-bottom:11px}
+  .morning-picking-head h3{font-size:19px}
+  .morning-pick-card{gap:13px;padding:11px;border-radius:22px}
+  .morning-pick-top{grid-template-columns:142px minmax(0,1fr);gap:13px}
+  .morning-pick-media,.morning-pick-image,.morning-pick-placeholder{width:142px;height:184px;min-width:142px}
+  .morning-pick-details{min-height:184px;padding:3px 0}
+  .morning-pick-progress{margin-bottom:8px;font-size:11px}
+  .morning-pick-sku{font-size:32px}
+  .morning-pick-color{margin-top:5px;font-size:16px}
+  .morning-pick-location{min-height:42px;margin:9px 0 0;padding:8px 9px;font-size:16px}
+  .morning-pick-lower{padding:11px 8px;border-radius:16px}
+  .morning-pick-sizes{gap:6px}
+  .morning-pick-size{min-width:38px;min-height:36px;padding:5px 7px;font-size:12px}
+  .morning-pick-actions{gap:7px;padding-top:12px}
+  .morning-pick-actions button{min-height:46px;padding:7px 8px;font-size:12px}
+  .morning-pick-actions{grid-template-columns:46px minmax(0,1fr) 46px}
+  .warehouse-pick-actions .pick-primary-actions{gap:5px}
+  .warehouse-pick-actions .pick-primary-actions button{font-size:11px;padding-inline:4px}
   .authBox{
     border-radius:28px;
     padding:28px 22px;
   }
+  .auth-logo{width:88px;height:88px;margin-bottom:4px}
+  .auth-brand-title{top:22px;left:22px;font-size:25px}
   .badge{
     padding:9px 14px;
     font-size:14px;
@@ -1577,10 +2016,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   #appScreen .wrap{
     padding:12px 8px 98px;
   }
-  .screen-credit#indexCredit{
-    bottom:72px;
-    font-size:11px;
-  }
+  .screen-credit#indexCredit{margin:0;font-size:9px}
   .app-header{
     gap:10px;
     margin-bottom:12px;
@@ -1606,6 +2042,11 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   .header-brand i{
     font-size:18px;
   }
+  .header-brand-logo{
+    width:50px;
+    height:50px;
+    flex-basis:50px;
+  }
   .branch-badge{
     min-width:0;
     gap:6px;
@@ -1616,17 +2057,18 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   .tabs{
     width:calc(100vw - 28px);
     max-width:360px;
-    bottom:8px;
-    padding:7px 7px calc(7px + env(safe-area-inset-bottom, 0px));
+    bottom:max(10px, env(safe-area-inset-bottom, 0px));
+    min-height:60px;
+    padding:2px 6px;
     gap:4px;
-    border-radius:22px;
+    border-radius:999px;
   }
   .tab{
-    min-height:48px;
+    min-height:42px;
     font-size:9.5px;
-    padding:6px 4px 8px;
+    padding:0;
     gap:3px;
-    border-radius:16px;
+    border-radius:999px;
   }
   .tab span{
     line-height:1.05;
@@ -1686,46 +2128,62 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     font-size:14px;
   }
   .locations-screen .locResultBox{
-    min-height:0;
-    padding:18px;
+    min-height:210px;
+    padding:6px 12px 6px 6px;
     margin-top:14px;
-    border-radius:26px;
+    border-radius:22px;
   }
   .locResultShell{
     grid-template-columns:1fr;
     gap:12px;
+    align-items:center;
   }
-  .locResultIcon{
-    width:88px;
-    height:88px;
-    margin:0 auto;
+  .locations-screen .locResultBox.has-product-image .locResultShell{
+    grid-template-columns:154px minmax(0,1fr);
   }
-  .locResultIcon i{
-    font-size:42px;
+  .locations-screen .product-image-link{
+    display:flex;
+    width:154px;
+    align-self:stretch;
+  }
+  .locations-screen .locProductImage{
+    width:154px;
+    height:100%;
+    min-height:198px;
+    border-radius:18px;
   }
   .locResultDetails{
-    text-align:center;
+    text-align:right;
+    min-width:0;
   }
   .loc-result-state{
-    padding:7px 12px;
-    font-size:11px;
-    margin-bottom:12px;
+    padding:6px 10px;
+    font-size:12px;
+    margin-bottom:9px;
   }
   .loc-result-state i{
     font-size:11px;
   }
   .locResultLocation{
-    font-size:50px;
+    font-size:42px;
+    line-height:1;
+    overflow-wrap:anywhere;
   }
   .locResultLabel,
   .locResultSkuLabel{
-    font-size:12px;
+    font-size:13px;
   }
   .locResultSkuValue{
-    font-size:28px;
+    font-size:26px;
   }
   .locResultDivider{
-    margin:12px 0;
+    margin:9px 0;
+  }
+  .loc-result-edit-btn{
+    margin-top:9px;
+    min-height:38px;
+    padding:7px 13px;
+    font-size:13px;
   }
   .loc-form-card,
   .loc-list-card{
@@ -1770,21 +2228,175 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
   .loc-save-btn i{
     font-size:18px;
   }
+  #missingWhList .kv{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  #missingWhList .wh-item-main{
+    width:100%;
+  }
+  #missingWhList .wh-item-actions{
+    width:100%;
+    justify-content:flex-end;
+  }
+  .warehouse-scan-queue #missingWhList .kv{align-items:center!important;flex-wrap:nowrap!important}
+  .warehouse-scan-queue #missingWhList .wh-item-main{width:auto;flex:1 1 auto;min-width:0}
+  .warehouse-scan-queue #missingWhList .wh-item-actions{width:auto;flex:0 0 auto}
 }
 
-body.app-dark #appScreen .wh-aisle-filter{background:rgba(30,30,32,.74);border-color:rgba(255,255,255,.12);box-shadow:0 12px 28px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.06)}
-body.app-dark #appScreen .wh-aisle-btn{background:rgba(54,54,57,.92);border-color:rgba(255,255,255,.1);color:#f7f7f7;box-shadow:0 5px 14px rgba(0,0,0,.2)}
-body.app-dark #appScreen .wh-aisle-btn.active{background:#f5f5f5;border-color:#fff;color:#171717;box-shadow:0 9px 20px rgba(0,0,0,.32)}
-body.app-dark #appScreen .wh-aisle-count{background:rgba(255,255,255,.1);color:#f5f5f5}
-body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,0,0,.09);color:#171717}
+body.app-dark #appScreen .wh-aisle-filter{background:#1b1b1b;border-color:rgba(255,255,255,.08);box-shadow:none}
+body.app-dark #appScreen .wh-aisle-filter-hint{color:#92928d}
+body.app-dark #appScreen .wh-aisle-btn{background:#252525;border-color:rgba(255,255,255,.09);color:#efefeb;box-shadow:none}
+body.app-dark #appScreen .wh-aisle-btn:hover{background:#2b2b2b;border-color:rgba(255,255,255,.14)}
+body.app-dark #appScreen .wh-aisle-btn.active{background:#f4f4f1;border-color:#f4f4f1;color:#171717;box-shadow:none}
+body.app-dark #appScreen .wh-aisle-count{background:rgba(255,255,255,.09);color:#c9c9c4}
+body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:#ff6500;color:#fff}
+
+/* unified motion system */
+:root{
+  --motion-fast:140ms;
+  --motion-base:220ms;
+  --motion-slow:340ms;
+  --motion-ease:cubic-bezier(.2,.8,.2,1);
+  --motion-spring:cubic-bezier(.16,1,.3,1);
+}
+@keyframes l2f-page-in{from{opacity:0;transform:translateY(10px) scale(.992)}to{opacity:1;transform:none}}
+@keyframes l2f-modal-in{from{opacity:0;transform:translateY(24px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes l2f-camera-in{from{opacity:0;transform:translateY(18px) scale(.975)}to{opacity:1;transform:none}}
+@keyframes l2f-item-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes l2f-pick-from-left{from{opacity:.18;transform:translateX(-72%)}to{opacity:1;transform:none}}
+@keyframes l2f-pick-from-right{from{opacity:.18;transform:translateX(72%)}to{opacity:1;transform:none}}
+@keyframes l2f-pick-to-right{from{opacity:1;transform:translateX(0)}to{opacity:.18;transform:translateX(72%)}}
+@keyframes l2f-pick-to-left{from{opacity:1;transform:translateX(0)}to{opacity:.18;transform:translateX(-72%)}}
+@keyframes l2f-pop{0%{opacity:0;transform:translate(-50%,10px) scale(.94)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes l2f-success-pulse{0%{transform:translate(-50%,-50%) scale(1)}45%{transform:translate(-50%,-50%) scale(1.025)}100%{transform:translate(-50%,-50%) scale(1)}}
+@keyframes l2f-complete-in{0%{opacity:0;transform:scale(.9) translateY(18px)}70%{opacity:1;transform:scale(1.025) translateY(0)}100%{opacity:1;transform:none}}
+@keyframes l2f-complete-check{0%{transform:scale(.35) rotate(-18deg)}65%{transform:scale(1.12) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes l2f-complete-spark{0%{opacity:0;transform:translateY(12px) rotate(0) scale(.4)}35%{opacity:1}100%{opacity:0;transform:translateY(-35px) rotate(160deg) scale(1)}}
+.motion-page-enter{animation:l2f-page-in var(--motion-base) var(--motion-ease) both}
+.motion-pop{animation:l2f-pop var(--motion-base) var(--motion-spring) both}
+.modal-overlay.open .modal-box{animation:l2f-modal-in 820ms var(--motion-spring) both}
+
+/* Clear visual identity for the two replenishment workflows */
+#appScreen .tab[data-tab="t1"].active,#appScreen .tab[data-tab="t1"].active .tab-icon{color:#d95f0b}
+#appScreen .tab[data-tab="t2"].active,#appScreen .tab[data-tab="t2"].active .tab-icon{color:#258b42}
+#appScreen .tab[data-tab="t3"].active,#appScreen .tab[data-tab="t3"].active .tab-icon{color:#d83a3a}
+#t1>.row>.col{border-top:4px solid #f47820;background:linear-gradient(180deg,rgba(255,244,235,.92) 0,rgba(255,255,255,.58) 120px,rgba(245,245,242,.42) 100%)}
+#t2>.row>.col{border-top:4px solid #35a853;background:linear-gradient(180deg,rgba(239,250,242,.9) 0,rgba(255,255,255,.58) 120px,rgba(245,245,242,.42) 100%)}
+#t1 .page-help-btn{border-color:rgba(244,120,32,.27);color:#c55710;background:rgba(244,120,32,.09)}
+#t2 .page-help-btn{border-color:rgba(53,168,83,.25);color:#268842;background:rgba(53,168,83,.08)}
+#t1 .morning-open-picking-btn{background:linear-gradient(135deg,#f58a35 0%,#df650b 100%);border-color:#df650b;box-shadow:0 10px 24px rgba(223,101,11,.2)}
+#t2 .morning-open-picking-btn{background:linear-gradient(135deg,#3cb65c 0%,#258b42 100%);border-color:#258b42;box-shadow:0 10px 24px rgba(37,139,66,.2)}
+#t1 .morning-open-picking-btn .morning-view-count{background:rgba(255,255,255,.22);color:#fff}
+#t2 .morning-open-picking-btn .morning-view-count{background:rgba(255,255,255,.22);color:#fff}
+#t1 .scanbox:focus-within{border-color:rgba(244,120,32,.42);box-shadow:0 0 0 3px rgba(244,120,32,.1)}
+#t2 .scanbox:focus-within{border-color:rgba(53,168,83,.42);box-shadow:0 0 0 3px rgba(53,168,83,.1)}
+#morningPickingModal .morning-picking-modal{border-top:5px solid #f47820}
+#warehousePickingModal .morning-picking-modal{border-top:5px solid #35a853}
+#morningPickingModal .morning-picking-head h3{color:#b84e0a}
+#warehousePickingModal .morning-picking-head h3{color:#247d3d}
+body.app-dark #appScreen #t1>.row>.col{background:linear-gradient(180deg,#2a1d16 0,#141414 130px);border-top-color:#f58a35}
+body.app-dark #appScreen #t2>.row>.col{background:linear-gradient(180deg,#17261b 0,#141414 130px);border-top-color:#4fc46f}
+body.app-dark #appScreen .tab[data-tab="t1"].active,body.app-dark #appScreen .tab[data-tab="t1"].active .tab-icon{color:#ff9b58}
+body.app-dark #appScreen .tab[data-tab="t2"].active,body.app-dark #appScreen .tab[data-tab="t2"].active .tab-icon{color:#8ce3a4}
+body.app-dark #appScreen .tab[data-tab="t3"].active,body.app-dark #appScreen .tab[data-tab="t3"].active .tab-icon{color:#ff7474}
+body.app-dark #morningPickingModal .morning-picking-head h3{color:#ffad72}
+body.app-dark #warehousePickingModal .morning-picking-head h3{color:#8ce3a4}
+
+/* Page help */
+.page-heading-row{display:flex;align-items:center;gap:7px;min-width:0}
+.page-heading-row h2{margin:0;line-height:1.25}
+.page-help-btn{width:28px;height:28px;min-width:28px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--muted);font-size:14px;font-weight:900;line-height:1;display:inline-grid;place-items:center;align-self:center;box-shadow:0 3px 10px rgba(28,24,20,.05)}
+.page-help-btn:hover,.page-help-btn:focus-visible{color:#f47820;border-color:rgba(244,120,32,.45);background:rgba(244,120,32,.1);transform:translateY(-1px)}
+.page-help-overlay{z-index:12000;padding:16px;backdrop-filter:blur(8px);background:rgba(29,25,21,.46)}
+.page-help-modal{width:min(560px,100%);max-height:min(88vh,720px);overflow:auto;padding:22px;border-radius:28px;direction:rtl}
+.page-help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.page-help-head h3{font-size:24px;margin:2px 0 0}
+.page-help-eyebrow{color:#f47820;font-size:12px;font-weight:850;letter-spacing:.03em}
+.page-help-close{width:38px;height:38px;min-width:38px;padding:0;border-radius:50%;font-size:24px;line-height:1}
+.page-help-body{display:grid;gap:12px}
+.page-help-section{padding:14px 15px;border:1px solid var(--border);border-radius:18px;background:color-mix(in srgb,var(--card) 88%,var(--bg))}
+.page-help-section h4{margin:0 0 6px;font-size:14px}
+.page-help-section p{margin:0;color:var(--text);line-height:1.55;font-size:14px}
+.page-help-flow{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;padding:4px 0}
+.page-help-flow-step{padding:7px 10px;border-radius:999px;background:rgba(244,120,32,.1);color:var(--text);font-size:12px;font-weight:800;border:1px solid rgba(244,120,32,.16)}
+.page-help-flow-arrow{color:#f47820;font-weight:900}
+.page-help-steps{margin:0;padding:0 21px 0 0;display:grid;gap:8px;color:var(--text);font-size:14px;line-height:1.5}
+.page-help-note{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border-radius:16px;background:rgba(244,120,32,.1);font-size:13px;line-height:1.5}
+.page-help-note i{color:#f47820;margin-top:2px}
+.page-help-done{width:100%;margin-top:16px}
+@media(max-width:640px){
+  .page-help-overlay{align-items:flex-end;padding:8px}
+  .page-help-modal{max-height:90vh;border-radius:26px 26px 18px 18px;padding:19px 17px}
+  .page-help-head h3{font-size:21px}
+  .page-help-flow{justify-content:flex-start}
+}
+.camera-overlay.open .camera-shell{animation:l2f-camera-in 740ms var(--motion-spring) both}
+.camera-overlay.inline-ticket.open .camera-shell,
+.camera-overlay.inline-location.open .camera-shell{transform-origin:top center}
+.morning-pick-card,.morning-pick-window-meta{animation:l2f-item-in var(--motion-base) var(--motion-ease) both}
+.morning-pick-card{animation-delay:35ms}
+.morning-pick-card.pick-slide-next{animation:l2f-pick-from-left 420ms var(--motion-spring) both}
+.morning-pick-card.pick-slide-previous{animation:l2f-pick-from-right 420ms var(--motion-spring) both}
+.morning-pick-card.pick-slide-out-next{animation:l2f-pick-to-right 280ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
+.morning-pick-card.pick-slide-out-previous{animation:l2f-pick-to-left 280ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
+:is(#morningPickContent,#warehousePickContent){touch-action:pan-y;overscroll-behavior-x:contain}
+.session-card,.warehouse-scan-queue .kv,.approved-missing-list .kv,.locResultBox.has-result{animation:l2f-item-in var(--motion-base) var(--motion-ease) both}
+.camera-frame.success{animation:l2f-success-pulse 320ms var(--motion-spring)}
+.pick-complete{animation:l2f-complete-in 620ms var(--motion-spring) both}
+.pick-complete-icon{animation:l2f-complete-check 720ms var(--motion-spring) both}
+.pick-complete-spark{animation:l2f-complete-spark 1.3s ease-out both}
+button,.tab,.chip,.wh-aisle-btn,.morning-pick-size,.collapse-header,.loc-collapse-header,.bc-collapse-header{
+  transition:transform var(--motion-fast) ease,background-color var(--motion-base) ease,border-color var(--motion-base) ease,color var(--motion-base) ease,box-shadow var(--motion-base) ease,opacity var(--motion-fast) ease;
+  -webkit-tap-highlight-color:transparent;
+}
+button:not(:disabled):active,.chip:active,.wh-aisle-btn:active,.morning-pick-size:active{transform:scale(.965)}
+.tab:active{transform:scale(.93)}
+button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
+@media(hover:hover){
+  button:not(:disabled):hover{transform:translateY(-1px)}
+  .pick-nav-btn:hover,.camera-close:hover,.camera-switch:hover,.camera-torch:hover{transform:scale(1.04)}
+}
+@media(max-width:640px){
+  .tabs::before{
+    content:"";
+    position:absolute;
+    z-index:0;
+    top:4px;
+    right:6px;
+    bottom:4px;
+    width:calc((100% - 24px)/4);
+    border-radius:999px;
+    background:#f3f0eb;
+    transition:transform 320ms var(--motion-spring),background-color var(--motion-base) ease;
+    pointer-events:none;
+  }
+  .tabs[data-active-index="0"]::before{transform:translateX(0)}
+  .tabs[data-active-index="1"]::before{transform:translateX(calc(-100% - 4px))}
+  .tabs[data-active-index="2"]::before{transform:translateX(calc(-200% - 8px))}
+  .tabs[data-active-index="3"]::before{transform:translateX(calc(-300% - 12px))}
+  .tabs .tab{z-index:1;background:transparent!important}
+  body.app-dark #appScreen .tabs::before{background:#f3f3ef}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
 </style>
 </head>
 <body>
 
+<div id="globalLoader" class="global-loader" role="status" aria-live="polite" aria-label="המערכת טוענת מידע" hidden>
+  <div class="global-loader-card">
+    <div class="global-loader-mark"><img class="global-loader-logo" src="/APP-icon.png?v=20261006-icon-2" alt=""/></div>
+    <span class="global-loader-text" id="globalLoaderText">טוען מידע...</span>
+  </div>
+</div>
+
 <!-- ══════════════ AUTH ══════════════ -->
 <div id="authScreen">
   <div class="authBox">
-    <h1>📦 L2F</h1>
+    <div class="auth-brand-title">L2F</div>
+    <img class="auth-logo" src="/APP-icon.png?v=20261006-icon-2" alt=""/>
     <div class="authSub">מערכת ניהול חוסרים ומיקומים</div>
     <div id="authNotice" class="authNotice warn">
       <div class="authNotice-title" id="authNoticeTitle"></div>
@@ -1807,11 +2419,10 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
 </div>
 
 <!-- ══════════════ APP ══════════════ -->
-<div class="screen-credit" id="indexCredit">&copy; כל הזכויות שמורות ליאיר קרשיגייב</div>
 <div id="appScreen">
 <div class="wrap">
   <header class="app-header">
-    <div class="header-brand"><span class="header-brand-text">L2F</span><i class="bi bi-box-seam-fill" aria-hidden="true"></i></div>
+    <div class="header-brand"><img class="header-brand-logo" src="/APP-icon.png?v=20261006-icon-2" alt="L2F"/></div>
     <div class="header-actions">
       <button class="btn-ghost header-icon-btn" type="button" onclick="doLogout()" title="יציאה" aria-label="יציאה">
         <i class="bi bi-x-lg icon" aria-hidden="true"></i>
@@ -1827,7 +2438,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
     </div>
   </header>
 
-  <nav class="tabs">
+  <nav class="tabs" data-active-index="2">
     <div class="tab" data-tab="t1"><i class="bi bi-brightness-high-fill tab-icon tab-icon-sun" aria-hidden="true"></i><span>השלמות בוקר</span></div>
     <div class="tab" data-tab="t2"><i class="bi bi-receipt-cutoff tab-icon" aria-hidden="true"></i><span>השלמות מכר</span></div>
     <div class="tab active" data-tab="t3"><i class="bi bi-pin-map-fill tab-icon" aria-hidden="true"></i><span>מיקומים</span></div>
@@ -1840,8 +2451,10 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
       <div class="col morning-list-col" style="flex:2 1 640px">
         <div class="morning-header">
           <div class="morning-header-copy">
-            <h2 style="margin:0">השלמות בוקר — רשימת ליקוט</h2>
-            <div class="small" style="margin-top:4px">לא נסרק = חסר</div>
+            <div class="page-heading-row">
+              <h2 style="margin:0">השלמות בוקר</h2>
+              <button class="page-help-btn" type="button" onclick="openPageHelp('morning')" title="איך משתמשים בעמוד?" aria-label="הסבר על השלמות בוקר">?</button>
+            </div>
           </div>
           <div class="morning-header-actions">
             <div class="morning-view-switch" role="tablist" aria-label="מעבר בין רשימות הבוקר">
@@ -1858,23 +2471,30 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
         </div>
 
         <div id="morningSessionsPanel" class="morning-view-panel">
-          <h2>סרוק ברקוד (בוקר)</h2>
           <div class="scanbox">
             <input id="scanInput1" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t1')" title="סריקה מהמצלמה">📷</button>
+            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t1')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
           </div>
-          <div class="small" id="lastScan1" style="margin-top:6px">מוכן לסריקה.</div>
+          <div id="lastScan1" hidden></div>
+
+          <button class="btn-primary loc-open-modal-btn morning-open-picking-btn" type="button" onclick="openMorningPickingModal()">
+            <span>התחל ליקוט</span>
+            <span class="morning-view-count" id="morningViewPickingCount">0</span>
+            <i class="bi bi-box-seam" aria-hidden="true"></i>
+          </button>
 
           <div class="divider"></div>
           <div class="scanbox" style="margin-bottom:10px">
-            <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="search" oninput="applyMorningSessionSearch()"/>
+            <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="applyMorningSessionSearch()"/>
+            <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('morningSkuSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
             <button class="btn-ghost" type="button" onclick="clearMorningSessionSearch()">נקה</button>
           </div>
           <div id="sessionsContainer" class="morning-sessions-scroll"></div>
 
-          <div class="actions morning-panel-actions">
-            <button class="btn-accent" onclick="exportMorningMissingOnly()">יצוא חוסרים</button>
-            <button class="btn-danger" onclick="clearSessions()">נקה יום</button>
+          <div class="actions morning-panel-actions replenishment-list-actions">
+            <button class="btn-accent" onclick="exportMorningMissingOnly()">יצוא לקובץ</button>
+            <button class="btn-primary" onclick="openMorningManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
+            <button class="btn-danger" onclick="clearSessions()">נקה רשימה</button>
           </div>
         </div>
 
@@ -1882,48 +2502,17 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
           <h2>חוסר כללי מאושר</h2>
           <div class="scanbox" style="margin-bottom:8px">
             <input id="missingFloorSearch" placeholder="חיפוש לפי מק&quot;ט..." autocomplete="off" inputmode="numeric" oninput="renderMissingFloorList()"/>
+            <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('missingFloorSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
           </div>
-          <div id="missingFloorList" class="list"></div>
+          <div id="missingFloorList" class="list approved-missing-list"></div>
           <div class="actions morning-panel-actions">
-            <button class="btn-accent" onclick="exportMissingFloor()">יצוא CSV</button>
-            <button class="btn-danger" onclick="clearMissingFloor()">נקה חוסרים</button>
+            <button class="btn-accent" onclick="exportMissingFloor()">יצוא לקובץ</button>
+            <button class="btn-danger" onclick="clearMissingFloor()">נקה רשימה</button>
           </div>
         </div>
       </div>
 
-      <div class="col morning-actions-col">
-        <h2>הוספה ידנית לקבוצה</h2>
-        <div class="card">
-          <label>ברקוד</label>
-          <div class="scanbox" style="margin-bottom:6px">
-            <input id="man1Barcode" placeholder="ברקוד" inputmode="numeric"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('man1Barcode')" title="סריקה מהמצלמה">📷</button>
-          </div>
-          <div class="small hint" style="margin-bottom:6px">או מלא ישירות:</div>
-          <input id="man1Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
-          <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
-            <select id="man1Size" style="width:100%">
-              <option value="">מידה</option>
-              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
-            </select>
-          <div class="actions"><button class="btn-primary" onclick="manualScan1()">הוסף לסשן</button></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <h2>הוספה ידנית לרשימת ליקוט</h2>
-        <div class="card">
-          <div class="small hint" style="margin-bottom:6px">אם פריט חסר ברשימת הליקוט, אפשר להוסיף אותו ידנית לקבוצת הבוקר ואז לסמן אם נמצא.</div>
-          <input id="manualMissingSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
-          <input id="manualMissingColor" placeholder="צבע" style="width:100%;margin-bottom:6px"/>
-            <select id="manualMissingSize" style="width:100%">
-              <option value="">מידה</option>
-              <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
-            </select>
-          <div class="actions"><button class="btn-warn" onclick="addManualMissing()">הוסף לקבוצת בוקר</button></div>
-        </div>
-
-        <div class="divider"></div>
+      <div class="col morning-actions-col replenishment-status-panel" hidden aria-hidden="true">
         <h2>סטטוס</h2>
         <div class="kv"><div>קבוצות פתוחות</div><div class="num" id="stat1Sessions">0</div></div>
         <div class="kv"><div>חוסר כללי מאושר</div><div class="num" id="stat1Missing">0</div></div>
@@ -1936,49 +2525,39 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
     <div class="row">
       <div class="col" style="flex:2 1 640px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">רשימת השלמות מחסן</h2>
+          <div class="page-heading-row">
+            <h2 style="margin:0">השלמות מכר</h2>
+            <button class="page-help-btn" type="button" onclick="openPageHelp('sales')" title="איך משתמשים בעמוד?" aria-label="הסבר על השלמות מכר">?</button>
+          </div>
           <span id="rtBadge2" class="small" style="color:#27c93f">●</span>
         </div>
-        <h2>סרוק ברקוד שנמכר</h2>
         <div class="scanbox">
           <input id="scanInput2" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
-          <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t2')" title="סריקה מהמצלמה">📷</button>
+          <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t2')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
         </div>
-        <div class="small" id="lastScan2" style="margin-top:6px">מוכן לסריקה.</div>
+        <div id="lastScan2" hidden></div>
 
         <div class="divider"></div>
         <div id="lastScannedWhCard" class="card last-scanned-card" style="display:none"></div>
-        <div id="whAisleFilter" class="wh-aisle-filter" aria-label="סינון לפי שורת מחסן"></div>
-        <div class="queue-box">
+        <button class="btn-primary loc-open-modal-btn morning-open-picking-btn" type="button" onclick="openWarehousePickingModal()">
+          <span>התחל ליקוט</span>
+          <span class="morning-view-count" id="warehousePickingCount">0</span>
+          <i class="bi bi-box-seam" aria-hidden="true"></i>
+        </button>
+        <div class="queue-box warehouse-scan-queue">
           <div class="queue-title">
-            <div class="small">רשימת הליקוט בתור</div>
+            <div class="small">פריטים ממתינים לליקוט</div>
           </div>
           <div id="missingWhList" class="list"></div>
         </div>
-        <div class="actions">
-          <button class="btn-accent" onclick="exportMissingWh()">יצוא CSV</button>
-          <button class="btn-danger" onclick="clearMissingWh()">נקה ממתינים</button>
+        <div class="actions replenishment-list-actions">
+          <button class="btn-accent" onclick="exportMissingWh()">יצוא לקובץ</button>
+          <button class="btn-primary" onclick="openWarehouseManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
+          <button class="btn-danger" onclick="clearMissingWh()">נקה רשימה</button>
         </div>
       </div>
 
-      <div class="col sticky">
-        <h2>הוספה ידנית</h2>
-        <div class="card">
-          <input id="man2Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"
-                 oninput="loadColorsForSku(this.value,'man2Color','man2Size')"/>
-          <div style="position:relative">
-            <input id="man2Color" placeholder="צבע" style="width:100%;margin-bottom:6px"
-                   autocomplete="off" oninput="loadSizesForColor()"/>
-            <div id="colorDropdown" style="position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid var(--border);border-radius:8px;z-index:50;display:none;max-height:160px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
-          </div>
-          <select id="man2Size" style="width:100%">
-            <option value="">מידה</option>
-            <option>y</option><option>xs</option><option>xs-s</option><option>s</option><option>m</option><option>m-l</option><option>l</option><option>xl</option><option>xxl</option>
-          </select>
-          <div class="actions"><button class="btn-primary" onclick="manualScan2()">הוסף</button></div>
-        </div>
-
-        <div class="divider"></div>
+      <div class="col sticky replenishment-status-panel" hidden aria-hidden="true">
         <h2>סטטוס</h2>
         <div class="kv"><div>ממתינים</div><div class="num" id="stat2Pending">—</div></div>
       </div>
@@ -1990,7 +2569,10 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
     <div class="row">
       <div class="col loc-shell" style="flex:1 1 640px">
         <div class="loc-screen-head">
-          <h2>מיקומים במחסן</h2>
+          <div class="page-heading-row">
+            <h2>מיקומים במחסן</h2>
+            <button class="page-help-btn" type="button" onclick="openPageHelp('locations')" title="איך משתמשים בעמוד?" aria-label="הסבר על מיקומים במחסן">?</button>
+          </div>
           <p>חפש מק״ט או סרוק ברקוד כדי למצוא את המיקום</p>
         </div>
         <div class="card loc-search-card">
@@ -2001,7 +2583,11 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
           </div>
           <div id="locSearchResult" class="locResultBox is-empty" data-state="empty">
             <div class="locResultShell">
-              <div class="locResultIcon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></div>
+              <div>
+                <a id="locProductLink" class="product-image-link" href="#" target="_blank" rel="noopener" hidden>
+                  <img id="locProductImage" class="locProductImage" alt="" loading="lazy" hidden/>
+                </a>
+              </div>
               <div class="locResultDetails">
                 <div class="loc-result-state"><i id="locResultStateIcon" class="bi bi-search" aria-hidden="true"></i><span id="locResultStateText">ממתין לחיפוש</span></div>
                 <div class="locResultLocation" id="locResultLocation">—</div>
@@ -2032,8 +2618,8 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
           </div>
           <div id="locCollapseContent" class="collapse-content" style="display:none">
             <div class="actions" style="justify-content:flex-end;margin-top:8px">
-              <a class="btn-ghost" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid var(--border);font-size:14px" href="/api/locations/export/json" download="locations.json">ייצוא</a>
-              <button class="btn-danger" onclick="wipeLocations()">נקה הכל</button>
+              <a class="btn-ghost" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid var(--border);font-size:14px" href="/api/locations/export/json" download="locations.json">יצוא לקובץ</a>
+              <button class="btn-danger" onclick="wipeLocations()">נקה רשימה</button>
             </div>
             <div class="card" style="margin-top:10px">
               <label>קובץ JSON</label>
@@ -2063,11 +2649,14 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
   <section id="t4" hidden>
     <div class="row">
       <div class="col">
-        <h2>הוספת ברקוד</h2>
+        <div class="page-heading-row">
+          <h2>הוספת ברקוד</h2>
+          <button class="page-help-btn" type="button" onclick="openPageHelp('barcodes')" title="איך משתמשים בעמוד?" aria-label="הסבר על קטלוג הברקודים">?</button>
+        </div>
         <div class="card">
           <div class="scanbox">
             <input id="bcNewBarcode" placeholder="ברקוד" inputmode="text" autocapitalize="characters" spellcheck="false"/>
-            <button id="ticketCameraToggleBtn" class="btn-ghost camera-btn" type="button" onclick="toggleTicketCameraScanner()" title="סריקת טיקט חיה">📷</button>
+            <button id="ticketCameraToggleBtn" class="btn-ghost camera-btn" type="button" onclick="toggleTicketCameraScanner()" title="סריקת טיקט חיה" aria-label="סריקת טיקט חיה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
           </div>
           <div class="small" id="lastScan4" style="margin-top:6px;margin-bottom:6px">מוכן לסריקת טיקט חיה או לצילום מהיר.</div>
           <input id="bcNewSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:6px"/>
@@ -2079,17 +2668,6 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
           </select>
           <div class="actions"><button class="btn-primary" onclick="addBarcode()">הוסף</button></div>
           <div id="ticketCameraMount" class="ticket-camera-mount" hidden></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <h2>ייבוא CSV מסונן לפי מיקומים</h2>
-        <div class="card">
-          <div class="hint err-hint">רק ברקודים של מק״טים שקיימים במיקומי הסניף ייובאו. מבנה הקובץ: <code>barcode, sku, color, size</code>.</div>
-          <label>קובץ CSV</label>
-          <input id="bcImportFile" type="file" accept=".csv,.txt" style="width:100%;margin-bottom:6px"/>
-          <div class="actions"><button class="btn-accent" onclick="importBarcodes()">ייבוא מסונן</button></div>
-          <div id="bcImportMsg" class="hint" style="display:none"></div>
         </div>
 
         <div class="divider"></div>
@@ -2111,13 +2689,13 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
               <h2 style="margin:0">קטלוג ברקודים <span class="small">(גלובלי — משותף לכל הסניפים)</span></h2>
               <div class="actions" style="margin:0">
-                <a class="btn-accent" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid #c7d2fe;font-size:14px;color:#1e40af" href="/api/barcodes/export/csv" download="barcodes.csv">ייצוא CSV</a>
+                <a class="btn-accent" style="text-decoration:none;padding:9px 12px;border-radius:10px;border:1px solid #c7d2fe;font-size:14px;color:#1e40af" href="/api/barcodes/export/csv" download="barcodes.csv">יצוא לקובץ</a>
               </div>
             </div>
 
             <div class="scanbox" style="margin-bottom:8px">
               <input id="bcSearch" placeholder="חיפוש לפי ברקוד / מק״ט / צבע..." oninput="renderBarcodeTable()"/>
-              <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה">📷</button>
+              <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
               <button class="btn-ghost" onclick="document.getElementById('bcSearch').value='';renderBarcodeTable()">נקה</button>
             </div>
 
@@ -2134,8 +2712,93 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
     </div>
   </section>
 
+  <div class="screen-credit" id="indexCredit">&copy; כל הזכויות שמורות ליאיר קרשיגייב</div>
 </div><!-- .wrap -->
 </div><!-- #appScreen -->
+
+<div id="pageHelpModal" class="modal-overlay page-help-overlay" role="dialog" aria-modal="true" aria-labelledby="pageHelpTitle" onclick="handlePageHelpBackdrop(event)">
+  <div class="modal-box page-help-modal">
+    <div class="page-help-head">
+      <div>
+        <div class="page-help-eyebrow">מדריך קצר</div>
+        <h3 id="pageHelpTitle">הסבר על העמוד</h3>
+      </div>
+      <button class="btn-ghost page-help-close" type="button" onclick="closePageHelp()" aria-label="סגור">×</button>
+    </div>
+    <div id="pageHelpBody" class="page-help-body"></div>
+    <button class="btn-primary page-help-done" type="button" onclick="closePageHelp()">הבנתי</button>
+  </div>
+</div>
+
+<div id="morningPickingModal" class="modal-overlay morning-picking-overlay" role="dialog" aria-modal="true" aria-labelledby="morningPickingTitle" onclick="handleMorningPickingBackdrop(event)">
+  <div class="modal-box morning-picking-modal">
+    <div class="morning-picking-head">
+      <h3 id="morningPickingTitle">ליקוט בוקר</h3>
+      <button class="btn-ghost morning-picking-close" type="button" onclick="closeMorningPickingModal()" aria-label="סגור">×</button>
+    </div>
+    <div id="morningPickAisleFilter" class="wh-aisle-filter" aria-label="בחירת שורת מחסן לליקוט בוקר"></div>
+    <div id="morningPickContent"></div>
+  </div>
+</div>
+
+<div id="warehousePickingModal" class="modal-overlay morning-picking-overlay" role="dialog" aria-modal="true" aria-labelledby="warehousePickingTitle" onclick="handleWarehousePickingBackdrop(event)">
+  <div class="modal-box morning-picking-modal">
+    <div class="morning-picking-head">
+      <h3 id="warehousePickingTitle">ליקוט השלמות מכר</h3>
+      <button class="btn-ghost morning-picking-close" type="button" onclick="closeWarehousePickingModal()" aria-label="סגור">×</button>
+    </div>
+    <div id="warehousePickAisleFilter" class="wh-aisle-filter" aria-label="בחירת שורת מחסן לליקוט מכר"></div>
+    <div id="warehousePickContent"></div>
+  </div>
+</div>
+
+<div id="morningManualModal" class="modal-overlay manual-entry-overlay" role="dialog" aria-modal="true" aria-labelledby="morningManualTitle" onclick="handleManualModalBackdrop(event,'morningManualModal')">
+  <div class="modal-box manual-entry-modal">
+    <div class="morning-picking-head">
+      <h3 id="morningManualTitle">הוספה ידנית — השלמות בוקר</h3>
+      <button class="btn-ghost morning-picking-close" type="button" onclick="closeManualModal('morningManualModal')" aria-label="סגור">×</button>
+    </div>
+    <div class="manual-entry-section">
+      <h4>הוספה לקבוצת בוקר</h4>
+      <label>ברקוד</label>
+      <div class="scanbox" style="margin-bottom:8px">
+        <input id="man1Barcode" placeholder="ברקוד" inputmode="numeric"/>
+        <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('man1Barcode')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+      </div>
+      <div class="small hint" style="margin-bottom:8px">או מלא ישירות:</div>
+      <input id="man1Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:8px"/>
+      <input id="man1Color" placeholder="צבע" style="width:100%;margin-bottom:8px"/>
+      <select id="man1Size" style="width:100%"><option value="">מידה</option></select>
+      <div class="actions"><button class="btn-primary" onclick="manualScan1()">הוסף לסשן</button></div>
+    </div>
+    <div class="manual-entry-section">
+      <h4>הוספה לרשימת ליקוט</h4>
+      <div class="small hint" style="margin-bottom:8px">הוסף פריט חסר לקבוצת הבוקר וסמן בהמשך אם נמצא.</div>
+      <input id="manualMissingSku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:8px"/>
+      <input id="manualMissingColor" placeholder="צבע" style="width:100%;margin-bottom:8px"/>
+      <select id="manualMissingSize" style="width:100%"><option value="">מידה</option></select>
+      <div class="actions"><button class="btn-warn" onclick="addManualMissing()">הוסף לקבוצת בוקר</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="warehouseManualModal" class="modal-overlay manual-entry-overlay" role="dialog" aria-modal="true" aria-labelledby="warehouseManualTitle" onclick="handleManualModalBackdrop(event,'warehouseManualModal')">
+  <div class="modal-box manual-entry-modal">
+    <div class="morning-picking-head">
+      <h3 id="warehouseManualTitle">הוספה ידנית — השלמות מכר</h3>
+      <button class="btn-ghost morning-picking-close" type="button" onclick="closeManualModal('warehouseManualModal')" aria-label="סגור">×</button>
+    </div>
+    <div class="manual-entry-section">
+      <input id="man2Sku" placeholder="מק״ט" inputmode="tel" pattern="[0-9]*" style="width:100%;margin-bottom:8px" oninput="loadColorsForSku(this.value,'man2Color','man2Size')"/>
+      <div style="position:relative">
+        <input id="man2Color" placeholder="צבע" style="width:100%;margin-bottom:8px" autocomplete="off" oninput="filterManualColorOptions();loadSizesForColor()" onfocus="filterManualColorOptions()"/>
+        <div id="colorDropdown" style="position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid var(--border);border-radius:8px;z-index:50;display:none;max-height:160px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+      </div>
+      <select id="man2Size" style="width:100%"><option value="">מידה</option></select>
+      <div class="actions"><button class="btn-primary" onclick="manualScan2()">הוסף לרשימת המכר</button></div>
+    </div>
+  </div>
+</div>
 
 <div id="locationModal" class="modal-overlay location-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="locationModalTitle" onclick="handleLocationModalBackdrop(event)">
   <div class="modal-box location-modal-box">
@@ -2146,6 +2809,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
       </div>
       <button class="btn-ghost location-modal-close" type="button" onclick="closeLocationModal()" aria-label="סגור">×</button>
     </div>
+    <div id="locationCameraMount" class="location-camera-mount" hidden></div>
     <div id="locationScanStage" class="location-scan-stage"><i class="bi bi-upc-scan" aria-hidden="true"></i><span>סרוק ברקוד פריט</span></div>
     <div id="locationSkuField" class="location-field is-current">
       <label for="locFormSku">1. מק״ט</label>
@@ -2158,7 +2822,7 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
       <label for="locFormLoc">2. מיקום</label>
       <div class="location-field-row">
         <input id="locFormLoc" placeholder="לדוגמה: A-1-1" autocomplete="off"/>
-        <button class="btn-ghost camera-btn" type="button" onclick="openLocationWorkflowScanner('location')" title="סרוק ברקוד מיקום" aria-label="סרוק ברקוד מיקום"><i class="bi bi-qr-code-scan" aria-hidden="true"></i></button>
+        <button class="btn-ghost camera-btn" type="button" onclick="openLocationWorkflowScanner('location')" title="סרוק ברקוד מיקום" aria-label="סרוק ברקוד מיקום"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
       </div>
     </div>
     <div id="locFormMsg" class="location-modal-status" aria-live="polite"></div>
@@ -2170,6 +2834,13 @@ body.app-dark #appScreen .wh-aisle-btn.active .wh-aisle-count{background:rgba(0,
       <strong><i class="bi bi-check-circle-fill" aria-hidden="true"></i> המיקום נשמר בהצלחה</strong>
       <button class="btn-primary" type="button" onclick="resetLocationModalForNext()">הוסף פריט נוסף</button>
     </div>
+  </div>
+</div>
+
+<div id="productImageLightbox" class="product-image-lightbox" role="dialog" aria-modal="true" aria-label="תצוגת תמונת מוצר מוגדלת" onclick="handleProductImageLightboxBackdrop(event)">
+  <div class="product-image-lightbox-dialog">
+    <button class="product-image-lightbox-close" type="button" onclick="closeProductImageLightbox()" aria-label="סגור תמונה">×</button>
+    <img id="productImageLightboxImage" class="product-image-lightbox-image" alt=""/>
   </div>
 </div>
 
@@ -2250,14 +2921,137 @@ const esc = s => String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'
 const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 
+const PAGE_HELP_CONTENT={
+  morning:{
+    title:'השלמות בוקר',
+    goal:'לזהות אילו פריטים חסרים בחנות ולהכין רשימת ליקוט מסודרת מהמחסן.',
+    flow:['סריקה בחנות','זיהוי חוסרים','ליקוט במחסן','חוסר מאושר'],
+    steps:['סרוק את הפריטים שנמצאים בחנות. המערכת מקבצת אותם לפי מק״ט וצבע.','פריט שכל מידותיו נמצאו מאושר אוטומטית; היתר עוברים לליקוט.','בליקוט סמן מה נמצא. מידה שלא נמצאה עוברת לחוסר המאושר.'],
+    note:'דילוג אינו משנה את מצב הפריט. חוסר מאושר מציין שהמידה נבדקה גם בחנות וגם במחסן.'
+  },
+  sales:{
+    title:'השלמות מכר',
+    goal:'להחזיר לחנות פריטים שנמכרו במהלך היום ולשמור על המלאי בחנות מלא.',
+    flow:['מכירה בקופה','סריקת הפריט','בקשת השלמה','ליקוט במחסן'],
+    steps:['בכל מכירה סורקים את הפריט שנמכר.','הפריט נכנס אוטומטית לבקשת השלמה.','במחסן פותחים את רשימת הליקוט ומאתרים את הפריט לפי מק״ט, צבע, מידה ומיקום.','לאחר שמוצאים אותו, מסמנים ״נמצא״.','הפריט יורד מהרשימה ומוכן להחזרה לחנות.'],
+    note:'אם פריט לא נמצא במקום שמופיע במערכת, כדאי לבדוק אם הוא נמצא במיקום אחר ולעדכן את המיקום במערכת.'
+  },
+  locations:{
+    title:'מיקומים במחסן',
+    goal:'איתור ושמירת המיקום הפיזי של כל מק״ט במחסן הסניף.',
+    flow:['סריקת פריט','זיהוי מק״ט','סריקת מיקום','שמירה'],
+    steps:['חפש מק״ט או סרוק ברקוד כדי להציג את מיקומו.','להוספה או עדכון, סרוק תחילה את הפריט ולאחר מכן את ברקוד המיקום.','לאחר קליטת שני הערכים המיקום נשמר, ואפשר להמשיך לפריט הבא.'],
+    note:'המיקום נשמר לפי מק״ט וסניף ומשמש את מסכי הליקוט. עדכון חדש מחליף את המיקום הקודם.'
+  },
+  barcodes:{
+    title:'קטלוג ברקודים',
+    goal:'חיבור כל ברקוד למק״ט, צבע ומידה כדי שהמערכת תזהה נכון כל סריקה.',
+    flow:['סריקת ברקוד','זיהוי מוצר','בדיקת פרטים','שמירה'],
+    steps:['סרוק טיקט או הזן ברקוד. המערכת תנסה לזהות ולמלא את פרטי המוצר.','בדוק את המק״ט, הצבע והמידה ושמור את הרשומה.','בקטלוג אפשר לחפש רשומות קיימות ולייצא אותן לקובץ.'],
+    note:'לאותו מק״ט יכולים להיות כמה ברקודים לפי צבע ומידה. שינוי רשומה משפיע על הזיהוי בכל המערכת.'
+  }
+};
+
+function openPageHelp(pageKey){
+  const content=PAGE_HELP_CONTENT[pageKey];
+  if(!content) return;
+  $('pageHelpTitle').textContent=content.title;
+  $('pageHelpBody').innerHTML=`
+    <section class="page-help-section"><h4>מטרת התהליך</h4><p>${esc(content.goal)}</p></section>
+    <div class="page-help-flow" aria-label="זרימת התהליך">${content.flow.map((step,index)=>`${index?'<span class="page-help-flow-arrow" aria-hidden="true">←</span>':''}<span class="page-help-flow-step">${esc(step)}</span>`).join('')}</div>
+    <section class="page-help-section"><h4>איך עובדים?</h4><ol class="page-help-steps">${content.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol></section>
+    <div class="page-help-note"><i class="bi bi-lightbulb-fill" aria-hidden="true"></i><span><strong>חשוב לדעת: </strong>${esc(content.note)}</span></div>`;
+  $('pageHelpModal').classList.add('open');
+  document.body.classList.add('modal-open');
+  setTimeout(()=>$('pageHelpModal').querySelector('.page-help-close')?.focus(),80);
+}
+
+function closePageHelp(){
+  $('pageHelpModal')?.classList.remove('open');
+  if(!document.querySelector('.modal-overlay.open')) document.body.classList.remove('modal-open');
+}
+
+function handlePageHelpBackdrop(event){
+  if(event.target===event.currentTarget) closePageHelp();
+}
+
+function replayMotion(element,className){
+  if(!element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+  element.addEventListener('animationend',()=>element.classList.remove(className),{once:true});
+}
+
+async function animatePickDeparture(contentId,direction){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const card=$(contentId)?.querySelector('.morning-pick-card');
+  if(!card) return;
+  card.classList.add(direction==='right'?'pick-slide-out-next':'pick-slide-out-previous');
+  await new Promise(resolve=>setTimeout(resolve,280));
+}
+
+function bindPickSwipeGesture(contentId,onSwipeLeft,onSwipeRight){
+  const content=$(contentId);
+  if(!content || content.dataset.swipeBound==='1') return;
+  content.dataset.swipeBound='1';
+  let startX=0,startY=0,currentX=0,tracking=false,horizontal=false,blocked=false;
+  content.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1) return;
+    blocked=Boolean(event.target.closest('button,input,select,a'));
+    if(blocked) return;
+    const touch=event.touches[0];
+    startX=currentX=touch.clientX;
+    startY=touch.clientY;
+    tracking=true;
+    horizontal=false;
+  },{passive:true});
+  content.addEventListener('touchmove',event=>{
+    if(!tracking || blocked || event.touches.length!==1) return;
+    const touch=event.touches[0];
+    currentX=touch.clientX;
+    const dx=currentX-startX;
+    const dy=touch.clientY-startY;
+    if(!horizontal && Math.abs(dx)>8 && Math.abs(dx)>Math.abs(dy)*1.15) horizontal=true;
+    if(!horizontal) return;
+    event.preventDefault();
+    const card=content.querySelector('.morning-pick-card');
+    if(card){
+      card.style.transition='none';
+      card.style.transform=`translateX(${dx*.72}px)`;
+      card.style.opacity=String(Math.max(.55,1-Math.abs(dx)/420));
+    }
+  },{passive:false});
+  content.addEventListener('touchend',()=>{
+    if(!tracking || blocked) return;
+    tracking=false;
+    const dx=currentX-startX;
+    const card=content.querySelector('.morning-pick-card');
+    if(card){
+      card.style.transition='';
+      card.style.transform='';
+      card.style.opacity='';
+    }
+    if(!horizontal || Math.abs(dx)<52) return;
+    if(dx<0) onSwipeLeft(); else onSwipeRight();
+  },{passive:true});
+  content.addEventListener('touchcancel',()=>{
+    tracking=false;
+    const card=content.querySelector('.morning-pick-card');
+    if(card){card.style.transition='';card.style.transform='';card.style.opacity='';}
+  },{passive:true});
+}
+
 function toast(msg, ms=1600){
   const t=$('toast'); t.textContent=msg; t.style.display='block';
+  replayMotion(t,'motion-pop');
   clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',ms);
 }
 
 const modal=$('scanModal'); let mTimer=null;
 function popup(msg,kind='success',ms=1000){
   modal.textContent=msg; modal.className=kind; modal.style.display='block';
+  replayMotion(modal,'motion-pop');
   clearTimeout(mTimer); mTimer=setTimeout(()=>modal.style.display='none',ms);
 }
 
@@ -2302,6 +3096,7 @@ function tone(freq,ms,type='sine',vol=0.2,when=0){
   }catch(e){}
 }
 function soundOk(){tone(880,110,'sine',0.25,0);tone(1320,110,'sine',0.22,0.12);}
+function soundAutoApproved(){tone(660,120,'sine',0.23,0);tone(990,140,'sine',0.24,0.13);tone(1480,210,'sine',0.22,0.28);}
 function soundErr(){tone(200,200,'square',0.25,0);}
 
 ['pointerdown','touchstart','click'].forEach(evt=>{
@@ -2328,12 +3123,83 @@ function normalizeScannerBarcodeInput(value){
 }
 
 // ── API helpers ──────────────────────────────────────────
+let _globalLoadingCount=0;
+let _globalLoaderHideTimer=0;
+let _globalLoaderStallTimer=0;
+let _globalLoaderShownAt=0;
+const GLOBAL_LOADER_MIN_VISIBLE_MS=360;
+const GLOBAL_LOADER_STALL_MS=1500;
+
+function setGlobalLoaderStalled(stalled){
+  const loader=$('globalLoader');
+  const text=$('globalLoaderText');
+  loader?.classList.toggle('is-stalled',!!stalled);
+  if(text) text.textContent=stalled?'זה לוקח קצת יותר הפעם...':'טוען מידע...';
+}
+
+function showGlobalLoader(){
+  if(_globalLoadingCount<1) return;
+  const loader=$('globalLoader');
+  if(!loader) return;
+  clearTimeout(_globalLoaderHideTimer);
+  loader.hidden=false;
+  document.body.setAttribute('aria-busy','true');
+  _globalLoaderShownAt=Date.now();
+}
+
+function beginGlobalLoading(){
+  _globalLoadingCount+=1;
+  clearTimeout(_globalLoaderHideTimer);
+  if(_globalLoadingCount===1){
+    clearTimeout(_globalLoaderStallTimer);
+    setGlobalLoaderStalled(false);
+    _globalLoaderStallTimer=setTimeout(()=>{
+      if(_globalLoadingCount>0){
+        setGlobalLoaderStalled(true);
+        showGlobalLoader();
+      }
+    },GLOBAL_LOADER_STALL_MS);
+  }
+}
+
+function endGlobalLoading(){
+  _globalLoadingCount=Math.max(0,_globalLoadingCount-1);
+  if(_globalLoadingCount) return;
+  clearTimeout(_globalLoaderStallTimer);
+  const loader=$('globalLoader');
+  if(!loader || loader.hidden) return;
+  const remaining=Math.max(0,GLOBAL_LOADER_MIN_VISIBLE_MS-(Date.now()-_globalLoaderShownAt));
+  clearTimeout(_globalLoaderHideTimer);
+  _globalLoaderHideTimer=setTimeout(()=>{
+    if(_globalLoadingCount) return;
+    loader.hidden=true;
+    setGlobalLoaderStalled(false);
+    document.body.removeAttribute('aria-busy');
+  },remaining);
+}
+
 async function api(method,url,body=null){
+  beginGlobalLoading();
   const opts={method,headers:{'Content-Type':'application/json'}};
   if(body) opts.body=JSON.stringify(body);
-  const res=await fetch(url,opts);
-  if(res.status===401){toast('נא להתחבר מחדש');return{error:'not_logged_in'};}
-  return res.json();
+  try{
+    const res=await fetch(url,opts);
+    if(res.status===401){toast('נא להתחבר מחדש');return{error:'not_logged_in'};}
+    return await res.json();
+  }finally{
+    endGlobalLoading();
+  }
+}
+
+async function uploadForm(url,formData){
+  beginGlobalLoading();
+  try{
+    const res=await fetch(url,{method:'POST',body:formData});
+    if(res.status===401){toast('נא להתחבר מחדש');return{error:'not_logged_in'};}
+    return await res.json();
+  }finally{
+    endGlobalLoading();
+  }
 }
 const GET    = url     => api('GET',url);
 const POST   = (url,b) => api('POST',url,b);
@@ -2343,11 +3209,11 @@ const DELETE = url     => api('DELETE',url);
 // ══════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════
-let _branchId=null, _socket=null;
+let _branchId=null, _socket=null, _locationsOnly=false;
 let _deviceId=null, _deviceName=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
-let _realtimeSyncPromise=null, _realtimeLastSyncAt=0, _realtimeSyncTimer=null;
-let _realtimePollingOnly=false, _realtimeFallbackWarned=false;
+let _realtimeSyncPromise=null, _realtimeLastSyncAt=0;
+let _realtimeNeedsCatchup=false, _realtimeFallbackWarned=false;
 let _cameraMode=null, _cameraStream=null, _cameraLoopTimer=0, _cameraLoopActive=false;
 let _cameraCooldownUntil=0, _cameraLastValue='';
 let _cameraCanvas=null, _cameraCtx=null;
@@ -2362,6 +3228,7 @@ let _ticketOcrWorker=null, _ticketOcrWorkerInit=null;
 let _ticketScanState=null;
 let _missingFloorRows=[];
 let _missingFloorSelectedIds=new Set();
+let _sessionsLoaded=false, _missingFloorLoaded=false, _missingWarehouseLoaded=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_BARCODE_SCAN_INTERVAL_MS = 95;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
@@ -2398,9 +3265,6 @@ let BARCODE_SIZE_CODE_MAP = Object.freeze({
 let _barcodeScaleLoadPromise = null;
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
-// Full-state polling is only a disconnected-mode safety net. While Socket.IO is
-// healthy, targeted events below keep every device in the branch up to date.
-const REALTIME_SYNC_INTERVAL_MS = 20000;
 const REALTIME_SYNC_MIN_GAP_MS = 1200;
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
@@ -2453,6 +3317,8 @@ async function doLogout(options={}){
   stopRealtimeSyncTimer();
   await POST('/api/auth/logout');
   if(_socket)_socket.disconnect();
+  document.body.classList.remove('desktop-warehouse-fit');
+  document.body.classList.remove('barcode-page-fit');
   $('appScreen').style.display='none';
   $('authScreen').style.display='flex';
   if(reason){
@@ -2542,34 +3408,15 @@ function getDevicePayload(){
 }
 
 function stopRealtimeSyncTimer(){
-  if(_realtimeSyncTimer){
-    clearInterval(_realtimeSyncTimer);
-    _realtimeSyncTimer=null;
-  }
+  // Kept as a compatibility no-op: state refreshes are event-driven only.
 }
 
 function enableRealtimePollingFallback(message=''){
-  _realtimePollingOnly=true;
   setRtDot(false);
-  startRealtimeSyncTimer();
-  syncRealtimeState({force:true});
   if(message && !_realtimeFallbackWarned){
     _realtimeFallbackWarned=true;
     toast(message);
   }
-}
-
-function startRealtimeSyncTimer(){
-  stopRealtimeSyncTimer();
-  _realtimeSyncTimer=setInterval(()=>{
-    if(
-      document.visibilityState==='visible' &&
-      !_forceLogoutInProgress &&
-      _realtimePollingOnly
-    ){
-      syncRealtimeState();
-    }
-  }, REALTIME_SYNC_INTERVAL_MS);
 }
 
 async function syncRealtimeState(opts={}){
@@ -2591,20 +3438,29 @@ async function syncRealtimeState(opts={}){
   return request;
 }
 
+function stableStateValue(value){
+  if(Array.isArray(value)) return value.map(stableStateValue);
+  if(value && typeof value==='object'){
+    return Object.keys(value).filter(key=>key!=='_source_device_id').sort().reduce((result,key)=>{
+      result[key]=stableStateValue(value[key]);
+      return result;
+    },{});
+  }
+  return value;
+}
+
+function rowsStateSignature(rows){
+  return JSON.stringify(
+    (Array.isArray(rows)?rows:[])
+      .slice()
+      .sort((a,b)=>Number(a?.id||0)-Number(b?.id||0))
+      .map(stableStateValue)
+  );
+}
+
 function ensureRealtimeConnected(opts={}){
   if(!_branchId || _forceLogoutInProgress) return;
-  if(_realtimePollingOnly){
-    if(opts.forceSync){
-      syncRealtimeState({force:true});
-    }
-    return;
-  }
-  if(_socket?.connected){
-    if(opts.forceSync){
-      syncRealtimeState({force:true});
-    }
-    return;
-  }
+  if(_socket?.connected) return;
   try{
     _socket?.connect();
   }catch(_err){}
@@ -2612,15 +3468,38 @@ function ensureRealtimeConnected(opts={}){
 
 async function enterApp(branch){
   _branchId=branch.id;
-  _realtimePollingOnly=false;
+  _locationsOnly=!!branch.locations_only;
+  _realtimeNeedsCatchup=false;
+  _sessionsLoaded=false;
+  _missingFloorLoaded=false;
+  _missingWarehouseLoaded=false;
   _realtimeFallbackWarned=false;
   await ensureDeviceIdentity();
   hideAuthNotice();
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
   $('branchBadge').innerHTML=`<span class="branch-badge-text">${esc(branch.name)}</span><i class="bi bi-shop" aria-hidden="true"></i>`;
-  initSocketIO();
-  await loadAll();
+  applyBranchAccessMode();
+  if(!_locationsOnly){
+    initSocketIO();
+    await loadAll();
+  }
+  requestAnimationFrame(syncActivePageViewport);
+}
+
+function applyBranchAccessMode(){
+  const nav=document.querySelector('#appScreen .tabs');
+  if(nav) nav.hidden=_locationsOnly;
+  $$('.tab').forEach(tab=>{
+    const allowed=!_locationsOnly || tab.dataset.tab==='t3';
+    tab.hidden=!allowed;
+    tab.classList.toggle('active',allowed && tab.dataset.tab==='t3');
+  });
+  if(_locationsOnly){
+    ['t1','t2','t4'].forEach(id=>$(id).hidden=true);
+    $('t3').hidden=false;
+    nav?.setAttribute('data-active-index','2');
+  }
 }
 
 // Auto-login check
@@ -2630,7 +3509,7 @@ async function enterApp(branch){
     toast('הסניף הזה חסום כרגע');
     return;
   }
-  if(res.branch_id) await enterApp({id:res.branch_id,name:res.branch_name});
+  if(res.branch_id) await enterApp({id:res.branch_id,name:res.branch_name,locations_only:res.locations_only});
 })();
 
 // ══════════════════════════════════════════════════════════
@@ -2645,7 +3524,6 @@ function initSocketIO(){
     try{ _socket.off(); }catch(_err){}
     try{ _socket.disconnect(); }catch(_err){}
   }
-  _realtimePollingOnly=false;
   _socket=io({
     transports:['websocket','polling'],
     reconnection:true,
@@ -2655,18 +3533,18 @@ function initSocketIO(){
     timeout:10000,
   });
   _socket.on('connect',()=>{
-    _realtimePollingOnly=false;
-    stopRealtimeSyncTimer();
     _socket.emit('join_branch',{branch_id:_branchId, ...getDevicePayload()});
     setRtDot(true);
   });
   _socket.on('joined_branch', ()=>{
-    syncRealtimeState({force:true});
+    if(_realtimeNeedsCatchup){
+      _realtimeNeedsCatchup=false;
+      syncRealtimeState({force:true});
+    }
   });
   _socket.on('disconnect', reason=>{
     setRtDot(false);
-    _realtimePollingOnly=true;
-    startRealtimeSyncTimer();
+    _realtimeNeedsCatchup=reason!=='io client disconnect';
     if(!_forceLogoutInProgress && reason!=='io client disconnect'){
       setTimeout(()=>{
         if(_socket && !_socket.connected && !_forceLogoutInProgress){
@@ -2675,7 +3553,10 @@ function initSocketIO(){
       }, 1200);
     }
   });
-  _socket.on('connect_error', ()=>{ setRtDot(false); });
+  _socket.on('connect_error', ()=>{
+    setRtDot(false);
+    _realtimeNeedsCatchup=true;
+  });
   _socket.on('blocked_device', async ()=>{
     if(_forceLogoutInProgress) return;
     _forceLogoutInProgress=true;
@@ -2724,6 +3605,7 @@ function initSocketIO(){
   _socket.on('tab1_update', session=>{
     if(session?._source_device_id && session._source_device_id === _deviceId) return;
     upsertSessionCard(session);
+    loadMissingFloor();
   });
   _socket.on('tab1_approved', data=>{
     if(data?._source_device_id && data._source_device_id === _deviceId) return;
@@ -2736,6 +3618,8 @@ function initSocketIO(){
     updateStat1();
   });
   _socket.on('tab1_floor_missing_added', ()=>loadMissingFloor());
+  _socket.on('tab1_floor_missing_cleared', ()=>loadMissingFloor());
+  _socket.on('locations_pruned', ()=>loadLocTable());
 }
 
 function setRtDot(on){
@@ -2746,11 +3630,14 @@ function setRtDot(on){
 // ══════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════
-$$('.tab').forEach(tab=>tab.addEventListener('click',()=>{
+$$('.tab').forEach((tab,index)=>tab.addEventListener('click',()=>{
   if(tab.dataset.tab!=='t4' && isTicketCameraInlineVisible()) closeCameraScanner();
   $$('.tab').forEach(t=>t.classList.remove('active'));
   tab.classList.add('active');
+  tab.closest('.tabs')?.setAttribute('data-active-index',String(index));
   ['t1','t2','t3','t4'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
+  replayMotion($(tab.dataset.tab),'motion-page-enter');
+  requestAnimationFrame(syncActivePageViewport);
   if(tab.dataset.tab==='t4') loadBarcodes();
 }));
 $('bcNewBarcode')?.addEventListener('change', ()=>previewDerivedBarcodeFields());
@@ -2887,20 +3774,33 @@ function syncTicketCameraToggleButton(){
 
 function syncCameraOverlayMount(){
   const overlay = $('cameraOverlay');
-  const mount = $('ticketCameraMount');
-  if(!overlay || !mount) return;
+  const ticketMount = $('ticketCameraMount');
+  const locationMount = $('locationCameraMount');
+  if(!overlay || !ticketMount || !locationMount) return;
   if(!_cameraOverlayHome){
     _cameraOverlayHome = overlay.parentElement || document.body;
   }
   const inlineTicket = isTicketCameraMode();
+  const inlineLocation = !!(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow');
   overlay.classList.toggle('inline-ticket', inlineTicket);
+  overlay.classList.toggle('inline-location', inlineLocation);
   if(inlineTicket){
-    mount.hidden = false;
-    mount.classList.add('open');
-    if(overlay.parentElement !== mount) mount.appendChild(overlay);
+    ticketMount.hidden = false;
+    ticketMount.classList.add('open');
+    locationMount.classList.remove('open');
+    locationMount.hidden = true;
+    if(overlay.parentElement !== ticketMount) ticketMount.appendChild(overlay);
+  }else if(inlineLocation){
+    locationMount.hidden = false;
+    locationMount.classList.add('open');
+    ticketMount.classList.remove('open');
+    ticketMount.hidden = true;
+    if(overlay.parentElement !== locationMount) locationMount.appendChild(overlay);
   }else{
-    mount.classList.remove('open');
-    mount.hidden = true;
+    ticketMount.classList.remove('open');
+    ticketMount.hidden = true;
+    locationMount.classList.remove('open');
+    locationMount.hidden = true;
     if(_cameraOverlayHome && overlay.parentElement !== _cameraOverlayHome){
       _cameraOverlayHome.appendChild(overlay);
     }
@@ -2985,6 +3885,8 @@ function normalizeTicketSize(raw){
     .replace(/\s+/g, ' ');
   const compact = v.replace(/\s+/g, '');
   const replacements = {
+    'YOUNG': 'Y',
+    'Y': 'Y',
     'X5': 'XS',
     'XS': 'XS',
     'ХS': 'XS',
@@ -4267,6 +5169,26 @@ function openCameraInputScanner(inputId){
   openCameraScanner({ type:'fill-input', inputId });
 }
 
+function openMorningSearchScanner(inputId){
+  openCameraScanner({type:'morning-search',inputId});
+}
+
+async function fillMorningSearchFromBarcode(inputId,code){
+  const input=$(inputId);
+  if(!input) return false;
+  const sku=await resolveLocationSkuFromBarcode(code);
+  if(!sku){
+    setCameraStatus('הברקוד לא נמצא בקטלוג ולא ניתן היה לחלץ ממנו מק״ט.',true);
+    return false;
+  }
+  input.value=sku;
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  setCameraStatus(`המק״ט ${sku} זוהה. מציג תוצאות.`);
+  await closeCameraScanner();
+  input.focus();
+  return true;
+}
+
 async function fillCameraTargetInput(inputId, code){
   const input=$(inputId);
   if(!input) return false;
@@ -4559,6 +5481,9 @@ async function handleCameraDetectedBarcode(code){
   if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow'){
     return handleLocationWorkflowBarcode(code);
   }
+  if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='morning-search'){
+    return fillMorningSearchFromBarcode(_cameraMode.inputId,code);
+  }
   if(_cameraMode==='t2') return processTab2Barcode(code, {fromCamera:true});
   if(_cameraMode==='t4') return processTab4Barcode(code, {fromCamera:true});
   return processTab1Barcode(code, {fromCamera:true});
@@ -4569,6 +5494,15 @@ async function handleCameraDetectedBarcode(code){
 // ══════════════════════════════════════════════════════════
 let _sessions={};   // id→session data
 let _morningView='sessions';
+let _morningPickAisle='all';
+let _morningPickSessionId=null;
+let _suspendMorningPickRender=false;
+let _morningPickProgressAisle='all';
+let _morningPickProgressIds=new Set();
+let _morningPickMotion='';
+let _morningPickNavigating=false;
+let _morningPickClosing=false;
+const _morningPickPendingUpdates=new Set();
 
 function compareLocationHints(left, right){
   const a = String(left || '').trim();
@@ -4589,10 +5523,23 @@ function compareMorningSessions(a,b){
   return Number(a?.id || 0) - Number(b?.id || 0);
 }
 
+function compareMorningStackSessions(a,b){
+  const activityA=String(a?.last_activity_at || a?.created_at || '');
+  const activityB=String(b?.last_activity_at || b?.created_at || '');
+  if(activityA!==activityB) return activityB.localeCompare(activityA);
+  return Number(b?.id || 0) - Number(a?.id || 0);
+}
+
 function updateMorningViewCounts(){
   const sessionsCount = Object.keys(_sessions).length;
+  const pickingItemsCount = Object.values(_sessions).reduce((total,session)=>{
+    const allSizes=Array.isArray(session.sizes_all)?session.sizes_all:[];
+    const foundSizes=new Set(Array.isArray(session.sizes_found)?session.sizes_found:[]);
+    return total+allSizes.filter(size=>!foundSizes.has(size)).length;
+  },0);
   const missingCount = groupMissingFloorRows(_missingFloorRows).length;
   if($('morningViewSessionsCount')) $('morningViewSessionsCount').textContent = sessionsCount;
+  if($('morningViewPickingCount')) $('morningViewPickingCount').textContent = pickingItemsCount;
   if($('morningViewMissingCount')) $('morningViewMissingCount').textContent = missingCount;
 }
 
@@ -4603,30 +5550,301 @@ function setMorningView(view){
   const sessionsPanel = $('morningSessionsPanel');
   const missingPanel = $('morningMissingPanel');
   const showSessions = _morningView === 'sessions';
+  const showMissing = _morningView === 'missing';
 
   sessionsBtn?.classList.toggle('active', showSessions);
-  missingBtn?.classList.toggle('active', !showSessions);
+  missingBtn?.classList.toggle('active', showMissing);
   sessionsBtn?.setAttribute('aria-selected', showSessions ? 'true' : 'false');
-  missingBtn?.setAttribute('aria-selected', showSessions ? 'false' : 'true');
+  missingBtn?.setAttribute('aria-selected', showMissing ? 'true' : 'false');
 
   if(sessionsPanel){
     sessionsPanel.hidden = !showSessions;
     sessionsPanel.style.display = showSessions ? 'flex' : 'none';
   }
   if(missingPanel){
-    missingPanel.hidden = showSessions;
-    missingPanel.style.display = showSessions ? 'none' : 'flex';
+    missingPanel.hidden = !showMissing;
+    missingPanel.style.display = showMissing ? 'flex' : 'none';
   }
+  if(showSessions || showMissing) requestAnimationFrame(syncMorningListViewport);
+}
+
+function openMorningPickingModal(){
+  resetMorningPickProgress();
+  renderMorningPicking();
+  $('morningPickingModal')?.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+async function closeMorningPickingModal(){
+  $('morningPickingModal')?.classList.remove('open');
+  document.body.style.overflow='';
+  if(_morningPickClosing) return;
+  _morningPickClosing=true;
+  try{
+    if(_morningPickPendingUpdates.size){
+      await Promise.allSettled([..._morningPickPendingUpdates]);
+    }
+    const completedSessionIds=Object.values(_sessions)
+      .filter(session=>{
+        const allSizes=Array.isArray(session.sizes_all)?session.sizes_all:[];
+        const foundSizes=new Set(Array.isArray(session.sizes_found)?session.sizes_found:[]);
+        return allSizes.length>0 && allSizes.every(size=>foundSizes.has(size));
+      })
+      .map(session=>Number(session.id))
+      .filter(Boolean);
+    for(const sessionId of completedSessionIds){
+      if(_sessions[sessionId]) await approveSession(sessionId);
+    }
+  }finally{
+    _morningPickClosing=false;
+  }
+}
+
+function handleMorningPickingBackdrop(event){
+  if(event.target===$('morningPickingModal')) closeMorningPickingModal();
+}
+
+function openManualModal(modalId,focusId){
+  $(modalId)?.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>$(focusId)?.focus(),30);
+}
+
+function openMorningManualModal(){
+  openManualModal('morningManualModal','man1Barcode');
+}
+
+function openWarehouseManualModal(){
+  openManualModal('warehouseManualModal','man2Sku');
+}
+
+async function closeManualModal(modalId){
+  const modal=$(modalId);
+  if(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='fill-input'){
+    const target=$(_cameraMode.inputId);
+    if(target && modal?.contains(target)) await closeCameraScanner();
+  }
+  modal?.classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function handleManualModalBackdrop(event,modalId){
+  if(event.target===$(modalId)) closeManualModal(modalId);
+}
+
+function getMorningPickRows(){
+  return Object.values(_sessions)
+    .filter(session=>_morningPickAisle==='all' || getWhAisleKey(session)===_morningPickAisle)
+    .sort(compareMorningSessions);
+}
+
+function resetMorningPickProgress(){
+  _morningPickProgressAisle=_morningPickAisle;
+  _morningPickProgressIds=new Set(getMorningPickRows().map(session=>Number(session.id)));
+}
+
+function getMorningPickProgress(rows){
+  if(_morningPickProgressAisle!==_morningPickAisle) resetMorningPickProgress();
+  rows.forEach(session=>_morningPickProgressIds.add(Number(session.id)));
+  const remainingIds=new Set(rows.map(session=>Number(session.id)));
+  const total=_morningPickProgressIds.size;
+  const remaining=[..._morningPickProgressIds].filter(id=>remainingIds.has(id)).length;
+  const completed=Math.max(0,total-remaining);
+  return {total,remaining,completed,percent:total?Math.round((completed/total)*100):0};
+}
+
+function renderMorningPickAisleFilter(){
+  const bar=$('morningPickAisleFilter');
+  if(!bar) return;
+  const counts=new Map();
+  Object.values(_sessions).forEach(session=>{
+    const key=getWhAisleKey(session);
+    counts.set(key,(counts.get(key)||0)+1);
+  });
+  const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
+  if(counts.has('__none__')) keys.push('__none__');
+  if(_morningPickAisle!=='all' && !counts.has(_morningPickAisle)) _morningPickAisle='all';
+  bar.innerHTML=`<div class="wh-aisle-filter-heading"><span class="wh-aisle-filter-title">בחירת שורת מחסן</span><span class="wh-aisle-filter-hint">הפריטים מוצגים לפי סדר המיקום</span></div><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
+  const options=[{key:'all',label:'הכול',count:Object.keys(_sessions).length},...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)}))];
+  const optionsBar=bar.querySelector('.wh-aisle-options');
+  options.forEach(option=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className=`wh-aisle-btn${option.key===_morningPickAisle?' active':''}`;
+    button.setAttribute('aria-pressed',option.key===_morningPickAisle?'true':'false');
+    button.innerHTML=`<span>${esc(option.label)}</span><span class="wh-aisle-count">${Number(option.count||0)}</span>`;
+    button.addEventListener('click',()=>{
+      _morningPickAisle=option.key;
+      _morningPickSessionId=null;
+      resetMorningPickProgress();
+      renderMorningPicking();
+    });
+    optionsBar.appendChild(button);
+  });
+}
+
+function renderPickCompletion(kind,total){
+  const isMorning=kind==='morning';
+  const closeAction=isMorning?'closeMorningPickingModal()':'closeWarehousePickingModal()';
+  const listName=isMorning?'רשימת הבוקר':'רשימת המכר';
+  return `<div class="morning-pick-window-meta"><span>הליקוט הושלם</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:100%"></i></div></div>
+    <div class="pick-complete" role="status" aria-live="polite">
+      <i class="pick-complete-spark"></i><i class="pick-complete-spark"></i><i class="pick-complete-spark"></i><i class="pick-complete-spark"></i><i class="pick-complete-spark"></i><i class="pick-complete-spark"></i>
+      <div class="pick-complete-icon"><i class="bi bi-check2" aria-hidden="true"></i></div>
+      <h3>כל הכבוד!</h3>
+      <p>סיימת את ${listName} — ${Number(total)} פריטים טופלו בהצלחה.</p>
+      <button class="btn-ok" type="button" onclick="${closeAction}">סיום</button>
+    </div>`;
+}
+
+function renderMorningPicking(){
+  if(_suspendMorningPickRender) return;
+  const content=$('morningPickContent');
+  if(!content) return;
+  renderMorningPickAisleFilter();
+  const rows=getMorningPickRows();
+  const pickProgress=getMorningPickProgress(rows);
+  if(!rows.length){
+    _morningPickSessionId=null;
+    content.innerHTML=pickProgress.total
+      ? renderPickCompletion('morning',pickProgress.total)
+      : '<div class="morning-pick-window-meta"><span>אין פריטים לליקוט</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:0%"></i></div></div><div class="morning-pick-empty">אין פריטים לליקוט בשורה שנבחרה</div>';
+    _morningPickMotion='';
+    return;
+  }
+  let index=rows.findIndex(session=>Number(session.id)===Number(_morningPickSessionId));
+  if(index<0) index=0;
+  const session=rows[index];
+  _morningPickSessionId=session.id;
+  const allSizes=session.sizes_all||[];
+  const foundSizes=new Set(session.sizes_found||[]);
+  const media=session.image_url
+    ? `<img class="morning-pick-image" src="${esc(session.image_url)}" data-product-url="${esc(session.product_url||'')}" alt="תמונת דגם ${esc(session.sku)}" onerror="this.outerHTML='<div class=&quot;morning-pick-placeholder&quot;><i class=&quot;bi bi-image&quot;></i></div>'">`
+    : '<div class="morning-pick-placeholder"><i class="bi bi-image" aria-hidden="true"></i></div>';
+  const foundCount=allSizes.filter(size=>foundSizes.has(size)).length;
+  const locationControl=session.location_hint
+    ? `<div class="morning-pick-location"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>${esc(session.location_hint)}</span></div>`
+    : `<button class="morning-pick-location is-missing-location" type="button" data-sku="${esc(session.sku)}" onclick="openMissingLocationFromPick(this)" aria-label="הוסף מיקום למק״ט ${esc(session.sku)}"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>ללא מיקום</span></button>`;
+  const pickMotionClass=_morningPickMotion==='right'?' pick-slide-next':_morningPickMotion==='left'?' pick-slide-previous':'';
+  content.innerHTML=`<div class="morning-pick-window-meta"><span>נותרו ${pickProgress.remaining} מתוך ${pickProgress.total}</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:${pickProgress.percent}%"></i></div></div><div class="morning-pick-card${pickMotionClass}">
+    <div class="morning-pick-top">
+      <div class="morning-pick-media">${media}</div>
+      <div class="morning-pick-details">
+        <div class="morning-pick-sku">${esc(session.sku)}</div>
+        <div class="morning-pick-color">צבע: ${esc(session.color)}</div>
+        ${locationControl}
+      </div>
+    </div>
+    <div class="morning-pick-lower">
+      <div class="morning-pick-sizes-title">מידות חסרות — לחץ על מידה שנמצאה</div>
+      <div class="morning-pick-sizes">${allSizes.length?allSizes.map(size=>`<button type="button" data-size="${esc(size)}" class="morning-pick-size ${foundSizes.has(size)?'found':''}" onclick="toggleMorningPickSize(${Number(session.id)},'${esc(size)}',${!foundSizes.has(size)})">${esc(size).toUpperCase()}${foundSizes.has(size)?' ✓':''}</button>`).join(''):'<span class="small">אין מידות בקטלוג</span>'}</div>
+      ${allSizes.length?`<div class="morning-pick-size-summary-text">${foundCount} מתוך ${allSizes.length} מידות נמצאו</div>`:''}
+    </div>
+    <div class="morning-pick-actions">
+      <button class="btn-ghost pick-nav-btn" type="button" onclick="showPreviousMorningPick()" title="לפריט הקודם" aria-label="לפריט הקודם"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+      <div class="pick-primary-actions"><button class="morning-pick-confirm" type="button" onclick="approveMorningPickCurrent()"><i class="bi bi-check2-circle" aria-hidden="true"></i> אישור והמשך</button></div>
+      <button class="btn-ghost pick-nav-btn" type="button" onclick="showNextMorningPick()" title="לפריט הבא" aria-label="לפריט הבא"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+    </div>
+  </div>`;
+  _morningPickMotion='';
+}
+
+async function showNextMorningPick(){
+  if(_morningPickNavigating) return;
+  const rows=getMorningPickRows();
+  if(!rows.length) return;
+  const index=rows.findIndex(session=>Number(session.id)===Number(_morningPickSessionId));
+  const targetId=rows[(Math.max(index,0)+1)%rows.length].id;
+  _morningPickNavigating=true;
+  try{
+    await animatePickDeparture('morningPickContent','right');
+    const latestRows=getMorningPickRows();
+    const target=latestRows.find(session=>Number(session.id)===Number(targetId)) || latestRows[0];
+    if(!target) return renderMorningPicking();
+    _morningPickMotion='right';
+    _morningPickSessionId=target.id;
+    renderMorningPicking();
+  }finally{
+    _morningPickNavigating=false;
+  }
+}
+
+async function showPreviousMorningPick(){
+  if(_morningPickNavigating) return;
+  const rows=getMorningPickRows();
+  if(!rows.length) return;
+  const index=rows.findIndex(session=>Number(session.id)===Number(_morningPickSessionId));
+  const targetId=rows[(index<=0?rows.length:index)-1].id;
+  _morningPickNavigating=true;
+  try{
+    await animatePickDeparture('morningPickContent','left');
+    const latestRows=getMorningPickRows();
+    const target=latestRows.find(session=>Number(session.id)===Number(targetId)) || latestRows[latestRows.length-1];
+    if(!target) return renderMorningPicking();
+    _morningPickMotion='left';
+    _morningPickSessionId=target.id;
+    renderMorningPicking();
+  }finally{
+    _morningPickNavigating=false;
+  }
+}
+
+async function approveMorningPickCurrent(){
+  if(_morningPickNavigating) return;
+  const sessionId=Number(_morningPickSessionId);
+  if(!sessionId || !_sessions[sessionId]) return;
+  _morningPickNavigating=true;
+  try{
+    await animatePickDeparture('morningPickContent','right');
+    _morningPickMotion='right';
+    const approved=await approveSession(sessionId);
+    if(!approved){
+      _morningPickMotion='';
+      renderMorningPicking();
+    }
+  }finally{
+    _morningPickNavigating=false;
+  }
+}
+
+function toggleMorningPickSize(sessionId,size,found){
+  const update=(async()=>{
+    _suspendMorningPickRender=true;
+    try{
+      await tickSize(sessionId,size,found,{autoApprove:false});
+    }finally{
+      _suspendMorningPickRender=false;
+    }
+    const session=_sessions[sessionId];
+    if(!session){
+      renderMorningPicking();
+      return;
+    }
+    const foundSizes=new Set(session.sizes_found||[]);
+    $('morningPickContent')?.querySelectorAll('.morning-pick-size').forEach(button=>{
+      const isFound=foundSizes.has(button.dataset.size);
+      button.classList.toggle('found',isFound);
+      button.innerHTML=`${esc(button.dataset.size).toUpperCase()}${isFound?' ✓':''}`;
+      button.onclick=()=>toggleMorningPickSize(sessionId,button.dataset.size,!isFound);
+    });
+    const sizeSummary=$('morningPickContent')?.querySelector('.morning-pick-size-summary-text');
+    if(sizeSummary) sizeSummary.textContent=`${foundSizes.size} מתוך ${(session.sizes_all||[]).length} מידות נמצאו`;
+  })();
+  _morningPickPendingUpdates.add(update);
+  update.finally(()=>_morningPickPendingUpdates.delete(update));
+  return update;
 }
 
 function renderSessionsList(){
   const container=$('sessionsContainer');
   const rows=Object.values(_sessions)
-    .sort(compareMorningSessions);
+    .sort(compareMorningStackSessions);
   container.innerHTML='';
   container.classList.toggle('is-empty', rows.length===0);
   if(!rows.length){
     container.innerHTML='<div class="small morning-empty-state">אין קבוצות בוקר פתוחות להיום</div>';
+    renderMorningPicking();
+    requestAnimationFrame(syncMorningListViewport);
     return;
   }
   rows.forEach(s=>{
@@ -4637,7 +5855,110 @@ function renderSessionsList(){
     container.appendChild(div);
   });
   applyMorningSessionSearch();
+  renderMorningPicking();
+  requestAnimationFrame(syncMorningListViewport);
 }
+
+let _morningListResizeFrame=0;
+let _activePageResizeFrame=0;
+
+function syncActivePageViewport(){
+  cancelAnimationFrame(_activePageResizeFrame);
+  _activePageResizeFrame=requestAnimationFrame(()=>{
+    const columns=$$('#appScreen section .row > .col');
+    columns.forEach(column=>{
+      column.style.removeProperty('min-height');
+      column.style.removeProperty('height');
+      column.style.removeProperty('max-height');
+      column.style.removeProperty('overflow-y');
+    });
+    const activeSection=document.querySelector('#appScreen section:not([hidden])');
+    const isDesktopWarehouse=window.matchMedia('(min-width:641px)').matches && activeSection?.id==='t2';
+    document.body.classList.toggle('desktop-warehouse-fit',isDesktopWarehouse);
+    document.body.classList.toggle('barcode-page-fit',activeSection?.id==='t4');
+    const activeColumn=activeSection?.querySelector('.row > .col:not([hidden])');
+    const nav=document.querySelector('#appScreen .tabs');
+    if(!activeColumn || activeColumn.offsetParent===null) return;
+    const columnTop=activeColumn.getBoundingClientRect().top;
+    const viewportBottom=window.visualViewport?.height || window.innerHeight;
+    const navRect=nav?.getBoundingClientRect();
+    const navStyle=nav && !nav.hidden ? getComputedStyle(nav) : null;
+    const navIsBottomDocked=!!navRect && navStyle?.position==='fixed' && navRect.top>viewportBottom*.45;
+    const contentBottom=navIsBottomDocked ? navRect.top-8 : viewportBottom-28;
+    const available=Math.max(240,Math.floor(contentBottom-columnTop));
+    activeColumn.style.minHeight=`${available}px`;
+    if(activeSection?.id==='t4'){
+      activeColumn.style.height=`${available}px`;
+      activeColumn.style.maxHeight=`${available}px`;
+      activeColumn.style.overflowY='auto';
+    }
+    syncMorningListViewport();
+  });
+}
+
+function syncMorningListViewport(){
+  cancelAnimationFrame(_morningListResizeFrame);
+  _morningListResizeFrame=requestAnimationFrame(()=>{
+    const list=$('sessionsContainer');
+    if(!list) return;
+    const panel=$('morningSessionsPanel');
+    const nav=document.querySelector('#appScreen .tabs');
+    const actions=panel?.querySelector('.replenishment-list-actions');
+    const warehouseList=$('missingWhList');
+    const approvedList=$('missingFloorList');
+    if(!nav) return;
+    const viewportBottom=window.visualViewport?.height || window.innerHeight;
+    const navRect=nav.getBoundingClientRect();
+    const navStyle=!nav.hidden ? getComputedStyle(nav) : null;
+    const navIsBottomDocked=!nav.hidden && navStyle?.position==='fixed' && navRect.top>viewportBottom*.45;
+    const contentBottom=navIsBottomDocked ? navRect.top-8 : viewportBottom-28;
+
+    if(panel && !panel.hidden && actions && list.offsetParent!==null){
+      const listTop=list.getBoundingClientRect().top;
+      const actionStyle=getComputedStyle(actions);
+      const actionSpace=actions.getBoundingClientRect().height
+        + parseFloat(actionStyle.marginTop||0)
+        + parseFloat(actionStyle.marginBottom||0);
+      const panelGap=parseFloat(getComputedStyle(panel).rowGap||getComputedStyle(panel).gap||0);
+      const column=panel.closest('.col');
+      const columnPadding=parseFloat(getComputedStyle(column).paddingBottom||0);
+      const available=Math.max(160,Math.floor(contentBottom-listTop-actionSpace-panelGap-columnPadding-4));
+      list.style.setProperty('--morning-list-height',`${available}px`);
+    }
+
+    const approvedPanel=$('morningMissingPanel');
+    const approvedActions=approvedPanel?.querySelector(':scope > .actions');
+    if(approvedPanel && !approvedPanel.hidden && approvedList && approvedActions && approvedList.offsetParent!==null){
+      const listTop=approvedList.getBoundingClientRect().top;
+      const actionStyle=getComputedStyle(approvedActions);
+      const actionSpace=approvedActions.getBoundingClientRect().height
+        + parseFloat(actionStyle.marginTop||0)
+        + parseFloat(actionStyle.marginBottom||0);
+      const panelGap=parseFloat(getComputedStyle(approvedPanel).rowGap||getComputedStyle(approvedPanel).gap||0);
+      const column=approvedPanel.closest('.col');
+      const columnPadding=parseFloat(getComputedStyle(column).paddingBottom||0);
+      const available=Math.max(160,Math.floor(contentBottom-listTop-actionSpace-panelGap-columnPadding-4));
+      approvedList.style.setProperty('--approved-missing-list-height',`${available}px`);
+    }
+
+    const warehouseActions=warehouseList?.closest('.col')?.querySelector(':scope > .replenishment-list-actions');
+    if(warehouseList && warehouseActions && warehouseList.offsetParent!==null){
+      const listTop=warehouseList.getBoundingClientRect().top;
+      const actionStyle=getComputedStyle(warehouseActions);
+      const actionSpace=warehouseActions.getBoundingClientRect().height
+        + parseFloat(actionStyle.marginTop||0)
+        + parseFloat(actionStyle.marginBottom||0);
+      const column=warehouseList.closest('.col');
+      const columnPadding=parseFloat(getComputedStyle(column).paddingBottom||0);
+      const available=Math.max(160,Math.floor(contentBottom-listTop-actionSpace-columnPadding-4));
+      warehouseList.style.setProperty('--warehouse-list-height',`${available}px`);
+    }
+  });
+}
+
+window.addEventListener('resize',syncActivePageViewport,{passive:true});
+window.addEventListener('orientationchange',syncActivePageViewport,{passive:true});
+window.visualViewport?.addEventListener('resize',syncActivePageViewport,{passive:true});
 function getMorningSessionSearchQuery(){
   return String($('morningSkuSearch')?.value || '').trim().toLowerCase();
 }
@@ -4692,15 +6013,17 @@ function placeSessionCard(session){
 
   const nextCard=Array.from(container.querySelectorAll('.session-card'))
     .filter(el=>el!==card)
-    .find(el=>compareMorningSessions(session,_sessions[el.dataset.id])<0);
+    .find(el=>compareMorningStackSessions(session,_sessions[el.dataset.id])<0);
   container.insertBefore(card,nextCard||null);
   syncSessionsEmptyState();
+  renderMorningPicking();
 }
 
 function removeSessionCard(sessionId){
   delete _sessions[sessionId];
   $('sessionsContainer').querySelector(`.session-card[data-id="${Number(sessionId)}"]`)?.remove();
   syncSessionsEmptyState();
+  renderMorningPicking();
 }
 
 function getMorningMissingRows(){
@@ -4724,10 +6047,13 @@ function getMorningMissingRows(){
 
 async function loadSessions(){
   const rows=await GET('/api/missing-floor/sessions');
+  if(_sessionsLoaded && rowsStateSignature(rows)===rowsStateSignature(Object.values(_sessions))) return false;
+  _sessionsLoaded=true;
   _sessions={};
   rows.forEach(s=>{ _sessions[s.id]=s; });
   renderSessionsList();
   updateStat1();
+  return true;
 }
 
 function renderSessionCard(s){
@@ -4738,20 +6064,17 @@ function renderSessionCard(s){
 function updateSessionCard(el,s){
   const allSizes=s.sizes_all||[];
   const foundSizes=new Set(s.sizes_found||[]);
-  const missingCount=allSizes.filter(sz=>!foundSizes.has(sz)).length;
+  const scanTime=formatWarehouseScanTime(s.last_activity_at||s.created_at);
 
   const locHtml = s.location_hint ? `<span class="locHintBadge">📍 ${esc(s.location_hint)}</span>` : '';
   el.innerHTML=`
     <div class="session-header">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="morning-session-identity">
         <span class="session-sku">${esc(s.sku)}</span>
         <span class="session-color">${esc(s.color)}</span>
         ${locHtml}
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        ${missingCount>0?`<span class="small" style="color:var(--danger)">${missingCount} חסרות</span>`:'<span class="small" style="color:var(--ok)">הכל נמצא ✓</span>'}
-        <button class="btn-ok" style="padding:5px 10px;font-size:12px" onclick="approveSession(${s.id})">אישור</button>
-      </div>
+      <span class="morning-session-status warehouse-scan-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(scanTime||'--:--')}</span></span>
     </div>
     <div class="chips-row">
       ${allSizes.map(sz=>`
@@ -4764,7 +6087,8 @@ function updateSessionCard(el,s){
 }
 
 function upsertSessionCard(s){
-  _sessions[s.id]=s;
+  _sessions[s.id]={...(_sessions[s.id]||{}),...s};
+  s=_sessions[s.id];
   placeSessionCard(s);
   updateStat1();
 }
@@ -4786,15 +6110,23 @@ async function approveSession(sessionId){
     const missing=res.missing_sizes||[];
     toast(missing.length>0?`חוסרים שנרשמו: ${missing.join(', ')}`: 'אושר — הכל נמצא!');
     onSessionApproved({session_id:sessionId,day_reset:res.day_reset});
+    return true;
   }
+  return false;
 }
 
-async function tickSize(sessionId,size,found){
-  const res=await POST('/api/missing-floor/sessions/tick',{session_id:sessionId,size,found});
+async function tickSize(sessionId,size,found,opts={}){
+  const res=await POST('/api/missing-floor/sessions/tick',{
+    session_id:sessionId,
+    size,
+    found,
+    auto_approve:opts.autoApprove!==false,
+  });
   if(res.ok){
     if(res.approved && res.approval){
       onSessionApproved(res.approval);
       loadMissingFloor();
+      soundAutoApproved();
       toast('הכול נמצא - אושר אוטומטית');
       return;
     }
@@ -4804,7 +6136,7 @@ async function tickSize(sessionId,size,found){
 }
 
 async function clearSessions(){
-  if(!confirm('לנקות את כל קבוצות היום?')) return;
+  if(!confirm('ניקוי רשימת הבוקר\n\nפעולה זו תמחק את כל הפריטים הממתינים ברשימה. האם להמשיך?')) return;
   await POST('/api/missing-floor/sessions/clear');
   _sessions={};
   renderSessionsList();
@@ -4814,7 +6146,10 @@ async function clearSessions(){
 
 async function loadMissingFloor(){
   const rows=await GET('/api/missing-floor');
-  _missingFloorRows = Array.isArray(rows) ? rows : [];
+  const nextRows=Array.isArray(rows) ? rows : [];
+  if(_missingFloorLoaded && rowsStateSignature(nextRows)===rowsStateSignature(_missingFloorRows)) return false;
+  _missingFloorLoaded=true;
+  _missingFloorRows = nextRows;
   const validIds = new Set(_missingFloorRows.map(row => Number(row.id)));
   _missingFloorSelectedIds = new Set(
     [..._missingFloorSelectedIds].filter(id => validIds.has(Number(id)))
@@ -4822,6 +6157,7 @@ async function loadMissingFloor(){
   $('stat1Missing').textContent=_missingFloorRows.length;
   renderMissingFloorList();
   updateMorningViewCounts();
+  return true;
 }
 
 function compareMissingFloorSizes(a, b){
@@ -4889,14 +6225,16 @@ function renderMissingFloorList(){
   }
 
   el.innerHTML=visibleRows.map(row=>`
-    <div class="kv">
-      <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-        <div><b>${esc(row.sku)}</b> · ${esc(row.color)}</div>
-        <div>${row.items.map(item => `<button type="button" class="chip missing-chip ${_missingFloorSelectedIds.has(Number(item.id)) ? 'selected' : ''}" onclick="toggleMissingFloorSelection(${item.id})" title="סמן מידה זו לאישור">${esc(item.size).toUpperCase()}</button>`).join('')}</div>
-        ${row.location_hints.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${row.location_hints.map(locationHint => `<span class="locHintBadge">📍 ${esc(locationHint)}</span>`).join('')}</div>` : ``}
-        <span class="small">${row.items.length} מידות חסרות${row.created_at ? ` · ${esc(row.created_at)}` : ''}</span>
+    <div class="kv missing-approved-row">
+      <div class="missing-approved-copy">
+        <div class="missing-approved-head"><b>${esc(row.sku)}</b><span>·</span><span>${esc(row.color)}</span></div>
+        <div class="missing-approved-sizes">${row.items.map(item => `<button type="button" class="chip missing-chip ${_missingFloorSelectedIds.has(Number(item.id)) ? 'selected' : ''}" onclick="toggleMissingFloorSelection(${item.id})" title="סמן מידה זו לאישור">${esc(item.size).toUpperCase()}</button>`).join('')}</div>
+        <div class="missing-approved-meta">
+          ${row.location_hints.map(locationHint => `<span class="locHintBadge">📍 ${esc(locationHint)}</span>`).join('')}
+          <span>${row.items.length} מידות${row.created_at ? ` · ${esc(row.created_at)}` : ''}</span>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:flex-end;min-width:88px">
+      <div class="missing-approved-action">
         ${row.items.some(item => _missingFloorSelectedIds.has(Number(item.id)))
           ? `<button class="btn-ok" style="padding:5px 10px;font-size:12px" onclick='confirmMissingFloorSelection(${JSON.stringify(row.items.filter(item => _missingFloorSelectedIds.has(Number(item.id))).map(item => item.id))})'>אישור</button>`
           : ``}
@@ -4925,7 +6263,7 @@ async function resolveFloor(id){
 }
 
 async function clearMissingFloor(){
-  if(!confirm('לנקות את כל החוסרים?'))return;
+  if(!confirm('ניקוי רשימת החוסר המאושר\n\nפעולה זו תמחק את כל החוסרים הפתוחים ברשימה. האם להמשיך?'))return;
   await POST('/api/missing-floor/clear'); toast('נוקה'); loadMissingFloor();
 }
 
@@ -4983,7 +6321,8 @@ async function processTab1Barcode(code, opts={}){
   $('lastScan1').textContent = res.catalog_created
     ? `נסרק ונוסף לקטלוג: ${summary.sku}/${summary.color}`
     : `נסרק: ${summary.sku}/${summary.color}`;
-  soundOk();
+  if(res.approved) soundAutoApproved();
+  else soundOk();
   popup(
     res.approved
       ? 'אושר אוטומטית ✓'
@@ -5023,6 +6362,7 @@ async function manualScan1(){
     const ok=await processTab1Barcode(barcode);
     if(!ok){toast('לא נמצא בקטלוג');return;}
     $('man1Barcode').value='';
+    closeManualModal('morningManualModal');
     toast('נוסף לסשן');
     return;
   }
@@ -5033,7 +6373,10 @@ async function manualScan1(){
   const match=rows.find(r=>r.color===color&&r.size===size);
   if(!match){toast('לא נמצא בקטלוג — הוסף ברקוד קודם');return;}
   const ok=await processTab1Barcode(match.barcode);
-  if(ok) toast('נוסף לסשן');
+  if(ok){
+    closeManualModal('morningManualModal');
+    toast('נוסף לסשן');
+  }
 }
 
 async function addManualMissing(){
@@ -5048,6 +6391,7 @@ async function addManualMissing(){
   $('manualMissingSize').value='';
   soundOk();
   if(res.session) upsertSessionCard(res.session);
+  closeManualModal('morningManualModal');
   toast('הפריט נוסף לקבוצת הבוקר');
 }
 
@@ -5056,6 +6400,12 @@ async function addManualMissing(){
 // ══════════════════════════════════════════════════════════
 let _whItems={};
 let _whAisleFilter='all';
+let _whPickAisle='all';
+let _whPickItemId=null;
+let _whPickProgressAisle='all';
+let _whPickProgressIds=new Set();
+let _whPickMotion='';
+let _whPickNavigating=false;
 
 function compareWhByTimeAsc(a,b){
   const ta=String(a.scanned_at||'');
@@ -5066,6 +6416,14 @@ function compareWhByTimeAsc(a,b){
 
 function getWhSortedItems(){
   return Object.values(_whItems).sort(compareWhByTimeAsc);
+}
+
+function formatWarehouseScanTime(value){
+  const text=String(value||'').trim();
+  const match=text.match(/(?:T|\s)(\d{2}:\d{2})(?::\d{2})?/);
+  if(match) return match[1];
+  const timeOnly=text.match(/^(\d{2}:\d{2})/);
+  return timeOnly ? timeOnly[1] : '';
 }
 
 function getWhAisleKey(item){
@@ -5139,6 +6497,206 @@ function selectWhAisle(aisle){
   renderWhQueue();
 }
 
+function getWarehousePickRows(){
+  return Object.values(_whItems)
+    .filter(item=>_whPickAisle==='all' || getWhAisleKey(item)===_whPickAisle)
+    .sort(_whPickAisle==='all' ? compareWhForSelectedAisle : compareWhForSelectedAisle);
+}
+
+function resetWarehousePickProgress(){
+  _whPickProgressAisle=_whPickAisle;
+  _whPickProgressIds=new Set(getWarehousePickRows().map(item=>Number(item.id)));
+}
+
+function getWarehousePickProgress(rows){
+  if(_whPickProgressAisle!==_whPickAisle) resetWarehousePickProgress();
+  rows.forEach(item=>_whPickProgressIds.add(Number(item.id)));
+  const remainingIds=new Set(rows.map(item=>Number(item.id)));
+  const total=_whPickProgressIds.size;
+  const remaining=[..._whPickProgressIds].filter(id=>remainingIds.has(id)).length;
+  const completed=Math.max(0,total-remaining);
+  return {total,remaining,completed,percent:total?Math.round((completed/total)*100):0};
+}
+
+function renderWarehousePickAisleFilter(){
+  const bar=$('warehousePickAisleFilter');
+  if(!bar) return;
+  const counts=new Map();
+  Object.values(_whItems).forEach(item=>{
+    const key=getWhAisleKey(item);
+    counts.set(key,(counts.get(key)||0)+1);
+  });
+  const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
+  if(counts.has('__none__')) keys.push('__none__');
+  if(_whPickAisle!=='all' && !counts.has(_whPickAisle)) _whPickAisle='all';
+  bar.innerHTML=`<div class="wh-aisle-filter-heading"><span class="wh-aisle-filter-title">בחירת שורת מחסן</span><span class="wh-aisle-filter-hint">הפריטים מוצגים לפי סדר המיקום</span></div><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
+  const options=[{key:'all',label:'הכול',count:Object.keys(_whItems).length},...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)}))];
+  const optionsBar=bar.querySelector('.wh-aisle-options');
+  options.forEach(option=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className=`wh-aisle-btn${option.key===_whPickAisle?' active':''}`;
+    button.setAttribute('aria-pressed',option.key===_whPickAisle?'true':'false');
+    button.innerHTML=`<span>${esc(option.label)}</span><span class="wh-aisle-count">${Number(option.count||0)}</span>`;
+    button.onclick=()=>{
+      _whPickAisle=option.key;
+      _whPickItemId=null;
+      resetWarehousePickProgress();
+      renderWarehousePicking();
+    };
+    optionsBar.appendChild(button);
+  });
+}
+
+function renderWarehousePicking(){
+  const content=$('warehousePickContent');
+  if(!content) return;
+  renderWarehousePickAisleFilter();
+  const rows=getWarehousePickRows();
+  const pickProgress=getWarehousePickProgress(rows);
+  if(!rows.length){
+    _whPickItemId=null;
+    content.innerHTML=pickProgress.total
+      ? renderPickCompletion('warehouse',pickProgress.total)
+      : '<div class="morning-pick-window-meta"><span>אין פריטים לליקוט</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:0%"></i></div></div><div class="morning-pick-empty">אין פריטים לליקוט בשורה שנבחרה</div>';
+    _whPickMotion='';
+    return;
+  }
+  let index=rows.findIndex(item=>Number(item.id)===Number(_whPickItemId));
+  if(index<0) index=0;
+  const item=rows[index];
+  _whPickItemId=item.id;
+  const media=item.image_url
+    ? `<img class="morning-pick-image" src="${esc(item.image_url)}" data-product-url="${esc(item.product_url||'')}" alt="תמונת דגם ${esc(item.sku)}" onerror="this.outerHTML='<div class=&quot;morning-pick-placeholder&quot;><i class=&quot;bi bi-image&quot;></i></div>'">`
+    : '<div class="morning-pick-placeholder"><i class="bi bi-image" aria-hidden="true"></i></div>';
+  const locationControl=item.location_hint
+    ? `<div class="warehouse-pick-location-summary"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>${esc(item.location_hint)}</span></div>`
+    : `<button class="warehouse-pick-location-summary is-missing-location" type="button" data-sku="${esc(item.sku)}" onclick="openMissingLocationFromPick(this)" aria-label="הוסף מיקום למק״ט ${esc(item.sku)}"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>ללא מיקום</span></button>`;
+  const pickMotionClass=_whPickMotion==='right'?' pick-slide-next':_whPickMotion==='left'?' pick-slide-previous':'';
+  content.innerHTML=`<div class="morning-pick-window-meta"><span>נותרו ${pickProgress.remaining} מתוך ${pickProgress.total}</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:${pickProgress.percent}%"></i></div></div><div class="morning-pick-card${pickMotionClass}">
+    <div class="morning-pick-top">
+      <div class="morning-pick-media">${media}</div>
+      <div class="morning-pick-details">
+        <div class="warehouse-pick-meta">
+          <span class="warehouse-scan-time warehouse-pick-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(item.scanned_at))}</span></span>
+        </div>
+        <div class="morning-pick-sku">${esc(item.sku)}</div>
+        <div class="morning-pick-color">צבע: ${esc(item.color)}</div>
+        <div class="warehouse-pick-size-summary"><span>מידה לליקוט</span><strong class="warehouse-pick-size">${esc(item.size).toUpperCase()}</strong></div>
+      </div>
+    </div>
+    <div class="morning-pick-lower">
+      <div class="morning-pick-sizes-title">מיקום במחסן</div>
+      ${locationControl}
+      ${item.is_approved_missing?'<div class="approved-missing-badge warehouse-pick-note">⚠️ ייתכן שחסר במלאי</div>':''}
+    </div>
+    <div class="morning-pick-actions warehouse-pick-actions">
+      <button class="btn-ghost pick-nav-btn" type="button" onclick="showPreviousWarehousePick()" title="לפריט הקודם" aria-label="לפריט הקודם"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+      <div class="pick-primary-actions">
+        <button class="btn-ok" type="button" onclick="confirmWarehousePickCurrent()"><i class="bi bi-check2-circle" aria-hidden="true"></i> נמצא</button>
+        <button class="btn-danger" type="button" onclick="markWarehousePickCurrentMissing()"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> חסר</button>
+      </div>
+      <button class="btn-ghost pick-nav-btn" type="button" onclick="showNextWarehousePick()" title="לפריט הבא" aria-label="לפריט הבא"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+    </div>
+  </div>`;
+  _whPickMotion='';
+}
+
+function openWarehousePickingModal(){
+  resetWarehousePickProgress();
+  renderWarehousePicking();
+  $('warehousePickingModal')?.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeWarehousePickingModal(){
+  $('warehousePickingModal')?.classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function handleWarehousePickingBackdrop(event){
+  if(event.target===$('warehousePickingModal')) closeWarehousePickingModal();
+}
+
+async function showNextWarehousePick(){
+  if(_whPickNavigating) return;
+  const rows=getWarehousePickRows();
+  if(!rows.length) return;
+  const index=rows.findIndex(item=>Number(item.id)===Number(_whPickItemId));
+  const targetId=rows[(Math.max(index,0)+1)%rows.length].id;
+  _whPickNavigating=true;
+  try{
+    await animatePickDeparture('warehousePickContent','right');
+    const latestRows=getWarehousePickRows();
+    const target=latestRows.find(item=>Number(item.id)===Number(targetId)) || latestRows[0];
+    if(!target) return renderWarehousePicking();
+    _whPickMotion='right';
+    _whPickItemId=target.id;
+    renderWarehousePicking();
+  }finally{
+    _whPickNavigating=false;
+  }
+}
+
+async function showPreviousWarehousePick(){
+  if(_whPickNavigating) return;
+  const rows=getWarehousePickRows();
+  if(!rows.length) return;
+  const index=rows.findIndex(item=>Number(item.id)===Number(_whPickItemId));
+  const targetId=rows[(index<=0?rows.length:index)-1].id;
+  _whPickNavigating=true;
+  try{
+    await animatePickDeparture('warehousePickContent','left');
+    const latestRows=getWarehousePickRows();
+    const target=latestRows.find(item=>Number(item.id)===Number(targetId)) || latestRows[latestRows.length-1];
+    if(!target) return renderWarehousePicking();
+    _whPickMotion='left';
+    _whPickItemId=target.id;
+    renderWarehousePicking();
+  }finally{
+    _whPickNavigating=false;
+  }
+}
+
+bindPickSwipeGesture('morningPickContent',showPreviousMorningPick,showNextMorningPick);
+bindPickSwipeGesture('warehousePickContent',showPreviousWarehousePick,showNextWarehousePick);
+
+async function confirmWarehousePickCurrent(){
+  if(_whPickNavigating) return;
+  const itemId=Number(_whPickItemId);
+  if(!itemId || !_whItems[itemId]) return;
+  _whPickNavigating=true;
+  try{
+    await animatePickDeparture('warehousePickContent','right');
+    _whPickMotion='right';
+    const completed=await markPicked(itemId);
+    if(!completed){
+      _whPickMotion='';
+      renderWarehousePicking();
+    }
+  }finally{
+    _whPickNavigating=false;
+  }
+}
+
+async function markWarehousePickCurrentMissing(){
+  if(_whPickNavigating) return;
+  const itemId=Number(_whPickItemId);
+  if(!itemId || !_whItems[itemId]) return;
+  _whPickNavigating=true;
+  try{
+    await animatePickDeparture('warehousePickContent','right');
+    _whPickMotion='right';
+    const completed=await markWarehouseMissing(itemId);
+    if(!completed){
+      _whPickMotion='';
+      renderWarehousePicking();
+    }
+  }finally{
+    _whPickNavigating=false;
+  }
+}
+
 function renderLastScannedWh(item){
   const card=$('lastScannedWhCard');
   if(!item){
@@ -5147,64 +6705,78 @@ function renderLastScannedWh(item){
     return;
   }
   card.style.display='block';
+  const productImage=item.image_url
+    ? `<img class="product-thumb product-thumb-lg" src="${esc(item.image_url)}" data-product-url="${esc(item.product_url||'')}" alt="תמונת דגם ${esc(item.sku)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;product-thumb product-thumb-lg product-thumb-placeholder&quot;><i class=&quot;bi bi-image&quot;></i></span>'">`
+    : '<span class="product-thumb product-thumb-lg product-thumb-placeholder"><i class="bi bi-image" aria-hidden="true"></i></span>';
   card.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-      <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="small" style="color:var(--accent);font-weight:800;font-size:13px" id="lastScannedWhLabel">הפריט האחרון שנסרק</div>
-        <div style="font-size:22px;font-weight:900">${esc(item.sku)} · ${esc(item.color)} · ${esc(item.size).toUpperCase()}</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          ${item.location_hint ? `<span class="locHintBadge">📍 ${esc(item.location_hint)}</span>` : ``}
-          ${item.is_approved_missing ? `<span class="approved-missing-badge">⚠️ ייתכן שחסר במלאי</span>` : ``}
-          <span class="small" style="font-weight:700">${esc(item.scanned_at||'')}</span>
-        </div>
+    <div class="last-scanned-layout">
+      <div class="last-scanned-details">
+          <div class="last-scanned-eyebrow" id="lastScannedWhLabel"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> הפריט האחרון שנסרק</div>
+          <div class="last-scanned-product">
+            <strong class="last-scanned-sku">${esc(item.sku)}</strong>
+            <span class="last-scanned-variant">${esc(item.color)} · ${esc(item.size).toUpperCase()}</span>
+          </div>
+          ${item.image_url && !item.image_is_exact ? `<div class="product-image-note">תמונת דגם · הצבע להמחשה</div>` : ``}
+          <div class="last-scanned-meta">
+            ${item.is_approved_missing ? `<span class="approved-missing-badge">⚠️ ייתכן שחסר במלאי</span>` : ``}
+            <span class="warehouse-scan-time last-scanned-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(item.scanned_at))}</span></span>
+          </div>
       </div>
-      <div style="display:flex;align-items:flex-start">
+      <div class="last-scanned-media">${productImage}</div>
+      <div class="last-scanned-action">
         <button class="btn-danger" type="button" onclick="undoLastWarehouseScan()">ביטול סריקה אחרונה</button>
       </div>
     </div>`;
 }
 
 function renderWhQueue(){
-  renderWhAisleFilter();
   const allRows=getWhSortedItems();
-  const rows=getWhVisibleSortedItems();
+  const rows=[...allRows].reverse();
   const latest=allRows.length ? allRows[allRows.length-1] : null;
   renderLastScannedWh(latest);
 
   const el=$('missingWhList');
   if(!rows.length){
-    el.innerHTML=`<div class="small wh-empty-state">${_whAisleFilter==='all'?'אין כרגע פריטים ממתינים בתור 🎉':'אין פריטים בשורה שנבחרה'}</div>`;
+    el.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים 🎉</div>';
+    if($('warehousePickingModal')?.classList.contains('open')) renderWarehousePicking();
     return;
   }
   el.innerHTML='';
   rows.forEach(r=>el.appendChild(makeWhRow(r)));
+  if($('warehousePickingModal')?.classList.contains('open')) renderWarehousePicking();
 }
 
 async function loadMissingWh(){
   const rows=await GET('/api/missing-warehouse');
+  if(_missingWarehouseLoaded && rowsStateSignature(rows)===rowsStateSignature(Object.values(_whItems))) return false;
+  _missingWarehouseLoaded=true;
   _whItems={};
   rows.forEach(r=>{ _whItems[r.id]=r; });
   renderWhQueue();
   updateStat2();
+  return true;
 }
 
 function makeWhRow(r){
   const div=document.createElement('div');
   div.className='kv'; div.dataset.id=r.id;
+  const productImage=r.image_url
+    ? `<img class="product-thumb" src="${esc(r.image_url)}" data-product-url="${esc(r.product_url||'')}" alt="תמונת דגם ${esc(r.sku)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;product-thumb product-thumb-placeholder&quot;><i class=&quot;bi bi-image&quot;></i></span>'">`
+    : '<span class="product-thumb product-thumb-placeholder"><i class="bi bi-image" aria-hidden="true"></i></span>';
   div.innerHTML=`
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <b>${esc(r.sku)}</b> · ${esc(r.color)} · <b>${esc(r.size).toUpperCase()}</b>
+    <div class="wh-item-main">
+      ${productImage}
+      <div class="wh-item-copy">
+        <div class="warehouse-queue-product-line">
+          <span class="warehouse-queue-identity"><b>${esc(r.sku)}</b> · ${esc(r.color)} · <b>${esc(r.size).toUpperCase()}</b></span>
+          <span class="warehouse-scan-time warehouse-queue-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(r.scanned_at))}</span></span>
+        </div>
         ${r.is_approved_missing ? `<span class="approved-missing-badge">⚠️ ייתכן שחסר במלאי</span>` : ``}
+        ${r.image_url && !r.image_is_exact ? `<div class="product-image-note">תמונת דגם · הצבע להמחשה</div>` : ``}
       </div>
-      ${r.location_hint ? `<div><span class="locHintBadge">📍 ${esc(r.location_hint)}</span></div>` : ``}
-      <div class="small">${r.scanned_at}</div>
     </div>
-    <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
-      <button class="btn-ok" style="padding:5px 10px;font-size:12px"
-              onclick="markPicked(${r.id})">לוקט</button>
-      <button class="btn-danger" style="padding:5px 10px;font-size:12px"
-              onclick="markWarehouseMissing(${r.id})">חסר</button>
+    <div class="wh-item-actions">
+      <button class="btn-ghost warehouse-cancel-scan" type="button" onclick="cancelWarehouseScan(${r.id})">ביטול סריקה</button>
     </div>`;
   return div;
 }
@@ -5216,7 +6788,7 @@ function syncWhEmptyState(){
   if(hasRows){
     empty?.remove();
   }else if(!empty){
-    list.innerHTML=`<div class="small wh-empty-state">${_whAisleFilter==='all'?'אין כרגע פריטים ממתינים בתור 🎉':'אין פריטים בשורה שנבחרה'}</div>`;
+    list.innerHTML='<div class="small wh-empty-state">אין כרגע פריטים ממתינים 🎉</div>';
   }
 }
 
@@ -5227,18 +6799,10 @@ function placeWhItem(item){
   const existing=list.querySelector(`.kv[data-id="${Number(item.id)}"]`);
   existing?.remove();
 
-  if(renderWhAisleFilter()){
-    renderWhQueue();
-    return;
-  }
-  if(!whItemMatchesAisle(item)){
-    syncWhEmptyState();
-    return;
-  }
   const row=makeWhRow(item);
 
   const nextRow=Array.from(list.querySelectorAll('.kv[data-id]'))
-    .find(el=>(_whAisleFilter==='all' ? compareWhByTimeAsc : compareWhForSelectedAisle)(item,_whItems[el.dataset.id])<0);
+    .find(el=>compareWhByTimeAsc(item,_whItems[el.dataset.id])>0);
   list.insertBefore(row,nextRow||null);
   syncWhEmptyState();
 }
@@ -5246,15 +6810,11 @@ function placeWhItem(item){
 function removeWhItem(id){
   delete _whItems[id];
   $('missingWhList').querySelector(`.kv[data-id="${Number(id)}"]`)?.remove();
-  if(renderWhAisleFilter()){
-    renderWhQueue();
-    updateStat2();
-    return;
-  }
   syncWhEmptyState();
   const rows=getWhSortedItems();
   renderLastScannedWh(rows.length ? rows[rows.length-1] : null);
   updateStat2();
+  if($('warehousePickingModal')?.classList.contains('open')) renderWarehousePicking();
 }
 
 function appendWhItem(item){
@@ -5271,33 +6831,44 @@ function appendWhItem(item){
 }
 
 async function markRestocked(id){
-  await POST(`/api/missing-warehouse/${id}/restock`);
+  const res=await POST(`/api/missing-warehouse/${id}/restock`);
+  if(res?.error) return false;
   removeWhItem(id);
+  return true;
 }
 
 async function markPicked(id){
-  await markRestocked(id);
+  const completed=await markRestocked(id);
+  if(!completed) return false;
   toast('סומן כלוקט');
+  return true;
+}
+
+async function cancelWarehouseScan(id){
+  await markRestocked(id);
+  toast('הסריקה בוטלה');
 }
 
 async function markWarehouseMissing(id){
   const res = await POST(`/api/missing-warehouse/${id}/missing`);
   if(res?.error){
     toast('לא הצלחתי להעביר לחוסר הכללי');
-    return;
+    return false;
   }
   removeWhItem(id);
   loadMissingFloor();
   toast('הועבר לחוסר הכללי');
+  return true;
 }
 
 function updateStat2(){
   const total=getWhSortedItems().length;
   $('stat2Pending').textContent=total;
+  if($('warehousePickingCount')) $('warehousePickingCount').textContent=total;
 }
 
 async function clearMissingWh(){
-  if(!confirm('לנקות את כל הממתינים?'))return;
+  if(!confirm('ניקוי רשימת השלמות מכר\n\nפעולה זו תמחק את כל הסריקות הממתינות לליקוט. האם להמשיך?'))return;
   await POST('/api/missing-warehouse/clear');
   _whItems={};
   renderWhQueue();
@@ -5368,6 +6939,7 @@ async function manualScan2(){
   if(res.item && !res.already_pending) appendWhItem(res.item);
   $('man2Sku').value='';$('man2Color').value='';$('man2Size').value='';
   $('colorDropdown').style.display='none';
+  closeManualModal('warehouseManualModal');
   $('lastScan2').textContent=res.already_pending
     ? `כבר נמצא ברשימה: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`
     : `נוסף: ${res.item.sku}/${res.item.color}/${res.item.size.toUpperCase()}`;
@@ -5377,15 +6949,48 @@ async function manualScan2(){
 
 // ── Autocomplete colors for Tab2 ─────────────────────────
 let _colorTimer=null;
+let _manualColorOptions=[];
+
+function filterManualColorOptions(){
+  const input=$('man2Color');
+  const dd=$('colorDropdown');
+  if(!input || !dd || !_manualColorOptions.length){
+    if(dd) dd.style.display='none';
+    return;
+  }
+  const query=String(input.value||'').trim().toLocaleLowerCase('he');
+  const matches=_manualColorOptions.filter(color=>String(color).toLocaleLowerCase('he').includes(query));
+  dd.innerHTML='';
+  if(!matches.length){
+    dd.innerHTML='<div class="small" style="padding:9px 12px">לא נמצאו צבעים מתאימים</div>';
+    dd.style.display='block';
+    return;
+  }
+  matches.forEach(color=>{
+    const option=document.createElement('button');
+    option.type='button';
+    option.className='btn-ghost';
+    option.style.cssText='display:block;width:100%;padding:8px 12px;border:0;border-radius:0;text-align:right;box-shadow:none';
+    option.textContent=color;
+    option.addEventListener('click',()=>selectColor(color));
+    dd.appendChild(option);
+  });
+  dd.style.display='block';
+}
+
 async function loadColorsForSku(sku,colorInputId,sizeSelectId){
   clearTimeout(_colorTimer);
   _colorTimer=setTimeout(async()=>{
-    if(!sku.trim()){$('colorDropdown').style.display='none';return;}
-    const colors=await GET(`/api/barcodes/colors?sku=${encodeURIComponent(sku.trim())}`);
-    const dd=$('colorDropdown');
-    if(!colors.length){dd.style.display='none';return;}
-    dd.innerHTML=colors.map(c=>`<div style="padding:8px 12px;cursor:pointer" onclick="selectColor('${esc(c)}')">${esc(c)}</div>`).join('');
-    dd.style.display='block';
+    const normalizedSku=sku.trim();
+    if(!normalizedSku){
+      _manualColorOptions=[];
+      $('colorDropdown').style.display='none';
+      return;
+    }
+    const colors=await GET(`/api/barcodes/colors?sku=${encodeURIComponent(normalizedSku)}`);
+    if($('man2Sku').value.trim()!==normalizedSku) return;
+    _manualColorOptions=Array.isArray(colors)?colors:[];
+    filterManualColorOptions();
   },300);
 }
 
@@ -5410,10 +7015,94 @@ document.addEventListener('click',e=>{
     $('colorDropdown').style.display='none';
 });
 
+const PRODUCT_IMAGE_SELECTOR='img.product-thumb,img.morning-pick-image,img.locProductImage';
+let _productImageLastTapAt=0;
+let _productImageLastTapTarget=null;
+let _productImageSingleTapTimer=null;
+let _productImagePreviousOverflow='';
+
+function openProductImageLightbox(image){
+  if(!image?.src) return;
+  const overlay=$('productImageLightbox');
+  const largeImage=$('productImageLightboxImage');
+  largeImage.src=image.currentSrc||image.src;
+  largeImage.alt=image.alt||'תמונת מוצר מוגדלת';
+  _productImagePreviousOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  overlay.classList.add('open');
+  overlay.querySelector('.product-image-lightbox-close')?.focus({preventScroll:true});
+}
+
+function closeProductImageLightbox(){
+  const overlay=$('productImageLightbox');
+  if(!overlay?.classList.contains('open')) return;
+  overlay.classList.remove('open');
+  document.body.style.overflow=_productImagePreviousOverflow;
+  setTimeout(()=>{
+    if(!overlay.classList.contains('open')) $('productImageLightboxImage').removeAttribute('src');
+  },320);
+}
+
+function handleProductImageLightboxBackdrop(event){
+  if(event.target===$('productImageLightbox')) closeProductImageLightbox();
+}
+
+document.addEventListener('click',event=>{
+  const image=event.target.closest?.(PRODUCT_IMAGE_SELECTOR);
+  if(!image) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const now=Date.now();
+  const isDoubleTap=image===_productImageLastTapTarget && now-_productImageLastTapAt<=360;
+  clearTimeout(_productImageSingleTapTimer);
+  if(isDoubleTap){
+    _productImageLastTapAt=0;
+    _productImageLastTapTarget=null;
+    const productUrl=String(image.dataset.productUrl||'').trim();
+    if(productUrl){
+      window.open(productUrl,'_blank','noopener');
+    }else{
+      openProductImageLightbox(image);
+    }
+    return;
+  }
+  _productImageLastTapAt=now;
+  _productImageLastTapTarget=image;
+  _productImageSingleTapTimer=setTimeout(()=>{
+    openProductImageLightbox(image);
+    _productImageLastTapAt=0;
+    _productImageLastTapTarget=null;
+  },370);
+},true);
+
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
+  if($('pageHelpModal')?.classList.contains('open')){
+    closePageHelp();
+    return;
+  }
+  if($('productImageLightbox')?.classList.contains('open')){
+    closeProductImageLightbox();
+    return;
+  }
   if($('cameraOverlay').classList.contains('open')){
     closeCameraScanner();
+    return;
+  }
+  if($('morningPickingModal')?.classList.contains('open')){
+    closeMorningPickingModal();
+    return;
+  }
+  if($('warehousePickingModal')?.classList.contains('open')){
+    closeWarehousePickingModal();
+    return;
+  }
+  if($('morningManualModal')?.classList.contains('open')){
+    closeManualModal('morningManualModal');
+    return;
+  }
+  if($('warehouseManualModal')?.classList.contains('open')){
+    closeManualModal('warehouseManualModal');
     return;
   }
   if($('locationModal').classList.contains('open')) closeLocationModal();
@@ -5421,12 +7110,16 @@ document.addEventListener('keydown',e=>{
 
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='visible'){
-    ensureRealtimeConnected({forceSync:true});
+    ensureRealtimeConnected();
+    syncRealtimeState({force:true});
   }
 });
 
-window.addEventListener('focus', ()=>{ ensureRealtimeConnected({forceSync:true}); });
-window.addEventListener('online', ()=>{ ensureRealtimeConnected({forceSync:true}); });
+window.addEventListener('focus', ()=>{ ensureRealtimeConnected(); });
+window.addEventListener('online', ()=>{
+  ensureRealtimeConnected();
+  syncRealtimeState({force:true});
+});
 window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopRealtimeSyncTimer(); });
 
 // ══════════════════════════════════════════════════════════
@@ -5437,6 +7130,12 @@ let _locationModalStage='sku';
 let _locationScanItemBarcode='';
 let _locationStageChangedAt=0;
 let _locationSaveBusy=false;
+
+function openMissingLocationFromPick(control){
+  const sku=String(control?.dataset?.sku||'').trim();
+  if(!sku) return;
+  openLocationModal(sku,'');
+}
 
 function setLocationModalMessage(message='', tone=''){
   const node=$('locFormMsg');
@@ -5454,7 +7153,7 @@ function setLocationModalStage(stage){
   $('locationValueField').classList.toggle('is-current', isLocation);
 }
 
-function resetLocationModalForNext(){
+async function resetLocationModalForNext(){
   $('locFormSku').value='';
   $('locFormLoc').value='';
   _locationScanItemBarcode='';
@@ -5463,6 +7162,7 @@ function resetLocationModalForNext(){
   setLocationModalMessage('');
   setLocationModalStage('sku');
   setTimeout(()=>$('locFormSku').focus(), 30);
+  await openLocationWorkflowScanner('sku');
 }
 
 async function openLocationModal(sku='', location=''){
@@ -5576,6 +7276,7 @@ async function handleLocationWorkflowBarcode(rawCode){
     _cameraCooldownUntil=Date.now()+1600;
     setCameraGuide('סרוק עכשיו ברקוד מיקום', 'ברקוד הפריט נקלט — ממתין למיקום');
     setCameraStatus(`המק״ט ${sku} נקלט. סרוק כעת את ברקוד המיקום.`);
+    $('locFormLoc').focus();
     return true;
   }
   if(code===_locationScanItemBarcode || (Date.now()-_locationStageChangedAt<1400 && code===_cameraLastValue)){
@@ -5583,11 +7284,9 @@ async function handleLocationWorkflowBarcode(rawCode){
     return true;
   }
   $('locFormLoc').value=code;
-  setLocationModalMessage(`המיקום ${code} נקלט. אפשר לתקן ידנית או לשמור.`, 'success');
+  setLocationModalMessage(`המיקום ${code} נקלט. שומר אוטומטית...`, 'success');
   await closeCameraScanner();
-  $('locFormLoc').focus();
-  $('locFormLoc').select();
-  return true;
+  return await upsertLocation();
 }
 
 async function doLocSearch(){
@@ -5599,6 +7298,8 @@ async function doLocSearch(){
   const locationLabel=$('locResultLocationLabel');
   const skuValue=$('locResultSku');
   const editButton=$('locResultEditBtn');
+  const productImage=$('locProductImage');
+  const productLink=$('locProductLink');
 
   let resolvedSku=rawValue;
   let foundViaBarcode=false;
@@ -5623,6 +7324,22 @@ async function doLocSearch(){
   }
 
   skuValue.textContent=resolvedSku;
+  const imageUrl=!locationRes.error ? String(locationRes.image_url||'') : '';
+  if(imageUrl){
+    productImage.src=imageUrl;
+    productImage.alt=`תמונת דגם ${resolvedSku}`;
+    productImage.dataset.productUrl=String(locationRes.product_url||'');
+    productImage.hidden=false;
+    productLink.href=String(locationRes.product_url||imageUrl);
+    productLink.hidden=false;
+    box.classList.add('has-product-image');
+  }else{
+    productImage.removeAttribute('src');
+    delete productImage.dataset.productUrl;
+    productImage.hidden=true;
+    productLink.hidden=true;
+    box.classList.remove('has-product-image');
+  }
   if(locationRes.error){
     _lastLocationSearchResult={sku:resolvedSku,location:''};
     editButton.textContent='הוסף מיקום';
@@ -5746,19 +7463,19 @@ $('locListSearch').addEventListener('keydown',e=>{
 });
 
 async function upsertLocation(){
-  if(_locationSaveBusy) return;
+  if(_locationSaveBusy) return false;
   const sku=$('locFormSku').value.trim(),location=$('locFormLoc').value.trim();
   if(!sku||!location){
     setLocationModalMessage('יש למלא מק״ט ומיקום לפני השמירה.', 'error');
     (sku ? $('locFormLoc') : $('locFormSku')).focus();
-    return;
+    return false;
   }
   _locationSaveBusy=true;
   try{
     const result=await POST('/api/locations',{sku,location});
     if(result.error){
       setLocationModalMessage('לא ניתן היה לשמור את המיקום. נסה שוב.', 'error');
-      return;
+      return false;
     }
     setLocationModalMessage(`המק״ט ${sku} נשמר במיקום ${location}.`, 'success');
     $('locationModalActions').hidden=true;
@@ -5766,6 +7483,7 @@ async function upsertLocation(){
     toast('המיקום נשמר בהצלחה');
     await loadLocTable();
     if(($('locSearchSku').value||'').trim()) await doLocSearch();
+    return true;
   }finally{
     _locationSaveBusy=false;
   }
@@ -5776,7 +7494,7 @@ async function deleteLoc(sku){
 }
 
 async function wipeLocations(){
-  if(!confirm('למחוק את כל המיקומים?'))return;
+  if(!confirm('מחיקת רשימת המיקומים\n\nפעולה זו תמחק את כל מיקומי הסניף. האם להמשיך?'))return;
   const rows=await GET('/api/locations');
   for(const r of rows) await DELETE(`/api/locations/${r.sku}`);
   toast('נוקה'); loadLocTable();
@@ -5786,7 +7504,7 @@ async function importLocations(){
   const f=$('locFileInput').files[0];
   if(!f) return toast('בחר קובץ JSON');
   const fd=new FormData(); fd.append('file',f);
-  const res=await fetch('/api/locations/import/json',{method:'POST',body:fd}).then(r=>r.json());
+  const res=await uploadForm('/api/locations/import/json',fd);
   const msg=$('locImportMsg');
   msg.textContent=`יובאו ${res.inserted||0}, דולגו ${res.skipped||0}`;
   msg.style.display='block';
@@ -5942,7 +7660,7 @@ async function importBarcodes(){
   const f=$('bcImportFile').files[0];
   if(!f) return toast('בחר קובץ CSV');
   const fd=new FormData(); fd.append('file',f);
-  const res=await fetch('/api/barcodes/import',{method:'POST',body:fd}).then(r=>r.json());
+  const res=await uploadForm('/api/barcodes/import',fd);
   const msg=$('bcImportMsg');
   msg.textContent=`יובאו: ${res.inserted||0} | דולגו (אין מיקום): ${res.skipped_no_location||0} | שגיאות: ${res.skipped_error||0}`;
   msg.style.display='block';
@@ -5964,6 +7682,11 @@ document.addEventListener('keydown',e=>{
       const activeTab=document.querySelector('.tab.active')?.dataset.tab||'t1';
       if(activeTab==='t4'){
         processTab4Barcode(code);
+      }else if(activeTab==='t3'){
+        const input=$('locSearchSku');
+        input.value=code;
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        doLocSearch();
       }else{
         const inp=$(activeTab==='t2'?'scanInput2':'scanInput1');
         inp.value=code;
