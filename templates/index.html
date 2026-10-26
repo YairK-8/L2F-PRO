@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-morning-page-98", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-morning-search-99", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2528,11 +2528,13 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t1 .morning-open-picking-btn{flex:0 0 auto;min-height:45px;margin:0;border-radius:12px;font-size:14px}
   #t1 .morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
   #t1 .morning-search-divider{display:none}
-  #t1 .morning-search-shell.is-open{height:40px;margin:0 0 1px}
-  #t1 .morning-search-row{min-height:40px;gap:3px;padding:2px 3px;border:1px solid #e9e4de;border-radius:11px;background:#fff}
+  #t1 .morning-list-surface{min-height:0;overflow:hidden;border:1px solid #e8e1d9;border-radius:15px;background:rgba(255,255,255,.78);box-shadow:0 5px 16px rgba(76,56,38,.045)}
+  #t1 .morning-search-shell.is-open{height:41px;margin:0}
+  #t1 .morning-search-row{min-height:41px;gap:3px;padding:2px 3px;border:0;border-bottom:1px solid #eee7df;border-radius:0;background:rgba(255,250,245,.92)}
   #t1 .morning-search-row input{height:34px;min-height:34px;padding:5px 7px;border:0!important;background:transparent;box-shadow:none!important;font-size:11px}
-  #t1 .morning-search-row .camera-btn,#t1 .morning-search-clear{width:33px;height:33px;min-width:33px;min-height:33px;padding:0;border:0;background:transparent;border-radius:9px}
-  #t1 .morning-sessions-scroll{min-height:96px;height:var(--morning-list-height,210px);max-height:var(--morning-list-height,210px);padding:3px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.72);overscroll-behavior-y:contain}
+  #t1 .morning-search-row .camera-btn,#t1 .morning-search-clear{width:33px;height:33px;min-width:33px;min-height:33px;padding:0;border:0;background:rgba(255,255,255,.72);border-radius:9px}
+  #t1 .morning-search-row:focus-within{background:#fff8f1;box-shadow:inset 3px 0 0 #f07820}
+  #t1 .morning-sessions-scroll{min-height:96px;height:var(--morning-list-height,210px);max-height:var(--morning-list-height,210px);padding:3px 5px;border:0;border-radius:0;background:transparent;overscroll-behavior-y:contain}
   #t1 .morning-sessions-scroll .session-card{min-height:54px;margin:0;padding:6px 3px;border:0;border-bottom:1px solid #eeeae5;border-radius:0;background:transparent;box-shadow:none}
   #t1 .morning-sessions-scroll .session-card:last-child{border-bottom:0}
   #t1 .morning-sessions-scroll .session-header{gap:5px;margin-bottom:3px}
@@ -2655,14 +2657,16 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </button>
 
           <div class="divider morning-search-divider"></div>
-          <div id="morningSearchShell" class="morning-search-shell is-open">
-            <div id="morningSearchRow" class="scanbox morning-search-row">
-              <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="applyMorningSessionSearch()"/>
-              <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('morningSkuSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
-              <button class="btn-ghost morning-search-clear" type="button" onclick="clearMorningSessionSearch()" title="נקה חיפוש" aria-label="נקה חיפוש"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+          <div class="morning-list-surface">
+            <div id="morningSearchShell" class="morning-search-shell is-open">
+              <div id="morningSearchRow" class="scanbox morning-search-row">
+                <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="applyMorningSessionSearch()"/>
+                <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('morningSkuSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+                <button class="btn-ghost morning-search-clear" type="button" onclick="clearMorningSessionSearch()" title="נקה חיפוש" aria-label="נקה חיפוש"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+              </div>
             </div>
+            <div id="sessionsContainer" class="morning-sessions-scroll"></div>
           </div>
-          <div id="sessionsContainer" class="morning-sessions-scroll"></div>
 
           <div class="actions morning-panel-actions replenishment-list-actions">
             <button class="btn-accent" onclick="exportMorningMissingOnly()">יצוא לקובץ</button>
