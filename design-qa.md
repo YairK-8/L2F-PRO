@@ -10,7 +10,7 @@
 
 ## Full-view comparison evidence
 
-Blocked at authentication. The live server responds successfully and serves version `20261026-sales-page-90`, but a same-state rendered capture could not be made without a branch login.
+Blocked at authentication. The live server responds successfully and serves version `20261026-sales-page-91`, but a same-state rendered capture could not be made without a branch login.
 
 ## Focused region comparison evidence
 
@@ -35,6 +35,7 @@ Blocked for the same reason. Source regions reviewed: page heading and scan fiel
 
 - Pass 1: source visual opened and measured; live implementation could not be captured in the same authenticated state.
 - Pass 2: user-supplied live screenshot revealed an expanding queue and a hard image edge. The queue was fixed to a 132 px scroll viewport and a white image fade was added; authenticated post-fix capture remains unavailable.
+- Pass 3: user-supplied live screenshot showed unused lower space and off-center details. The internal queue viewport was increased to 190 px and all text/meta elements were centered within the white half of the scanned-item card.
 
 ## Final result
 
