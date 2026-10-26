@@ -1,15 +1,15 @@
 # Design QA — Picking card
 
-Source: `IMG_2099.png` and the selected product-first card direction from the referenced “עיצוב דף ליקוט” conversation.
+Source: `codex-clipboard-55431967-3f33-4787-8e0c-70d86545f0f0.png` — the compact, full-height mobile picking card selected by the user.
 
 ## Implemented
 
-- Large product image at the top of both picking cards.
-- Soft image-to-white transition into the details area.
-- SKU, color, and (for sales picking) size on one centered line.
-- Warehouse location directly below the product details.
-- Navigation and found/missing actions anchored at the bottom of the card.
-- Responsive mobile sizing and matching dark-mode treatment.
+- Full-height, edge-to-edge picking card with no segmented inner card.
+- Compact title and a single row for aisle filters plus remaining count.
+- Product image fills the available card body.
+- Product details and location sit over the image-to-white transition.
+- Navigation and found/missing actions stay in a compact bottom row.
+- The same responsive structure is used for morning and sales picking.
 
 ## Verification
 

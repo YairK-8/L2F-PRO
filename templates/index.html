@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-picking-card-85", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-picking-card-86", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2409,14 +2409,22 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
 }
 
 /* Picking card — large product-first layout */
-:is(#morningPickingModal,#warehousePickingModal) .morning-pick-card{overflow:hidden;background:#fff}
-:is(#morningPickingModal,#warehousePickingModal) .morning-pick-top{display:flex;flex-direction:column;gap:0;padding:0;position:relative}
-:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{position:relative;width:100%;height:clamp(270px,45vh,410px);min-width:0;border-radius:0;background:#f1efec;overflow:hidden}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{display:flex;flex-direction:column;overflow:hidden}
+:is(#morningPickingModal,#warehousePickingModal) .morning-picking-head{flex:0 0 auto}
+:is(#morningPickingModal,#warehousePickingModal) .wh-aisle-filter{flex:0 0 auto;margin-bottom:8px}
+:is(#morningPickingModal,#warehousePickingModal) .pick-filter-row{display:flex;align-items:center;justify-content:space-between;gap:10px;direction:rtl}
+:is(#morningPickingModal,#warehousePickingModal) .pick-filter-row .wh-aisle-options{flex:1;min-width:0}
+:is(#morningPickingModal,#warehousePickingModal) .pick-filter-remaining{flex:0 0 auto;color:#77746f;font-size:11px;font-weight:850;white-space:nowrap}
+:is(#morningPickingModal,#warehousePickingModal) :is(#morningPickContent,#warehousePickContent){display:flex;flex:1 1 auto;min-height:0;flex-direction:column}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-window-meta{display:none}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-card{display:flex;flex:1 1 auto;min-height:0;overflow:hidden;background:#fff;border:0;border-radius:15px}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-top{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;gap:0;padding:0;position:relative}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{position:relative;flex:1 1 auto;width:100%;height:auto;min-height:260px;min-width:0;border-radius:0;background:#f1efec;overflow:hidden}
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media::after{content:"";position:absolute;z-index:1;inset:auto 0 0;height:38%;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 88%);pointer-events:none}
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media .morning-pick-image,
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media .morning-pick-placeholder{width:100%;height:100%;aspect-ratio:auto;border-radius:0;object-fit:cover;object-position:center 18%}
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-time{position:absolute;z-index:2;top:14px;right:14px;background:rgba(255,255,255,.9);border-color:rgba(30,30,30,.1);box-shadow:0 5px 18px rgba(0,0,0,.08);backdrop-filter:blur(8px)}
-:is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{position:relative;z-index:2;width:100%;margin-top:-58px;padding:28px 18px 18px;align-items:center;text-align:center;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 32%)}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{position:absolute;z-index:2;inset:auto 0 0;width:100%;margin:0;padding:86px 18px 15px;align-items:center;text-align:center;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 58%)}
 :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary{display:flex;align-items:baseline;justify-content:center;gap:8px;max-width:100%;direction:rtl;white-space:nowrap}
 :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary .morning-pick-sku{font-size:clamp(31px,7vw,46px);line-height:1;font-weight:950}
 :is(#morningPickingModal,#warehousePickingModal) .pick-product-divider{color:#b2ada6;font-size:18px;font-weight:800}
@@ -2425,20 +2433,30 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
 :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#171717}
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details :is(.morning-pick-location,.warehouse-pick-location-summary){width:auto;min-width:min(100%,230px);max-width:100%;margin-top:14px;justify-content:center;text-align:center}
 :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details .warehouse-pick-note{margin:10px 0 0}
-#warehousePickingModal .morning-pick-actions{border-top:1px solid #eee9e3}
+#warehousePickingModal .morning-pick-actions{flex:0 0 auto;border-top:0;background:#fff}
+#morningPickingModal .morning-pick-lower{flex:0 0 auto}
 body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{background:linear-gradient(to bottom,rgba(20,20,20,0),#141414 32%)}
 body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media::after{background:linear-gradient(to bottom,rgba(20,20,20,0),#141414 88%)}
 body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#f4f4f1}
 @media(max-width:640px){
-  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{padding:16px;max-height:96vh}
-  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{height:clamp(245px,39vh,330px)}
-  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{margin-top:-50px;padding:24px 13px 14px}
+  :is(#morningPickingModal,#warehousePickingModal).morning-picking-overlay{padding:3px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{width:100%;height:min(calc(100dvh - 6px),780px);max-height:calc(100dvh - 6px);padding:8px;border-radius:18px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-head{min-height:43px;margin-bottom:4px;padding:0 5px 5px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-head h3{font-size:18px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-close{width:33px;height:33px;min-width:33px;font-size:18px}
+  :is(#morningPickingModal,#warehousePickingModal) .wh-aisle-filter{margin:0 4px 7px;padding:0}
+  :is(#morningPickingModal,#warehousePickingModal) .wh-aisle-btn{min-width:57px;min-height:34px;padding:4px 8px;border-radius:11px;font-size:12px}
+  :is(#morningPickingModal,#warehousePickingModal) .wh-aisle-count{min-width:20px;height:20px;padding:0 5px}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{min-height:0}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{padding:86px 11px 12px}
   :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary{gap:6px}
   :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary .morning-pick-sku{font-size:30px}
   :is(#morningPickingModal,#warehousePickingModal) .pick-product-color,
   :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{font-size:14px}
-  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-lower{padding:12px 13px}
-  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions{padding:12px 13px 13px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-lower{padding:8px 10px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions{grid-template-columns:40px minmax(0,1fr) 40px;gap:5px;padding:7px 6px 6px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions button{min-height:42px;border-radius:11px}
+  :is(#morningPickingModal,#warehousePickingModal) .warehouse-pick-actions .pick-primary-actions{gap:5px}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -5763,7 +5781,7 @@ function getMorningPickProgress(rows){
   return {total,remaining,completed,percent:total?Math.round((completed/total)*100):0};
 }
 
-function renderMorningPickAisleFilter(){
+function renderMorningPickAisleFilter(progress){
   const bar=$('morningPickAisleFilter');
   if(!bar) return;
   const counts=new Map();
@@ -5774,7 +5792,7 @@ function renderMorningPickAisleFilter(){
   const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
   if(counts.has('__none__')) keys.push('__none__');
   if(_morningPickAisle!=='all' && !counts.has(_morningPickAisle)) _morningPickAisle='all';
-  bar.innerHTML=`<div class="wh-aisle-filter-heading"><span class="wh-aisle-filter-title">בחירת שורת מחסן</span><span class="wh-aisle-filter-hint">הפריטים מוצגים לפי סדר המיקום</span></div><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
+  bar.innerHTML=`<div class="pick-filter-row"><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div><span class="pick-filter-remaining">נותרו ${Number(progress?.remaining||0)} מתוך ${Number(progress?.total||0)}</span></div>`;
   const options=[{key:'all',label:'הכול',count:Object.keys(_sessions).length},...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)}))];
   const optionsBar=bar.querySelector('.wh-aisle-options');
   options.forEach(option=>{
@@ -5811,9 +5829,9 @@ function renderMorningPicking(){
   if(_suspendMorningPickRender) return;
   const content=$('morningPickContent');
   if(!content) return;
-  renderMorningPickAisleFilter();
   const rows=getMorningPickRows();
   const pickProgress=getMorningPickProgress(rows);
+  renderMorningPickAisleFilter(pickProgress);
   if(!rows.length){
     _morningPickSessionId=null;
     content.innerHTML=pickProgress.total
@@ -6640,7 +6658,7 @@ function getWarehousePickProgress(rows){
   return {total,remaining,completed,percent:total?Math.round((completed/total)*100):0};
 }
 
-function renderWarehousePickAisleFilter(){
+function renderWarehousePickAisleFilter(progress){
   const bar=$('warehousePickAisleFilter');
   if(!bar) return;
   const counts=new Map();
@@ -6651,7 +6669,7 @@ function renderWarehousePickAisleFilter(){
   const keys=[...counts.keys()].filter(key=>key!=='__none__').sort(compareWhNaturalText);
   if(counts.has('__none__')) keys.push('__none__');
   if(_whPickAisle!=='all' && !counts.has(_whPickAisle)) _whPickAisle='all';
-  bar.innerHTML=`<div class="wh-aisle-filter-heading"><span class="wh-aisle-filter-title">בחירת שורת מחסן</span><span class="wh-aisle-filter-hint">הפריטים מוצגים לפי סדר המיקום</span></div><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div>`;
+  bar.innerHTML=`<div class="pick-filter-row"><div class="wh-aisle-options" role="group" aria-label="שורות מחסן"></div><span class="pick-filter-remaining">נותרו ${Number(progress?.remaining||0)} מתוך ${Number(progress?.total||0)}</span></div>`;
   const options=[{key:'all',label:'הכול',count:Object.keys(_whItems).length},...keys.map(key=>({key,label:key==='__none__'?'ללא מיקום':key,count:counts.get(key)}))];
   const optionsBar=bar.querySelector('.wh-aisle-options');
   options.forEach(option=>{
@@ -6673,9 +6691,9 @@ function renderWarehousePickAisleFilter(){
 function renderWarehousePicking(){
   const content=$('warehousePickContent');
   if(!content) return;
-  renderWarehousePickAisleFilter();
   const rows=getWarehousePickRows();
   const pickProgress=getWarehousePickProgress(rows);
+  renderWarehousePickAisleFilter(pickProgress);
   if(!rows.length){
     _whPickItemId=null;
     content.innerHTML=pickProgress.total
@@ -6699,7 +6717,6 @@ function renderWarehousePicking(){
     <div class="morning-pick-top">
       <div class="morning-pick-media pick-hero-media">
         ${media}
-        <span class="warehouse-scan-time warehouse-pick-time pick-hero-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(item.scanned_at))}</span></span>
       </div>
       <div class="morning-pick-details pick-hero-details">
         <div class="pick-product-summary">
