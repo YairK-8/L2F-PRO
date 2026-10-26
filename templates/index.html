@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-unified-camera-105", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-replenishment-parity-106", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2606,6 +2606,30 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t1 #morningMissingPanel>.scanbox .camera-btn{width:33px;height:33px;min-width:33px;min-height:33px;padding:0;border:0;background:transparent}
   #t1 .approved-missing-list{min-height:96px;padding:3px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.72)}
 }
+
+/* Exact parity for controls shared by morning and sales replenishment. */
+.replenishment-page-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:0 3px}
+.replenishment-live-dot{display:inline-block;width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#27c93f;box-shadow:0 0 0 3px rgba(39,201,63,.1);font-size:0}
+.replenishment-view-row{width:100%;margin:0 0 7px}
+:is(#t1,#t2) .morning-open-picking-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin:0;min-height:45px;border-radius:12px;font-size:14px}
+:is(#t1,#t2) .morning-open-picking-btn>i{font-size:14px}
+:is(#t1,#t2) .morning-open-picking-btn .morning-view-count{order:2;min-width:21px;height:21px;padding:0 6px;font-size:10px}
+:is(#t1,#t2) .morning-open-picking-btn>span:first-child{order:1}
+:is(#t1,#t2) .morning-open-picking-btn>i{order:3}
+:is(#t1,#t2) .replenishment-list-actions{gap:4px;margin:0}
+:is(#t1,#t2) .replenishment-list-actions button{min-height:36px;padding:5px 3px;border-radius:10px;font-size:9px}
+:is(#t1,#t2) .replenishment-list-actions button>i{font-size:11px}
+@media(max-width:640px){
+  #t1 .morning-header.replenishment-page-head{display:flex;grid-template-columns:none;align-items:center;flex-wrap:nowrap;width:100%}
+  #t1 .morning-header-actions.replenishment-view-row{width:100%;min-width:0;justify-content:stretch}
+  :is(#t1,#t2) .replenishment-page-head{min-height:28px;margin-bottom:7px;padding:0 3px}
+  :is(#t1,#t2) .replenishment-page-head .page-heading-row{gap:7px}
+  :is(#t1,#t2) .replenishment-page-head h2{margin:0;font-size:18px}
+  :is(#t1,#t2) .replenishment-page-head .page-help-btn{width:25px;height:25px;min-width:25px;font-size:13px}
+  :is(#t1,#t2) .replenishment-scan-shell>.scanbox{min-height:42px;gap:3px;padding:3px 4px;border-radius:12px}
+  :is(#t1,#t2) .replenishment-scan-shell>.scanbox input{height:34px;min-height:34px;padding:5px 8px;font-size:12px}
+  :is(#t1,#t2) .replenishment-scan-shell>.scanbox .camera-btn{order:2;width:35px;height:34px;min-width:35px;min-height:34px;padding:0;font-size:17px}
+}
 </style>
 </head>
 <body>
@@ -2674,15 +2698,17 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   <section id="t1" hidden>
     <div class="row">
       <div class="col morning-list-col" style="flex:2 1 640px">
-        <div class="morning-header">
+        <div class="morning-header replenishment-page-head">
           <div class="morning-header-copy">
             <div class="page-heading-row">
               <h2 style="margin:0">השלמות בוקר</h2>
               <button class="page-help-btn" type="button" onclick="openPageHelp('morning')" title="איך משתמשים בעמוד?" aria-label="הסבר על השלמות בוקר">?</button>
             </div>
           </div>
-          <div class="morning-header-actions">
-            <div class="morning-view-switch" role="tablist" aria-label="מעבר בין רשימות הבוקר">
+          <span class="replenishment-live-dot" aria-label="מחובר"></span>
+        </div>
+        <div class="morning-header-actions replenishment-view-row">
+          <div class="morning-view-switch" role="tablist" aria-label="מעבר בין רשימות הבוקר">
               <button id="morningViewSessionsBtn" class="morning-view-btn active" type="button" onclick="setMorningView('sessions')" aria-selected="true">
                 <span>רשימת בוקר</span>
                 <span class="morning-view-count" id="morningViewSessionsCount">0</span>
@@ -2691,7 +2717,6 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
                 <span>חוסר מאושר</span>
                 <span class="morning-view-count" id="morningViewMissingCount">0</span>
               </button>
-            </div>
           </div>
         </div>
 
@@ -2724,9 +2749,9 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
 
           <div class="actions morning-panel-actions replenishment-list-actions">
-            <button class="btn-accent" onclick="exportMorningMissingOnly()">יצוא לקובץ</button>
+            <button class="btn-accent" onclick="exportMorningMissingOnly()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
             <button class="btn-primary" onclick="openMorningManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
-            <button class="btn-danger" onclick="clearSessions()">נקה רשימה</button>
+            <button class="btn-danger" onclick="clearSessions()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
           </div>
         </div>
 
@@ -2738,8 +2763,8 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
           <div id="missingFloorList" class="list approved-missing-list"></div>
           <div class="actions morning-panel-actions">
-            <button class="btn-accent" onclick="exportMissingFloor()">יצוא לקובץ</button>
-            <button class="btn-danger" onclick="clearMissingFloor()">נקה רשימה</button>
+            <button class="btn-accent" onclick="exportMissingFloor()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
+            <button class="btn-danger" onclick="clearMissingFloor()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
           </div>
         </div>
       </div>
@@ -2756,12 +2781,14 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   <section id="t2" hidden>
     <div class="row">
       <div class="col" style="flex:2 1 640px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="page-heading-row">
-            <h2 style="margin:0">השלמות מכר</h2>
-            <button class="page-help-btn" type="button" onclick="openPageHelp('sales')" title="איך משתמשים בעמוד?" aria-label="הסבר על השלמות מכר">?</button>
+        <div class="replenishment-page-head">
+          <div class="morning-header-copy">
+            <div class="page-heading-row">
+              <h2 style="margin:0">השלמות מכר</h2>
+              <button class="page-help-btn" type="button" onclick="openPageHelp('sales')" title="איך משתמשים בעמוד?" aria-label="הסבר על השלמות מכר">?</button>
+            </div>
           </div>
-          <span id="rtBadge2" class="small" style="color:#27c93f">●</span>
+          <span id="rtBadge2" class="replenishment-live-dot" aria-label="מחובר">●</span>
         </div>
         <div class="replenishment-scan-shell">
           <div class="scanbox">
@@ -2775,9 +2802,9 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
         <div class="divider"></div>
         <div id="lastScannedWhCard" class="card last-scanned-card" style="display:none"></div>
         <button class="btn-primary loc-open-modal-btn morning-open-picking-btn" type="button" onclick="openWarehousePickingModal()">
-          <i class="bi bi-box-seam" aria-hidden="true"></i>
-          <span class="morning-view-count" id="warehousePickingCount">0</span>
           <span>התחל ליקוט</span>
+          <span class="morning-view-count" id="warehousePickingCount">0</span>
+          <i class="bi bi-box-seam" aria-hidden="true"></i>
         </button>
         <div class="queue-box warehouse-scan-queue">
           <div class="queue-title">
