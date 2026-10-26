@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-92", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-93", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2504,7 +2504,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t2 .warehouse-page-footer{gap:7px;margin-top:6px}
   #t2 .replenishment-list-actions{gap:4px;margin:0}
   #t2 .replenishment-list-actions button{min-height:36px;padding:5px 3px;border-radius:10px;background:#fff;border-color:#e8e3dd;color:#252523;font-size:9px}
-  #t2 .replenishment-list-actions .btn-danger{color:#d9423a;border-color:transparent;background:transparent}
+  #t2 .replenishment-list-actions .btn-danger{color:#fff;border-color:#d9423a;background:#d9423a;box-shadow:0 5px 14px rgba(217,66,58,.18)}
   #t2 .warehouse-page-footer .morning-open-picking-btn{min-height:45px;border-radius:12px;font-size:14px}
   #t2 .warehouse-page-footer .morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
 }
@@ -6900,7 +6900,6 @@ function renderLastScannedWh(item){
   card.innerHTML=`
     <div class="last-scanned-layout">
       <div class="last-scanned-details">
-          <div class="last-scanned-eyebrow" id="lastScannedWhLabel"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> נסרק בהצלחה</div>
           <div class="last-scanned-product">
             <strong class="last-scanned-sku">${esc(item.sku)}</strong>
             <span class="last-scanned-variant">${esc(item.color)} · ${esc(item.size).toUpperCase()}</span>
