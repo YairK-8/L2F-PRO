@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-89", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-90", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2478,10 +2478,11 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t2 .scanbox input{height:34px;min-height:34px;padding:5px 8px;border:0!important;background:transparent;box-shadow:none!important;font-size:12px}
   #t2 .scanbox .camera-btn{order:2;width:35px;height:34px;min-width:35px;min-height:34px;padding:0;border:0;background:transparent;font-size:17px}
   #t2 .divider{display:none}
-  #t2 #lastScannedWhCard{flex:0 0 auto;margin:8px 0 5px;padding:8px;border-color:#ebe8e2;border-radius:15px;background:#f7f6f3;box-shadow:0 7px 20px rgba(24,20,16,.06)}
+  #t2 #lastScannedWhCard{flex:0 0 auto;margin:8px 0 5px;padding:8px;border-color:#ebe8e2;border-radius:15px;background:#fff;box-shadow:0 7px 20px rgba(24,20,16,.06)}
   #t2 .last-scanned-layout{grid-template-columns:minmax(0,1fr) 43%;grid-template-rows:minmax(0,1fr) auto;column-gap:9px;row-gap:4px;min-height:150px}
   #t2 .last-scanned-details{gap:4px;padding:5px 1px 0}
-  #t2 .last-scanned-media{width:100%;min-width:0;min-height:150px;border-radius:13px}
+  #t2 .last-scanned-media{position:relative;width:100%;min-width:0;min-height:150px;border-radius:13px;background:#fff}
+  #t2 .last-scanned-media::after{content:"";position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(to right,#fff 0%,rgba(255,255,255,.94) 6%,rgba(255,255,255,.55) 18%,rgba(255,255,255,0) 42%)}
   #t2 .last-scanned-media .product-thumb-lg{width:100%;min-height:150px;border-radius:13px;object-position:center 12%}
   #t2 .last-scanned-eyebrow{padding:4px 7px;font-size:9px}
   #t2 .last-scanned-product{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
@@ -2490,8 +2491,8 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t2 .last-scanned-meta{gap:4px}
   #t2 .last-scanned-time{padding:3px 5px;border:0;background:transparent;font-size:9px}
   #t2 .last-scanned-action button{width:auto;min-height:30px;padding:3px 4px;border:0;background:transparent;color:#e34d3e;font-size:9px;box-shadow:none}
-  #t2 .warehouse-scan-queue{flex:1 1 auto;min-height:118px;margin-top:0;padding-top:0;border-top:0}
-  #t2 .warehouse-scan-queue .list{min-height:82px;padding:2px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.68)}
+  #t2 .warehouse-scan-queue{flex:0 0 auto;min-height:0;margin-top:0;padding-top:0;border-top:0;overflow:visible}
+  #t2 .warehouse-scan-queue .list{flex:0 0 132px!important;width:100%;height:132px!important;min-height:132px!important;max-height:132px!important;overflow-y:auto!important;overscroll-behavior-y:contain;padding:2px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.68);scrollbar-width:thin}
   #t2 .warehouse-scan-queue .kv{min-height:55px;padding:4px 2px;border-bottom:1px solid #eeeae5}
   #t2 .warehouse-scan-queue .product-thumb{width:39px;height:47px;flex-basis:39px;border-radius:8px}
   #t2 .warehouse-scan-queue .wh-item-main{gap:7px}
