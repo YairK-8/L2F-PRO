@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-inline-scan-104", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-unified-camera-105", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -517,6 +517,26 @@ img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
 .camera-overlay.inline-replenishment.open .camera-shell{animation:l2f-inline-camera-in 320ms var(--motion-ease) both}
 @keyframes l2f-inline-camera-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 @keyframes l2f-scan-laser{0%,100%{opacity:.72;transform:translateY(-18px)}50%{opacity:1;transform:translateY(18px)}}
+
+/* Shared visual language for every regular barcode camera. */
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment){--replenishment-camera-accent:#ff7a00;--replenishment-camera-glow:rgba(255,122,0,.82)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-shell{background:#050505;border:1.5px solid var(--replenishment-camera-accent);box-shadow:0 14px 36px rgba(0,0,0,.24)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-frame:not(.ticket-mode){border:0;overflow:visible;background:linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) left top/42px 3px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) left top/3px 42px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) right top/42px 3px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) right top/3px 42px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) left bottom/42px 3px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) left bottom/3px 42px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) right bottom/42px 3px no-repeat,linear-gradient(var(--replenishment-camera-accent),var(--replenishment-camera-accent)) right bottom/3px 42px no-repeat;filter:drop-shadow(0 0 4px var(--replenishment-camera-glow))}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-frame:not(.ticket-mode)::before{content:"";position:absolute;z-index:2;right:0;left:0;top:50%;height:2px;background:linear-gradient(90deg,transparent 0,var(--replenishment-camera-accent) 12%,#fff 50%,var(--replenishment-camera-accent) 88%,transparent 100%);box-shadow:0 0 6px var(--replenishment-camera-accent),0 0 13px var(--replenishment-camera-glow);animation:l2f-scan-laser 2.1s ease-in-out infinite}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-frame.success{--replenishment-camera-accent:#35c463;--replenishment-camera-glow:rgba(53,196,99,.9)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-frame.error{--replenishment-camera-accent:#ef4444;--replenishment-camera-glow:rgba(239,68,68,.9)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-head{inset:0;pointer-events:none}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-actions{display:block;position:absolute;inset:0;pointer-events:none}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) :is(.camera-close,.camera-switch,.camera-torch),
+.camera-overlay.inline-ticket :is(.camera-close,.camera-switch,.camera-torch){border:1px solid rgba(255,255,255,.14);background:rgba(14,14,14,.7);color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.3);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-close{position:absolute;top:10px;right:10px;pointer-events:auto}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-switch{position:absolute;bottom:10px;left:12px;pointer-events:auto}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-torch{position:absolute;right:12px;bottom:10px;pointer-events:auto}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-torch.active{background:var(--replenishment-camera-accent);border-color:var(--replenishment-camera-accent);color:#fff}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-status{display:flex;align-items:center;justify-content:center;right:64px;left:64px;top:auto;bottom:10px;min-height:42px;padding:6px 9px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(14,14,14,.72);color:#fff;font-size:10px;line-height:1.25;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.camera-overlay:not(.inline-ticket):not(.inline-replenishment) .camera-status.error{color:#ffd5d5;background:rgba(92,16,16,.84);border-color:rgba(255,120,120,.3)}
+.camera-overlay.inline-ticket .camera-frame.ticket-mode{border-color:#ff7a00;box-shadow:0 0 0 9999px rgba(0,0,0,.12),0 0 12px rgba(255,122,0,.52)}
+.camera-overlay.inline-ticket .camera-ticket-zone{border-color:rgba(255,122,0,.9)}
 .camera-overlay.inline-ticket .camera-shell{width:100%;max-width:100%;height:320px;min-height:320px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:24px;box-shadow:0 16px 32px rgba(0,0,0,.14)}
 .camera-overlay.inline-ticket .camera-shell.ticket-mode{width:100%;height:320px;min-height:320px}
 .camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
