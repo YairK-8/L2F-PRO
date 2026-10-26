@@ -1,4 +1,4 @@
-const APP_VERSION = "20261008-delayed-loader-only-66";
+const APP_VERSION = "20261026-picking-card-85";
 const APP_SHELL_CACHE = `l2f-shell-${APP_VERSION}`;
 const RUNTIME_CACHE = `l2f-runtime-${APP_VERSION}`;
 const CDN_CACHE = `l2f-cdn-${APP_VERSION}`;
@@ -35,6 +35,10 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
+    try {
+      const subscription = await self.registration.pushManager?.getSubscription();
+      if (subscription) await subscription.unsubscribe();
+    } catch (_err) {}
     const cacheNames = await caches.keys();
     await Promise.all(
       cacheNames

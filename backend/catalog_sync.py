@@ -32,7 +32,11 @@ REQUEST_TIMEOUT = float(os.environ.get("CATALOG_SYNC_TIMEOUT", "30"))
 PAGE_SIZE = min(250, max(1, int(os.environ.get("CATALOG_SYNC_PAGE_SIZE", "250"))))
 MAX_PAGES = max(1, int(os.environ.get("CATALOG_SYNC_MAX_PAGES", "20")))
 MAX_RESPONSE_BYTES = int(os.environ.get("CATALOG_SYNC_MAX_RESPONSE_BYTES", str(8 * 1024 * 1024)))
-EAN_REQUEST_INTERVAL = float(os.environ.get("CATALOG_EAN_REQUEST_INTERVAL", "0.6"))
+PAGE_REQUEST_INTERVAL = max(0.0, float(os.environ.get("CATALOG_PAGE_REQUEST_INTERVAL", "1.0")))
+RETRY_ATTEMPTS = max(1, int(os.environ.get("CATALOG_RETRY_ATTEMPTS", "5")))
+RETRY_BASE_SECONDS = max(1.0, float(os.environ.get("CATALOG_RETRY_BASE_SECONDS", "15")))
+EAN_REQUEST_INTERVAL = max(0.0, float(os.environ.get("CATALOG_EAN_REQUEST_INTERVAL", "1.2")))
+EAN_MAX_ATTEMPTS = max(1, int(os.environ.get("CATALOG_EAN_MAX_ATTEMPTS", "3")))
 HANDLE_RE = re.compile(r"^i([a-z0-9]+)(\d{4})$", re.IGNORECASE)
 SIZE_CODE_RE = re.compile(r"\d{2}$")
 EAN_RE = re.compile(r"\d{8,14}$")
@@ -41,6 +45,29 @@ _worker_lock = threading.Lock()
 _sync_lock = threading.Lock()
 _worker_thread = None
 _ean_thread = None
+
+
+def remove_shadowed_legacy_barcodes(conn):
+    """Remove direct legacy rows when a verified site alias supersedes them.
+
+    The EAN remains scannable through ``barcode_aliases`` and resolves to the
+    canonical website variant.  Keeping both rows would expose both the old
+    manually entered size and the authoritative catalog size.
+    """
+    cursor = conn.execute(
+        """DELETE FROM barcodes
+             WHERE EXISTS (
+                 SELECT 1
+                   FROM barcode_aliases alias
+                   JOIN barcodes canonical
+                     ON canonical.barcode=alias.canonical_barcode
+                  WHERE alias.source=?
+                    AND alias.alias=barcodes.barcode
+                    AND alias.canonical_barcode<>barcodes.barcode
+             )""",
+        (SOURCE,),
+    )
+    return max(0, int(cursor.rowcount or 0))
 
 
 def _now_sql():
@@ -86,13 +113,28 @@ def _fetch_page(page):
             "Accept": "application/json",
         },
     )
-    with urlopen(request, timeout=REQUEST_TIMEOUT) as response:
-        final_url = response.geturl()
-        if not final_url.startswith(SOURCE_ORIGIN + "/"):
-            raise ValueError("untrusted_catalog_redirect")
-        payload = response.read(MAX_RESPONSE_BYTES + 1)
-        if len(payload) > MAX_RESPONSE_BYTES:
-            raise ValueError("catalog_response_too_large")
+    payload = None
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            with urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+                final_url = response.geturl()
+                if not final_url.startswith(SOURCE_ORIGIN + "/"):
+                    raise ValueError("untrusted_catalog_redirect")
+                payload = response.read(MAX_RESPONSE_BYTES + 1)
+                if len(payload) > MAX_RESPONSE_BYTES:
+                    raise ValueError("catalog_response_too_large")
+            break
+        except HTTPError as exc:
+            if exc.code != 429 or attempt + 1 >= RETRY_ATTEMPTS:
+                raise
+            retry_after = str(exc.headers.get("Retry-After", "")).strip()
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                delay = RETRY_BASE_SECONDS * (2 ** attempt)
+            time.sleep(min(300.0, max(RETRY_BASE_SECONDS, delay)))
+    if payload is None:
+        raise RuntimeError("catalog_page_unavailable")
     parsed = json.loads(payload.decode("utf-8"))
     products = parsed.get("products", [])
     if not isinstance(products, list):
@@ -163,18 +205,7 @@ def _import_page(products, stats):
                     """INSERT INTO external_catalog_products (handle,status,updated_at)
                        VALUES (?, 'pending', datetime('now','localtime'))
                        ON CONFLICT(handle) DO UPDATE SET
-                           status=CASE
-                               WHEN external_catalog_products.status='syncing' THEN 'syncing'
-                               ELSE 'pending'
-                           END,
-                           last_error=CASE
-                               WHEN external_catalog_products.status='syncing' THEN external_catalog_products.last_error
-                               ELSE ''
-                           END,
-                           updated_at=CASE
-                               WHEN external_catalog_products.status='syncing' THEN external_catalog_products.updated_at
-                               ELSE excluded.updated_at
-                           END""",
+                           updated_at=excluded.updated_at""",
                     (handle,),
                 )
             variants = product.get("variants") or []
@@ -224,6 +255,10 @@ def _import_page(products, stats):
                         stats["aliases_added"] += alias_cursor.rowcount
             for sku in product_new_barcode:
                 ensure_catalog_model(conn, sku, requeue_not_found=True)
+        stats["legacy_rows_removed"] = (
+            int(stats.get("legacy_rows_removed", 0))
+            + remove_shadowed_legacy_barcodes(conn)
+        )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -241,6 +276,7 @@ def sync_catalog():
         "variants_seen": 0,
         "barcodes_added": 0,
         "aliases_added": 0,
+        "legacy_rows_removed": 0,
     }
     try:
         _set_state("syncing", stats=stats)
@@ -252,11 +288,13 @@ def sync_catalog():
             _import_page(products, stats)
             if len(products) < PAGE_SIZE:
                 break
+            if PAGE_REQUEST_INTERVAL:
+                time.sleep(PAGE_REQUEST_INTERVAL)
         _set_state("completed", stats=stats, completed=True)
         print(f"ITAY BRANDS catalog sync completed: {stats}")
         return {"status": "completed", **stats}
     except Exception as exc:
-        _set_state("failed", error=str(exc), stats=stats, completed=True)
+        _set_state("failed", error=str(exc), stats=stats, completed=False)
         print(f"ITAY BRANDS catalog sync failed: {exc}")
         raise
     finally:
@@ -271,13 +309,25 @@ def _seconds_until_next_sync(now=None):
     return max(1.0, (next_run - current).total_seconds())
 
 
+def _has_catalog_snapshot():
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS count FROM external_catalog_products"
+        ).fetchone()
+        return int(row["count"] or 0) > 0
+    finally:
+        conn.close()
+
+
 def _claim_ean_product():
     conn = get_connection()
     try:
         row = conn.execute(
             """SELECT handle FROM external_catalog_products
-                WHERE status='pending'
-                ORDER BY updated_at,handle LIMIT 1"""
+                WHERE status='pending' AND attempts<?
+                ORDER BY updated_at,handle LIMIT 1""",
+            (EAN_MAX_ATTEMPTS,),
         ).fetchone()
         if not row:
             conn.close()
@@ -319,7 +369,12 @@ def reconcile_product_catalog(conn, product):
         "SELECT code,color FROM barcode_color_scale"
     ).fetchall()
     color_map = {str(row["code"]): str(row["color"]) for row in color_rows}
-    result = {"variants": 0, "barcodes_updated": 0, "aliases_updated": 0}
+    result = {
+        "variants": 0,
+        "barcodes_updated": 0,
+        "aliases_updated": 0,
+        "legacy_rows_removed": 0,
+    }
     for variant in product.get("variants") or []:
         details = _variant_details(product, variant, color_map)
         if not details:
@@ -357,6 +412,7 @@ def reconcile_product_catalog(conn, product):
         )
         if alias_cursor.rowcount and alias_cursor.rowcount > 0:
             result["aliases_updated"] += alias_cursor.rowcount
+    result["legacy_rows_removed"] = remove_shadowed_legacy_barcodes(conn)
     return result
 
 
@@ -381,7 +437,14 @@ def _ean_worker():
         conn.execute(
             f"""UPDATE external_catalog_products
                    SET status='pending',updated_at={_now_sql()}
-                 WHERE status='syncing'"""
+                 WHERE status='syncing' AND attempts<?""",
+            (EAN_MAX_ATTEMPTS,),
+        )
+        conn.execute(
+            f"""UPDATE external_catalog_products
+                   SET status='failed',last_error='retry_limit_reached',updated_at={_now_sql()}
+                 WHERE status IN ('pending','syncing') AND attempts>=?""",
+            (EAN_MAX_ATTEMPTS,),
         )
         conn.commit()
     finally:
@@ -407,10 +470,11 @@ def _ean_worker():
 def _worker():
     if STARTUP_DELAY > 0:
         threading.Event().wait(STARTUP_DELAY)
-    try:
-        sync_catalog()
-    except Exception:
-        pass
+    if not _has_catalog_snapshot():
+        try:
+            sync_catalog()
+        except Exception:
+            pass
     while True:
         threading.Event().wait(_seconds_until_next_sync())
         try:

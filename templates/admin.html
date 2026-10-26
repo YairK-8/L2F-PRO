@@ -612,11 +612,13 @@ tr:hover td{
       <h1 style="font-size:21px;margin-bottom:14px">רשימת ברקודים</h1>
       <div class="panel">
         <div class="input-row">
+          <div class="input-group"><label>חיפוש לפי מק״ט</label><input class="dark-input" id="barcodeSkuSearch" inputmode="numeric" oninput="scheduleAdminBarcodeSearch()" /></div>
+          <div class="input-group"><label>חיפוש לפי מידה</label><input class="dark-input" id="barcodeSizeSearch" oninput="scheduleAdminBarcodeSearch()" /></div>
           <div class="input-group">
-            <label>חיפוש</label>
+            <label>חיפוש לפי ברקוד</label>
             <div class="scan-field">
-              <input class="dark-input" id="barcodeSearch" placeholder="ברקוד / מק״ט / צבע" oninput="renderAdminBarcodes()" />
-              <button class="btn btn-ghost camera-btn" type="button" onclick="openAdminCameraScanner('barcodeSearch')" title="סריקה מהמצלמה">📷</button>
+              <input class="dark-input" id="barcodeValueSearch" inputmode="numeric" oninput="scheduleAdminBarcodeSearch()" />
+              <button class="btn btn-ghost camera-btn" type="button" onclick="openAdminCameraScanner('barcodeValueSearch')" title="סריקה מהמצלמה">📷</button>
             </div>
           </div>
           <div class="input-group">
@@ -1221,8 +1223,8 @@ async function applyAdminCameraBarcode(code){
   input.dispatchEvent(new Event('input', { bubbles:true }));
   input.dispatchEvent(new Event('change', { bubbles:true }));
 
-  if(_adminCameraTargetInputId==='barcodeSearch'){
-    renderAdminBarcodes();
+  if(_adminCameraTargetInputId==='barcodeValueSearch'){
+    scheduleAdminBarcodeSearch();
     toast(`הוזן לחיפוש: ${code}`);
     await closeAdminCameraScanner();
     return true;
@@ -1717,7 +1719,8 @@ async function openOverviewDetail(metric){
     html=overviewRows(_overviewBranches, branch=>overviewRow(branch.name, `Store ID: ${branch.store_id||'—'} · כניסה אחרונה: ${fmtDate(branch.last_login)}`, branch.is_blocked ? 'חסום' : branch.locations_only ? 'מיקומים בלבד' : 'גישה מלאה'));
   }else if(metric==='devices'){
     title.textContent='מכשירים מחוברים'; subtitle.textContent='חיבורי realtime פעילים כרגע';
-    html=overviewSummary([[devices.length,'מכשירים'],[health.active_sockets||0,'חיבורי Socket'],[health.connected_branches||0,'סניפים']])+overviewRows(devices, device=>overviewRow(device.device_name||'מכשיר ללא שם', `${device.branch_name} · ${device.device_id} · נראה: ${fmtUnix(device.last_seen)}`, `${device.socket_count||1} חיבורים`),'אין מכשירים מחוברים כרגע');
+    const activeDevices=devices.filter(device=>!device.stale);
+    html=overviewSummary([[activeDevices.length,'מכשירים'],[health.active_sockets||0,'חיבורי Socket'],[health.connected_branches||0,'סניפים']])+overviewRows(activeDevices, device=>overviewRow(device.device_name||'מכשיר ללא שם', `${device.branch_name} · ${device.device_id} · נראה: ${fmtUnix(device.last_seen)}`, `${device.socket_count||1} חיבורים`),'אין מכשירים מחוברים כרגע');
   }else if(metric==='connected_branches'){
     title.textContent='סניפים מחוברים'; subtitle.textContent='סניפים עם לפחות מכשיר פעיל אחד';
     html=overviewRows(health.branches, branch=>overviewRow(branch.name||overviewBranchName(branch.branch_id), `Store ID: ${branch.store_id||'—'}`, `${branch.active_devices||0} מכשירים · ${branch.active_sockets||0} חיבורים`),'אין סניפים מחוברים כרגע');
@@ -2029,6 +2032,11 @@ function renderBranches(list){
 
 const DEFAULT_ADMIN_BARCODE_SIZES = ['y','xs','xs-s','s','m','m-l','l','xl','xxl'];
 let _allAdminBarcodes=[];
+let _adminBarcodeTotal=0;
+let _adminBarcodeHasMore=false;
+let _adminBarcodeLoading=false;
+let _adminBarcodeSearchTimer=null;
+const ADMIN_BARCODE_PAGE_SIZE=100;
 let _barcodeColorScaleEntries=[];
 let _barcodeSizeScaleEntries=[];
 let _barcodeColorCodeMap={};
@@ -2291,16 +2299,38 @@ async function deleteSizeScaleEntry(code){
   await loadAdminBarcodeScale();
   toast('קוד המידה נמחק');
 }
-async function loadAdminBarcodes(){
-  await loadAdminBarcodeScale();
-  _allAdminBarcodes=await GET('/api/barcodes');
-  renderAdminBarcodes();
+async function loadAdminBarcodes({reset=true}={}){
+  if(_adminBarcodeLoading) return;
+  _adminBarcodeLoading=true;
+  if(reset) _allAdminBarcodes=[];
+  const sku=$('barcodeSkuSearch')?.value?.trim()||'';
+  const size=$('barcodeSizeSearch')?.value?.trim()||'';
+  const barcode=$('barcodeValueSearch')?.value?.trim()||'';
+  const offset=reset?0:_allAdminBarcodes.length;
+  try{
+    if(reset) await loadAdminBarcodeScale();
+    const data=await GET(`/api/barcodes?limit=${ADMIN_BARCODE_PAGE_SIZE}&offset=${offset}&filter_sku=${encodeURIComponent(sku)}&filter_size=${encodeURIComponent(size)}&filter_barcode=${encodeURIComponent(barcode)}`);
+    const items=Array.isArray(data?.items)?data.items:[];
+    _allAdminBarcodes=reset?items:_allAdminBarcodes.concat(items);
+    _adminBarcodeTotal=Number(data?.total||0);
+    _adminBarcodeHasMore=Boolean(data?.has_more);
+    renderAdminBarcodes();
+  }finally{
+    _adminBarcodeLoading=false;
+  }
+}
+function scheduleAdminBarcodeSearch(){
+  clearTimeout(_adminBarcodeSearchTimer);
+  _adminBarcodeSearchTimer=setTimeout(()=>loadAdminBarcodes({reset:true}),250);
+}
+function maybeLoadMoreAdminBarcodes(event){
+  const el=event.currentTarget;
+  if(_adminBarcodeHasMore&&!_adminBarcodeLoading&&el.scrollTop+el.clientHeight>=el.scrollHeight-80){
+    loadAdminBarcodes({reset:false});
+  }
 }
 function renderAdminBarcodes(){
-  const q=$('barcodeSearch')?.value?.toLowerCase().trim()||'';
-  const rows=q
-    ?_allAdminBarcodes.filter(r=>r.barcode.toLowerCase().includes(q)||r.sku.toLowerCase().includes(q)||r.color.toLowerCase().includes(q))
-    :_allAdminBarcodes;
+  const rows=_allAdminBarcodes;
   const tbody=$('barcodeTbody');
   if(!rows.length){
     tbody.innerHTML='<tr><td colspan="5" class="empty-state">אין ברקודים</td></tr>';
@@ -2320,8 +2350,9 @@ function renderAdminBarcodes(){
         </div>
       </td>
     </tr>`).join('');
-  $('barcodeCount').textContent=`מציג ${rows.length} מתוך ${_allAdminBarcodes.length} ברקודים`;
+  $('barcodeCount').textContent=`מציג ${rows.length} מתוך ${_adminBarcodeTotal} ברקודים${_adminBarcodeHasMore?' · גלול לטעינת פריטים נוספים':''}`;
 }
+document.querySelector('.barcodes-scroll')?.addEventListener('scroll',maybeLoadMoreAdminBarcodes,{passive:true});
 async function createAdminBarcode(){
   previewAdminDerivedBarcodeFields();
   const barcode=$('barcodeNewValue').value.trim();

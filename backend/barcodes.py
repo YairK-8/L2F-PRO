@@ -370,17 +370,64 @@ def learn_structured_scale_mappings(conn, barcode, color="", size=""):
 @require_branch_or_admin
 def list_barcodes(branch_id):
     sku = request.args.get("sku", "").strip()
+    filter_sku = request.args.get("filter_sku", "").strip().lower()
+    filter_size = request.args.get("filter_size", "").strip().lower()
+    filter_barcode = request.args.get("filter_barcode", "").strip().lower()
+    paginated = any(
+        key in request.args
+        for key in ("limit", "offset", "filter_sku", "filter_size", "filter_barcode")
+    )
     conn = get_connection()
     if sku:
         rows = conn.execute(
             "SELECT * FROM barcodes WHERE sku=? ORDER BY sku,color,size", (sku,)
         ).fetchall()
-    else:
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    if not paginated:
         rows = conn.execute(
             "SELECT * FROM barcodes ORDER BY sku,color,size"
         ).fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+
+    try:
+        limit = min(max(int(request.args.get("limit", 100)), 1), 250)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except (TypeError, ValueError):
+        conn.close()
+        return jsonify({"error": "invalid_pagination"}), 400
+
+    clauses = []
+    params = []
+    if filter_sku:
+        clauses.append("LOWER(sku) LIKE ?")
+        params.append(f"{filter_sku}%")
+    if filter_size:
+        clauses.append("LOWER(size)=?")
+        params.append(filter_size)
+    if filter_barcode:
+        clauses.append("LOWER(barcode) LIKE ?")
+        params.append(f"%{filter_barcode}%")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    totals = conn.execute(
+        f"SELECT COUNT(*) AS total, COUNT(DISTINCT sku) AS sku_total FROM barcodes{where}",
+        tuple(params),
+    ).fetchone()
+    rows = conn.execute(
+        f"SELECT * FROM barcodes{where} ORDER BY sku,color,size,barcode LIMIT ? OFFSET ?",
+        tuple(params + [limit, offset]),
+    ).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    total = int(totals["total"] or 0)
+    return jsonify({
+        "items": [dict(r) for r in rows],
+        "total": total,
+        "sku_total": int(totals["sku_total"] or 0),
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + len(rows) < total,
+    })
 
 
 @barcodes_bp.route("/colors", methods=["GET"])

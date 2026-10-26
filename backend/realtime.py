@@ -10,6 +10,8 @@ socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 
 HEALTH_WINDOW_SECONDS = 5 * 60
 ERROR_BUFFER_LIMIT = 100
+DEVICE_HEARTBEAT_TIMEOUT_SECONDS = 2 * 60
+DEVICE_CLEANUP_INTERVAL_SECONDS = 30
 
 _sid_to_conn = {}
 _branch_to_sids = defaultdict(set)
@@ -21,6 +23,7 @@ _socket_disconnect_events = deque()
 _emit_events = deque()
 _server_started_at = time.time()
 _lock = Lock()
+_cleanup_started = False
 
 
 def branch_room(branch_id: int) -> str:
@@ -60,6 +63,7 @@ def _is_device_blocked(branch_id: int, device_id: str) -> bool:
 
 
 def _rebuild_branch_summary_locked() -> dict[int, dict]:
+    now = _now()
     summary = {}
     for branch_id, sids in _branch_to_sids.items():
         devices = {}
@@ -77,7 +81,7 @@ def _rebuild_branch_summary_locked() -> dict[int, dict]:
                     "connected_at": conn["connected_at"],
                     "last_seen": conn["last_seen"],
                     "socket_count": 1,
-                    "stale": False,
+                    "stale": now - conn["last_seen"] > DEVICE_HEARTBEAT_TIMEOUT_SECONDS,
                 }
                 continue
             item["socket_count"] += 1
@@ -85,10 +89,17 @@ def _rebuild_branch_summary_locked() -> dict[int, dict]:
                 item["connected_at"] = conn["connected_at"]
             if conn["last_seen"] > item["last_seen"]:
                 item["last_seen"] = conn["last_seen"]
+                item["stale"] = now - conn["last_seen"] > DEVICE_HEARTBEAT_TIMEOUT_SECONDS
         if devices:
+            active_sockets = sum(
+                1
+                for sid in sids
+                if sid in _sid_to_conn
+                and now - _sid_to_conn[sid]["last_seen"] <= DEVICE_HEARTBEAT_TIMEOUT_SECONDS
+            )
             summary[branch_id] = {
-                "active_devices": len(devices),
-                "active_sockets": len(sids),
+                "active_devices": sum(1 for device in devices.values() if not device["stale"]),
+                "active_sockets": active_sockets,
                 "devices": sorted(
                     (_device_view(item) for item in devices.values()),
                     key=lambda d: (d["device_name"].lower(), d["device_id"]),
@@ -128,10 +139,45 @@ def _schedule_force_disconnect(sids: list[str], reason: str):
     socketio.start_background_task(_worker)
 
 
+def start_realtime_cleanup():
+    """Drop sockets whose browser stopped sending heartbeats (sleep/background/closed)."""
+    global _cleanup_started
+    with _lock:
+        if _cleanup_started:
+            return
+        _cleanup_started = True
+
+    def _worker():
+        while True:
+            socketio.sleep(DEVICE_CLEANUP_INTERVAL_SECONDS)
+            cutoff = _now() - DEVICE_HEARTBEAT_TIMEOUT_SECONDS
+            with _lock:
+                stale_sids = [
+                    sid for sid, conn in _sid_to_conn.items()
+                    if conn["last_seen"] < cutoff
+                ]
+                for sid in stale_sids:
+                    conn = _sid_to_conn.get(sid)
+                    if conn:
+                        conn["disconnect_reason"] = "heartbeat_timeout"
+                    _remove_sid_locked(sid)
+            for sid in stale_sids:
+                try:
+                    socketio.server.disconnect(sid, namespace="/")
+                except Exception:
+                    record_error_event("socket_disconnect_failed", f"sid={sid}", "realtime")
+
+    socketio.start_background_task(_worker)
+
+
 def get_active_device_counts() -> dict[int, int]:
     with _lock:
         summary = _rebuild_branch_summary_locked()
-        return {branch_id: item["active_devices"] for branch_id, item in summary.items()}
+        return {
+            branch_id: item["active_devices"]
+            for branch_id, item in summary.items()
+            if item["active_devices"] > 0
+        }
 
 
 def get_total_active_devices() -> int:
@@ -142,7 +188,7 @@ def get_total_active_devices() -> int:
 
 def get_total_active_sockets() -> int:
     with _lock:
-        return len(_sid_to_conn)
+        return sum(item["active_sockets"] for item in _rebuild_branch_summary_locked().values())
 
 
 def get_branch_device_snapshot() -> list[dict]:
@@ -155,7 +201,7 @@ def get_branch_device_snapshot() -> list[dict]:
             "branch_id": branch_id,
             "active_devices": item["active_devices"],
             "active_sockets": item["active_sockets"],
-            "devices": item["devices"],
+            "devices": [device for device in item["devices"] if not device["stale"]],
         })
     return result
 
@@ -171,7 +217,7 @@ def get_branch_active_devices(branch_id: int) -> dict:
             "branch_id": branch_id,
             "active_devices": summary["active_devices"],
             "active_sockets": summary["active_sockets"],
-            "devices": list(summary["devices"]),
+            "devices": [device for device in summary["devices"] if not device["stale"]],
         }
 
 
@@ -179,7 +225,6 @@ def _health_score(avg_ms: float, error_count: int, stale_count: int, active_sock
     score = 100
     score -= min(30, int(max(0, avg_ms - 120) / 15))
     score -= min(25, error_count * 4)
-    score -= min(20, stale_count * 5)
     score -= min(10, max(0, active_sockets - 120) // 10)
     return max(0, min(100, score))
 
@@ -209,13 +254,15 @@ def get_health_snapshot() -> dict:
             for device in branch["devices"]
             if now - device["last_seen"] > 120
         )
-        score = _health_score(avg_ms, errors_last_window, stale_devices, len(_sid_to_conn))
+        active_sockets = sum(item["active_sockets"] for item in branch_summary.values())
+        active_branches = sum(1 for item in branch_summary.values() if item["active_devices"] > 0)
+        score = _health_score(avg_ms, errors_last_window, stale_devices, active_sockets)
         return {
             "window_seconds": HEALTH_WINDOW_SECONDS,
             "server_uptime_seconds": int(now - _server_started_at),
             "active_devices": sum(item["active_devices"] for item in branch_summary.values()),
-            "active_sockets": len(_sid_to_conn),
-            "connected_branches": len(branch_summary),
+            "active_sockets": active_sockets,
+            "connected_branches": active_branches,
             "requests_last_window": len(_request_metrics),
             "scans_last_window": scans_last_window,
             "errors_last_window": errors_last_window,
@@ -276,7 +323,7 @@ def get_health_snapshot() -> dict:
                     "devices": [
                         {
                             **device,
-                            "stale": bool(now - device["last_seen"] > 120),
+                            "stale": bool(now - device["last_seen"] > DEVICE_HEARTBEAT_TIMEOUT_SECONDS),
                         }
                         for device in item["devices"]
                     ],
@@ -429,6 +476,17 @@ def handle_join_branch(data):
         "device_id": device_id,
         "device_name": device_name,
     })
+
+
+@socketio.on("device_heartbeat")
+def handle_device_heartbeat():
+    sid = request.sid
+    with _lock:
+        conn = _sid_to_conn.get(sid)
+        if not conn:
+            return {"ok": False}
+        conn["last_seen"] = _now()
+    return {"ok": True}
 
 
 @socketio.on("disconnect")

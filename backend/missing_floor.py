@@ -52,20 +52,10 @@ def _get_session_catalog_sizes(conn, sku, color, extra_sizes=None):
         return get_catalog_sizes_for_sku_color(
             conn, sku, color, include_sizes=extras
         )
-
-    catalog_is_numeric = all(size.isdigit() for size in catalog_sizes)
-    catalog_is_alpha = all(not size.isdigit() for size in catalog_sizes)
-    if catalog_is_numeric:
-        extras = [size for size in extras if size.isdigit()]
-    elif catalog_is_alpha:
-        extras = [size for size in extras if not size.isdigit()]
-
-    return get_catalog_sizes_for_sku_color(
-        conn,
-        sku,
-        color,
-        include_sizes=extras,
-    )
+    # Once the shared catalog knows this SKU/color, it is authoritative.
+    # Legacy/manual session values must not re-introduce obsolete aliases such
+    # as XS beside XS-S or M beside M-L.
+    return catalog_sizes
 
 
 def _normalize_session_row(conn, row, persist=False):
@@ -78,7 +68,8 @@ def _normalize_session_row(conn, row, persist=False):
         session_data["color"],
         extra_sizes=[*stored_sizes, *found_sizes],
     )
-    ordered_found = _order_found_sizes(all_sizes, found_sizes)
+    found_set = set(found_sizes)
+    ordered_found = [size for size in all_sizes if size in found_set]
     all_sizes_str = _sizes_str(all_sizes)
     found_sizes_str = _sizes_str(ordered_found)
 
@@ -342,6 +333,7 @@ def tick_size(branch_id):
     size = normalize_size_label(data.get("size", ""))
     found = bool(data.get("found", True))
     auto_approve = bool(data.get("auto_approve", True))
+    source_device_id = str(data.get("device_id", "")).strip()
 
     conn = get_connection()
     _lock_morning_branch(conn, branch_id)
@@ -390,6 +382,8 @@ def tick_size(branch_id):
     conn.close()
 
     if approval_payload:
+        if source_device_id:
+            approval_payload["_source_device_id"] = source_device_id
         emit_update(
             branch_id,
             "tab1_cleared" if approval_payload["day_reset"] else "tab1_approved",
@@ -397,6 +391,8 @@ def tick_size(branch_id):
         )
         return jsonify({"ok": True, "approved": True, "approval": approval_payload})
 
+    if source_device_id:
+        session_data["_source_device_id"] = source_device_id
     emit_update(branch_id, "tab1_update", session_data)
     return jsonify({"ok": True, "approved": False, "session": session_data})
 

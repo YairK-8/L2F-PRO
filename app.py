@@ -8,6 +8,7 @@ from backend.realtime import (
     record_error_event,
     record_request_metric,
     socketio,
+    start_realtime_cleanup,
 )
 from backend.auth import auth_bp
 from backend.admin import admin_bp
@@ -153,6 +154,7 @@ if __name__ == "__main__":
     start_daily_cleanup()
     start_product_image_sync()
     start_catalog_sync()
+    start_realtime_cleanup()
     port = int(os.environ.get("PORT", 5000))
     print(f"\n🚀 L2F v4 → http://localhost:{port}")
     print(f"   Admin panel → http://localhost:{port}/admin\n")

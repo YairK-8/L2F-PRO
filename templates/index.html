@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261007-missing-location-action-9", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-picking-card-85", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -187,6 +187,9 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .small{font-size:12px;color:var(--muted)}
 .num{font-variant-numeric:tabular-nums}
 .scanbox{display:flex;gap:8px}.scanbox input{flex:1}
+.barcode-search-fields{display:grid;grid-template-columns:1fr;gap:7px;flex:1}
+.barcode-search-row{display:flex;gap:7px;align-items:center}
+.barcode-search-row input{min-width:0;width:100%}
 .divider{height:1px;background:var(--border);margin:10px -12px}
 .card{background:rgba(255,255,255,.34);border:1px solid rgba(255,255,255,.52);border-radius:18px;padding:10px}
 .last-scanned-card{
@@ -331,6 +334,8 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 .warehouse-pick-size-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;margin:13px 0 0;padding:7px 9px 7px 13px;border:1px solid #ebe6e0;border-radius:15px;background:#f8f7f5;color:var(--muted);font-size:13px;font-weight:850}
 .warehouse-pick-size-summary .warehouse-pick-size{min-width:54px;min-height:38px;padding:6px 13px;border-radius:12px}
 .warehouse-pick-location-summary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;min-width:min(100%,220px);padding:9px 16px;border-radius:14px;background:rgba(255,106,0,.1);color:#d85a00;font-size:19px;font-weight:900}
+.morning-pick-details .warehouse-pick-location-summary{width:100%;min-width:0;margin-top:13px;justify-content:flex-start;font-size:17px;overflow-wrap:anywhere}
+#warehousePickingModal .morning-pick-lower .warehouse-pick-size-summary{margin-top:0;justify-content:center;padding-inline:9px}
 .warehouse-pick-note{margin-top:10px}
 .manual-entry-overlay{z-index:10600;padding:12px;direction:rtl}
 .manual-entry-modal{width:min(100%,520px);max-width:520px;max-height:94vh;overflow:auto;padding:22px;text-align:right}
@@ -346,6 +351,14 @@ body.app-dark .manual-entry-section{background:rgba(255,255,255,.05);border-colo
 .morning-sessions-scroll{min-height:var(--morning-list-height,220px);height:var(--morning-list-height,420px);max-height:var(--morning-list-height,420px);overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
 .morning-empty-state,.morning-search-empty-state{text-align:center;padding:18px 14px}
+.morning-search-shell{position:relative;height:36px;margin:4px 0 6px;overflow:hidden;transition:height 220ms ease}
+.morning-search-toggle{position:absolute;inset:0 0 auto auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:82px;height:34px;min-height:34px;padding:5px 11px;border-radius:999px;transition:opacity 160ms ease,transform 220ms ease;transform-origin:right center}
+.morning-search-row{position:absolute;inset:0;width:100%;margin:0!important;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-3px) scaleX(.96);transform-origin:right center;transition:opacity 180ms ease,transform 240ms ease,visibility 0s linear 240ms}
+.morning-search-shell.is-open{height:44px}
+.morning-search-shell.is-open .morning-search-toggle{opacity:0;pointer-events:none;transform:scale(.82)}
+.morning-search-shell.is-open .morning-search-row{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition-delay:0s}
+.morning-search-clear{width:42px;min-width:42px;padding:0;border-radius:14px}
+@media(prefers-reduced-motion:reduce){.morning-search-shell,.morning-search-toggle,.morning-search-row{transition:none}}
 .morning-sessions-scroll::-webkit-scrollbar{width:8px}
 .morning-sessions-scroll::-webkit-scrollbar-thumb{background:rgba(145,145,145,.38);border-radius:999px}
 .morning-sessions-scroll::-webkit-scrollbar-track{background:transparent}
@@ -1320,7 +1333,7 @@ body.app-dark .pick-complete p{color:#b6b6b0}
   text-align:center;
   transition:background .18s ease,color .18s ease,transform .18s ease;
 }
-.tab span{
+.tab .tab-label{
   position:absolute;
   width:1px;
   height:1px;
@@ -1353,6 +1366,17 @@ body.app-dark .pick-complete p{color:#b6b6b0}
   font-size:18px;
   line-height:1;
 }
+.tab-queue-count{
+  position:absolute;top:1px;right:18%;z-index:3;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:17px;height:17px;padding:0 5px;box-sizing:border-box;
+  border:2px solid #fff;border-radius:999px;
+  background:#242424;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.16);
+  font-size:9px;line-height:1;font-weight:900;font-variant-numeric:tabular-nums;
+}
+.tab-queue-count[hidden]{display:none!important}
+.tab[data-tab="t1"] .tab-queue-count{background:#e8650d}
+.tab[data-tab="t2"] .tab-queue-count{background:#258b42}
 .tabs .tab-icon-sun{color:#ffae1a}
 .tab:active{transform:scale(.94)}
 body.app-dark #appScreen .tabs{background:#141414;border-color:rgba(255,255,255,.09);box-shadow:0 14px 36px rgba(0,0,0,.38)}
@@ -1403,7 +1427,7 @@ body.app-dark #appScreen .tabs .tab-icon-sun{color:#ffae1a}
     transform:none;
     transition:transform .22s ease,background-color .22s ease,color .22s ease,box-shadow .22s ease;
   }
-  .tab span{
+  .tab .tab-label{
     position:static;
     width:auto;
     height:auto;
@@ -1441,6 +1465,7 @@ body.app-dark #appScreen .tabs .tab-icon-sun{color:#ffae1a}
     background:var(--desktop-sheet-surface);
   }
   .tab-icon{font-size:inherit;margin-inline-end:6px}
+  .tab-queue-count{top:-8px;right:-5px;min-width:20px;height:20px;padding:0 6px;font-size:10px}
   #appScreen section:not([hidden]){
     position:relative;
     z-index:3;
@@ -1838,13 +1863,17 @@ body.app-dark .location-scan-stage{background:#1d1d1d;border-color:rgba(255,255,
   padding:18px;
 }
 .bc-table-wrap{
-  overflow-x:auto;
+  overflow:auto;
+  max-height:min(52vh,520px);
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
   border:1px solid var(--border);
   border-radius:18px;
 }
 .bc-table-wrap table{
   margin:0;
 }
+.bc-table-wrap th{position:sticky;top:0;z-index:1;background:var(--card)}
 body.app-dark #appScreen .bc-collapse-toggle,
 body.app-dark #appScreen .bc-collapse-icon{
   background:#101010;
@@ -2023,7 +2052,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     padding:0 2px;
   }
   .header-actions{
-    gap:6px;
+    gap:4px;
   }
   .header-icon-btn{
     width:42px;
@@ -2070,7 +2099,7 @@ body.app-dark #appScreen .locations-screen .locResultDivider{
     gap:3px;
     border-radius:999px;
   }
-  .tab span{
+  .tab .tab-label{
     line-height:1.05;
   }
   .tab-icon{
@@ -2336,10 +2365,10 @@ body.app-dark #warehousePickingModal .morning-picking-head h3{color:#8ce3a4}
 .camera-overlay.inline-location.open .camera-shell{transform-origin:top center}
 .morning-pick-card,.morning-pick-window-meta{animation:l2f-item-in var(--motion-base) var(--motion-ease) both}
 .morning-pick-card{animation-delay:35ms}
-.morning-pick-card.pick-slide-next{animation:l2f-pick-from-left 420ms var(--motion-spring) both}
-.morning-pick-card.pick-slide-previous{animation:l2f-pick-from-right 420ms var(--motion-spring) both}
-.morning-pick-card.pick-slide-out-next{animation:l2f-pick-to-right 280ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
-.morning-pick-card.pick-slide-out-previous{animation:l2f-pick-to-left 280ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
+.morning-pick-card.pick-slide-next{animation:l2f-pick-from-left 340ms var(--motion-spring) both}
+.morning-pick-card.pick-slide-previous{animation:l2f-pick-from-right 340ms var(--motion-spring) both}
+.morning-pick-card.pick-slide-out-next{animation:l2f-pick-to-right 220ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
+.morning-pick-card.pick-slide-out-previous{animation:l2f-pick-to-left 220ms cubic-bezier(.4,0,.8,.2) both!important;pointer-events:none}
 :is(#morningPickContent,#warehousePickContent){touch-action:pan-y;overscroll-behavior-x:contain}
 .session-card,.warehouse-scan-queue .kv,.approved-missing-list .kv,.locResultBox.has-result{animation:l2f-item-in var(--motion-base) var(--motion-ease) both}
 .camera-frame.success{animation:l2f-success-pulse 320ms var(--motion-spring)}
@@ -2377,6 +2406,39 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
   .tabs[data-active-index="3"]::before{transform:translateX(calc(-300% - 12px))}
   .tabs .tab{z-index:1;background:transparent!important}
   body.app-dark #appScreen .tabs::before{background:#f3f3ef}
+}
+
+/* Picking card — large product-first layout */
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-card{overflow:hidden;background:#fff}
+:is(#morningPickingModal,#warehousePickingModal) .morning-pick-top{display:flex;flex-direction:column;gap:0;padding:0;position:relative}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{position:relative;width:100%;height:clamp(270px,45vh,410px);min-width:0;border-radius:0;background:#f1efec;overflow:hidden}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media::after{content:"";position:absolute;z-index:1;inset:auto 0 0;height:38%;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 88%);pointer-events:none}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media .morning-pick-image,
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-media .morning-pick-placeholder{width:100%;height:100%;aspect-ratio:auto;border-radius:0;object-fit:cover;object-position:center 18%}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-time{position:absolute;z-index:2;top:14px;right:14px;background:rgba(255,255,255,.9);border-color:rgba(30,30,30,.1);box-shadow:0 5px 18px rgba(0,0,0,.08);backdrop-filter:blur(8px)}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{position:relative;z-index:2;width:100%;margin-top:-58px;padding:28px 18px 18px;align-items:center;text-align:center;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 32%)}
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-summary{display:flex;align-items:baseline;justify-content:center;gap:8px;max-width:100%;direction:rtl;white-space:nowrap}
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-summary .morning-pick-sku{font-size:clamp(31px,7vw,46px);line-height:1;font-weight:950}
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-divider{color:#b2ada6;font-size:18px;font-weight:800}
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-color,
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#6f706b;font-size:clamp(15px,3.4vw,19px);font-weight:850;overflow:hidden;text-overflow:ellipsis}
+:is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#171717}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-details :is(.morning-pick-location,.warehouse-pick-location-summary){width:auto;min-width:min(100%,230px);max-width:100%;margin-top:14px;justify-content:center;text-align:center}
+:is(#morningPickingModal,#warehousePickingModal) .pick-hero-details .warehouse-pick-note{margin:10px 0 0}
+#warehousePickingModal .morning-pick-actions{border-top:1px solid #eee9e3}
+body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{background:linear-gradient(to bottom,rgba(20,20,20,0),#141414 32%)}
+body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media::after{background:linear-gradient(to bottom,rgba(20,20,20,0),#141414 88%)}
+body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#f4f4f1}
+@media(max-width:640px){
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{padding:16px;max-height:96vh}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media{height:clamp(245px,39vh,330px)}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-hero-details{margin-top:-50px;padding:24px 13px 14px}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary{gap:6px}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-product-summary .morning-pick-sku{font-size:30px}
+  :is(#morningPickingModal,#warehousePickingModal) .pick-product-color,
+  :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{font-size:14px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-lower{padding:12px 13px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-pick-actions{padding:12px 13px 13px}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -2439,10 +2501,10 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
   </header>
 
   <nav class="tabs" data-active-index="2">
-    <div class="tab" data-tab="t1"><i class="bi bi-brightness-high-fill tab-icon tab-icon-sun" aria-hidden="true"></i><span>השלמות בוקר</span></div>
-    <div class="tab" data-tab="t2"><i class="bi bi-receipt-cutoff tab-icon" aria-hidden="true"></i><span>השלמות מכר</span></div>
-    <div class="tab active" data-tab="t3"><i class="bi bi-pin-map-fill tab-icon" aria-hidden="true"></i><span>מיקומים</span></div>
-    <div class="tab" data-tab="t4"><i class="bi bi-upc-scan tab-icon" aria-hidden="true"></i><span>ברקודים</span></div>
+    <div class="tab" data-tab="t1"><i class="bi bi-brightness-high-fill tab-icon tab-icon-sun" aria-hidden="true"></i><span class="tab-label">השלמות בוקר</span><span class="tab-queue-count" id="morningNavCount" hidden>0</span></div>
+    <div class="tab" data-tab="t2"><i class="bi bi-receipt-cutoff tab-icon" aria-hidden="true"></i><span class="tab-label">השלמות מכר</span><span class="tab-queue-count" id="warehouseNavCount" hidden>0</span></div>
+    <div class="tab active" data-tab="t3"><i class="bi bi-pin-map-fill tab-icon" aria-hidden="true"></i><span class="tab-label">מיקומים</span></div>
+    <div class="tab" data-tab="t4"><i class="bi bi-upc-scan tab-icon" aria-hidden="true"></i><span class="tab-label">ברקודים</span></div>
   </nav>
 
   <!-- ═══ TAB 1 — Morning Sessions ═══ -->
@@ -2483,11 +2545,13 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
             <i class="bi bi-box-seam" aria-hidden="true"></i>
           </button>
 
-          <div class="divider"></div>
-          <div class="scanbox" style="margin-bottom:10px">
-            <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="applyMorningSessionSearch()"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('morningSkuSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
-            <button class="btn-ghost" type="button" onclick="clearMorningSessionSearch()">נקה</button>
+          <div class="divider morning-search-divider"></div>
+          <div id="morningSearchShell" class="morning-search-shell is-open">
+            <div id="morningSearchRow" class="scanbox morning-search-row">
+              <input id="morningSkuSearch" type="search" placeholder="חיפוש מק״ט ברשימת הבוקר..." autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="applyMorningSessionSearch()"/>
+              <button class="btn-ghost camera-btn" type="button" onclick="openMorningSearchScanner('morningSkuSearch')" title="סרוק ברקוד לחיפוש" aria-label="סרוק ברקוד לחיפוש"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+              <button class="btn-ghost morning-search-clear" type="button" onclick="clearMorningSessionSearch()" title="נקה חיפוש" aria-label="נקה חיפוש"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
           </div>
           <div id="sessionsContainer" class="morning-sessions-scroll"></div>
 
@@ -2694,14 +2758,20 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
             </div>
 
             <div class="scanbox" style="margin-bottom:8px">
-              <input id="bcSearch" placeholder="חיפוש לפי ברקוד / מק״ט / צבע..." oninput="renderBarcodeTable()"/>
-              <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcSearch')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
-              <button class="btn-ghost" onclick="document.getElementById('bcSearch').value='';renderBarcodeTable()">נקה</button>
+              <div class="barcode-search-fields">
+                <div class="barcode-search-row"><input id="bcSkuSearch" placeholder="חיפוש לפי מק״ט" inputmode="numeric" oninput="scheduleBarcodeSearch()"/></div>
+                <div class="barcode-search-row"><input id="bcSizeSearch" placeholder="חיפוש לפי מידה" oninput="scheduleBarcodeSearch()"/></div>
+                <div class="barcode-search-row">
+                  <input id="bcBarcodeSearch" placeholder="חיפוש לפי ברקוד" inputmode="numeric" oninput="scheduleBarcodeSearch()"/>
+                  <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('bcBarcodeSearch')" title="סריקת ברקוד" aria-label="סריקת ברקוד"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+                </div>
+              </div>
+              <button class="btn-ghost" onclick="clearBarcodeSearch()">נקה</button>
             </div>
 
             <div class="bc-table-wrap">
               <table>
-                <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th><th>פעולות</th></tr></thead>
+                <thead><tr><th>ברקוד</th><th>מק״ט</th><th>צבע</th><th>מידה</th></tr></thead>
                 <tbody id="bcTbody"></tbody>
               </table>
             </div>
@@ -2988,7 +3058,7 @@ async function animatePickDeparture(contentId,direction){
   const card=$(contentId)?.querySelector('.morning-pick-card');
   if(!card) return;
   card.classList.add(direction==='right'?'pick-slide-out-next':'pick-slide-out-previous');
-  await new Promise(resolve=>setTimeout(resolve,280));
+  await new Promise(resolve=>setTimeout(resolve,220));
 }
 
 function bindPickSwipeGesture(contentId,onSwipeLeft,onSwipeRight){
@@ -3209,7 +3279,7 @@ const DELETE = url     => api('DELETE',url);
 // ══════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════
-let _branchId=null, _socket=null, _locationsOnly=false;
+let _branchId=null, _socket=null, _socketHeartbeatTimer=null, _locationsOnly=false;
 let _deviceId=null, _deviceName=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
 let _realtimeSyncPromise=null, _realtimeLastSyncAt=0;
@@ -3231,8 +3301,10 @@ let _missingFloorSelectedIds=new Set();
 let _sessionsLoaded=false, _missingFloorLoaded=false, _missingWarehouseLoaded=false;
 const CAMERA_SCAN_INTERVAL_MS = 667;
 const CAMERA_BARCODE_SCAN_INTERVAL_MS = 95;
+const LOCATION_CAMERA_SCAN_INTERVAL_MS = 180;
 const CAMERA_SUCCESS_PAUSE_MS = 850;
 const CAMERA_BARCODE_SUCCESS_PAUSE_MS = 320;
+const LOCATION_CAMERA_SUCCESS_PAUSE_MS = 650;
 const CAMERA_DECODE_MAX_WIDTH = 720;
 const CAMERA_BARCODE_DECODE_MAX_WIDTH = 1280;
 const CAMERA_REPEAT_COOLDOWN_MS = 900;
@@ -3484,7 +3556,14 @@ async function enterApp(branch){
     initSocketIO();
     await loadAll();
   }
+  openRequestedTab();
   requestAnimationFrame(syncActivePageViewport);
+}
+
+function openRequestedTab(){
+  const requested=new URLSearchParams(location.search).get('tab');
+  if(!['t1','t2','t3','t4'].includes(requested)) return;
+  document.querySelector(`.tab[data-tab="${requested}"]:not([hidden])`)?.click();
 }
 
 function applyBranchAccessMode(){
@@ -3524,6 +3603,10 @@ function initSocketIO(){
     try{ _socket.off(); }catch(_err){}
     try{ _socket.disconnect(); }catch(_err){}
   }
+  if(_socketHeartbeatTimer){
+    clearInterval(_socketHeartbeatTimer);
+    _socketHeartbeatTimer=null;
+  }
   _socket=io({
     transports:['websocket','polling'],
     reconnection:true,
@@ -3537,12 +3620,22 @@ function initSocketIO(){
     setRtDot(true);
   });
   _socket.on('joined_branch', ()=>{
+    _socket.emit('device_heartbeat');
+    _socketHeartbeatTimer=setInterval(()=>{
+      if(_socket?.connected && document.visibilityState==='visible'){
+        _socket.emit('device_heartbeat');
+      }
+    },30000);
     if(_realtimeNeedsCatchup){
       _realtimeNeedsCatchup=false;
       syncRealtimeState({force:true});
     }
   });
   _socket.on('disconnect', reason=>{
+    if(_socketHeartbeatTimer){
+      clearInterval(_socketHeartbeatTimer);
+      _socketHeartbeatTimer=null;
+    }
     setRtDot(false);
     _realtimeNeedsCatchup=reason!=='io client disconnect';
     if(!_forceLogoutInProgress && reason!=='io client disconnect'){
@@ -3587,7 +3680,7 @@ function initSocketIO(){
     }
   });
 
-  // Tab2 — push new item
+  // Tab2 — new item
   _socket.on('tab2_new_item', item=>{
     if(item?._source_device_id && item._source_device_id === _deviceId) return;
     appendWhItem(item);
@@ -3598,7 +3691,7 @@ function initSocketIO(){
   _socket.on('tab2_cleared',()=>{
     _whItems={};
     renderWhQueue();
-    $('stat2Pending').textContent=0;
+    updateStat2();
   });
 
   // Tab1
@@ -5199,8 +5292,8 @@ async function fillCameraTargetInput(inputId, code){
   if(inputId==='man1Barcode'){
     $('lastScan1').textContent=`הוזן ידנית: ${code}`;
   }
-  if(inputId==='bcSearch'){
-    renderBarcodeTable();
+  if(inputId==='bcBarcodeSearch'){
+    scheduleBarcodeSearch();
   }
   if(inputId==='locSearchSku'){
     setTimeout(()=>{ doLocSearch(); }, 60);
@@ -5285,8 +5378,13 @@ async function scanCameraFrame(){
   const sessionToken = _cameraSessionToken;
   const video=$('cameraVideo');
   const ticketMode = isTicketCameraMode();
-  const baseDelay = ticketMode ? CAMERA_SCAN_INTERVAL_MS : CAMERA_BARCODE_SCAN_INTERVAL_MS;
-  const successPause = ticketMode ? CAMERA_SUCCESS_PAUSE_MS : CAMERA_BARCODE_SUCCESS_PAUSE_MS;
+  const locationWorkflow = _cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow';
+  const baseDelay = ticketMode
+    ? CAMERA_SCAN_INTERVAL_MS
+    : locationWorkflow ? LOCATION_CAMERA_SCAN_INTERVAL_MS : CAMERA_BARCODE_SCAN_INTERVAL_MS;
+  const successPause = ticketMode
+    ? CAMERA_SUCCESS_PAUSE_MS
+    : locationWorkflow ? LOCATION_CAMERA_SUCCESS_PAUSE_MS : CAMERA_BARCODE_SUCCESS_PAUSE_MS;
   if(video.readyState < 2){
     if(_cameraLoopActive && sessionToken === _cameraSessionToken){
       _cameraLoopTimer=setTimeout(scanCameraFrame, baseDelay);
@@ -5541,6 +5639,18 @@ function updateMorningViewCounts(){
   if($('morningViewSessionsCount')) $('morningViewSessionsCount').textContent = sessionsCount;
   if($('morningViewPickingCount')) $('morningViewPickingCount').textContent = pickingItemsCount;
   if($('morningViewMissingCount')) $('morningViewMissingCount').textContent = missingCount;
+  updateNavQueueBadge('t1','morningNavCount',pickingItemsCount,'השלמות בוקר');
+}
+
+function updateNavQueueBadge(tabId,badgeId,count,label){
+  const badge=$(badgeId);
+  const tab=document.querySelector(`.tab[data-tab="${tabId}"]`);
+  if(!badge || !tab) return;
+  const value=Math.max(0,Number(count)||0);
+  badge.textContent=value>99?'99+':String(value);
+  badge.hidden=value===0;
+  tab.setAttribute('aria-label',value?`${label}, ${value} פריטים ממתינים לליקוט`:label);
+  tab.classList.toggle('has-pending-items',value>0);
 }
 
 function setMorningView(view){
@@ -5728,10 +5838,13 @@ function renderMorningPicking(){
   const pickMotionClass=_morningPickMotion==='right'?' pick-slide-next':_morningPickMotion==='left'?' pick-slide-previous':'';
   content.innerHTML=`<div class="morning-pick-window-meta"><span>נותרו ${pickProgress.remaining} מתוך ${pickProgress.total}</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:${pickProgress.percent}%"></i></div></div><div class="morning-pick-card${pickMotionClass}">
     <div class="morning-pick-top">
-      <div class="morning-pick-media">${media}</div>
-      <div class="morning-pick-details">
-        <div class="morning-pick-sku">${esc(session.sku)}</div>
-        <div class="morning-pick-color">צבע: ${esc(session.color)}</div>
+      <div class="morning-pick-media pick-hero-media">${media}</div>
+      <div class="morning-pick-details pick-hero-details">
+        <div class="pick-product-summary">
+          <strong class="morning-pick-sku">${esc(session.sku)}</strong>
+          <span class="pick-product-divider">·</span>
+          <span class="pick-product-color">${esc(session.color)}</span>
+        </div>
         ${locationControl}
       </div>
     </div>
@@ -5811,7 +5924,7 @@ function toggleMorningPickSize(sessionId,size,found){
   const update=(async()=>{
     _suspendMorningPickRender=true;
     try{
-      await tickSize(sessionId,size,found,{autoApprove:false});
+      await tickSize(sessionId,size,found,{autoApprove:false,preservePickView:true});
     }finally{
       _suspendMorningPickRender=false;
     }
@@ -6121,6 +6234,7 @@ async function tickSize(sessionId,size,found,opts={}){
     size,
     found,
     auto_approve:opts.autoApprove!==false,
+    device_id:_deviceId,
   });
   if(res.ok){
     if(res.approved && res.approval){
@@ -6130,7 +6244,15 @@ async function tickSize(sessionId,size,found,opts={}){
       toast('הכול נמצא - אושר אוטומטית');
       return;
     }
-    upsertSessionCard(res.session);
+    if(opts.preservePickView){
+      const sessionId=Number(res.session?.id||0);
+      _sessions[sessionId]={...(_sessions[sessionId]||{}),...res.session};
+      const listCard=$('sessionsContainer')?.querySelector(`.session-card[data-id="${sessionId}"]`);
+      if(listCard) updateSessionCard(listCard,_sessions[sessionId]);
+      updateStat1();
+    }else{
+      upsertSessionCard(res.session);
+    }
     if(found) loadMissingFloor();
   }
 }
@@ -6575,20 +6697,21 @@ function renderWarehousePicking(){
   const pickMotionClass=_whPickMotion==='right'?' pick-slide-next':_whPickMotion==='left'?' pick-slide-previous':'';
   content.innerHTML=`<div class="morning-pick-window-meta"><span>נותרו ${pickProgress.remaining} מתוך ${pickProgress.total}</span><div class="morning-pick-window-progress" aria-label="התקדמות ליקוט"><i style="width:${pickProgress.percent}%"></i></div></div><div class="morning-pick-card${pickMotionClass}">
     <div class="morning-pick-top">
-      <div class="morning-pick-media">${media}</div>
-      <div class="morning-pick-details">
-        <div class="warehouse-pick-meta">
-          <span class="warehouse-scan-time warehouse-pick-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(item.scanned_at))}</span></span>
-        </div>
-        <div class="morning-pick-sku">${esc(item.sku)}</div>
-        <div class="morning-pick-color">צבע: ${esc(item.color)}</div>
-        <div class="warehouse-pick-size-summary"><span>מידה לליקוט</span><strong class="warehouse-pick-size">${esc(item.size).toUpperCase()}</strong></div>
+      <div class="morning-pick-media pick-hero-media">
+        ${media}
+        <span class="warehouse-scan-time warehouse-pick-time pick-hero-time"><i class="bi bi-clock" aria-hidden="true"></i><span>${esc(formatWarehouseScanTime(item.scanned_at))}</span></span>
       </div>
-    </div>
-    <div class="morning-pick-lower">
-      <div class="morning-pick-sizes-title">מיקום במחסן</div>
-      ${locationControl}
-      ${item.is_approved_missing?'<div class="approved-missing-badge warehouse-pick-note">⚠️ ייתכן שחסר במלאי</div>':''}
+      <div class="morning-pick-details pick-hero-details">
+        <div class="pick-product-summary">
+          <strong class="morning-pick-sku">${esc(item.sku)}</strong>
+          <span class="pick-product-divider">·</span>
+          <span class="pick-product-color">${esc(item.color)}</span>
+          <span class="pick-product-divider">·</span>
+          <span class="pick-product-size">${esc(item.size).toUpperCase()}</span>
+        </div>
+        ${locationControl}
+        ${item.is_approved_missing?'<div class="approved-missing-badge warehouse-pick-note">⚠️ ייתכן שחסר במלאי</div>':''}
+      </div>
     </div>
     <div class="morning-pick-actions warehouse-pick-actions">
       <button class="btn-ghost pick-nav-btn" type="button" onclick="showPreviousWarehousePick()" title="לפריט הקודם" aria-label="לפריט הקודם"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
@@ -6865,6 +6988,7 @@ function updateStat2(){
   const total=getWhSortedItems().length;
   $('stat2Pending').textContent=total;
   if($('warehousePickingCount')) $('warehousePickingCount').textContent=total;
+  updateNavQueueBadge('t2','warehouseNavCount',total,'השלמות מכר');
 }
 
 async function clearMissingWh(){
@@ -6872,7 +6996,7 @@ async function clearMissingWh(){
   await POST('/api/missing-warehouse/clear');
   _whItems={};
   renderWhQueue();
-  $('stat2Pending').textContent=0;
+  updateStat2();
 }
 
 async function exportMissingWh(){
@@ -7516,34 +7640,67 @@ async function importLocations(){
 // TAB 4 — BARCODE MANAGER
 // ══════════════════════════════════════════════════════════
 let _allBarcodes=[];
+let _barcodeTotal=0;
+let _barcodeHasMore=false;
+let _barcodeLoading=false;
+let _barcodeSearchTimer=null;
+const BARCODE_PAGE_SIZE=100;
 
-async function loadBarcodes(){
-  await loadBarcodeScales();
-  _allBarcodes=await GET('/api/barcodes');
-  renderBarcodeTable();
-  const skus=new Set(_allBarcodes.map(r=>r.sku));
-  $('stat4Total').textContent=_allBarcodes.length;
-  $('stat4Skus').textContent=skus.size;
+async function loadBarcodes({reset=true}={}){
+  if(_barcodeLoading) return;
+  _barcodeLoading=true;
+  if(reset) _allBarcodes=[];
+  const sku=($('bcSkuSearch')?.value||'').trim();
+  const size=($('bcSizeSearch')?.value||'').trim();
+  const barcode=($('bcBarcodeSearch')?.value||'').trim();
+  const offset=reset?0:_allBarcodes.length;
+  try{
+    if(reset) await loadBarcodeScales();
+    const data=await GET(`/api/barcodes?limit=${BARCODE_PAGE_SIZE}&offset=${offset}&filter_sku=${encodeURIComponent(sku)}&filter_size=${encodeURIComponent(size)}&filter_barcode=${encodeURIComponent(barcode)}`);
+    const items=Array.isArray(data?.items)?data.items:[];
+    _allBarcodes=reset?items:_allBarcodes.concat(items);
+    _barcodeTotal=Number(data?.total||0);
+    _barcodeHasMore=Boolean(data?.has_more);
+    $('stat4Total').textContent=_barcodeTotal;
+    $('stat4Skus').textContent=Number(data?.sku_total||0);
+    renderBarcodeTable();
+  }finally{
+    _barcodeLoading=false;
+  }
+}
+
+function scheduleBarcodeSearch(){
+  clearTimeout(_barcodeSearchTimer);
+  _barcodeSearchTimer=setTimeout(()=>loadBarcodes({reset:true}),250);
+}
+
+function clearBarcodeSearch(){
+  ['bcSkuSearch','bcSizeSearch','bcBarcodeSearch'].forEach(id=>{if($(id)) $(id).value='';});
+  loadBarcodes({reset:true});
+}
+
+function maybeLoadMoreBarcodes(event){
+  const el=event.currentTarget;
+  if(_barcodeHasMore&&!_barcodeLoading&&el.scrollTop+el.clientHeight>=el.scrollHeight-80){
+    loadBarcodes({reset:false});
+  }
 }
 
 function renderBarcodeTable(){
-  const q=($('bcSearch').value||'').toLowerCase().trim();
-  const filtered=q
-    ?_allBarcodes.filter(r=>
-        r.barcode.includes(q)||r.sku.toLowerCase().includes(q)||r.color.toLowerCase().includes(q))
-    :_allBarcodes;
+  const rows=_allBarcodes;
   const tbody=$('bcTbody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="5" class="small">אין תוצאות</td></tr>';$('bcCount').textContent='';return;}
-  tbody.innerHTML=filtered.map(r=>`
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="4" class="small">אין תוצאות</td></tr>';$('bcCount').textContent='';return;}
+  tbody.innerHTML=rows.map(r=>`
     <tr>
       <td style="font-family:monospace">${esc(r.barcode)}</td>
       <td><b>${esc(r.sku)}</b></td>
       <td>${esc(r.color)}</td>
       <td>${esc(r.size).toUpperCase()}</td>
-      <td style="color:var(--muted);font-size:12px">תצוגה בלבד</td>
     </tr>`).join('');
-  $('bcCount').textContent=`מציג ${filtered.length} מתוך ${_allBarcodes.length}`;
+  $('bcCount').textContent=`מציג ${rows.length} מתוך ${_barcodeTotal}${_barcodeHasMore?' · גלול לטעינת פריטים נוספים':''}`;
 }
+
+document.querySelector('.bc-table-wrap')?.addEventListener('scroll',maybeLoadMoreBarcodes,{passive:true});
 
 async function processTab4Barcode(code, opts={}){
   const value=String(code||'').trim();
