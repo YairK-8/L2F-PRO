@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-picking-card-87", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-picking-card-88", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2439,8 +2439,8 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-detail
 body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-hero-media::after{background:linear-gradient(to bottom,rgba(20,20,20,0),#141414 88%)}
 body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-size{color:#f4f4f1}
 @media(max-width:640px){
-  :is(#morningPickingModal,#warehousePickingModal).morning-picking-overlay{padding:14px 10px}
-  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{width:min(94vw,430px);height:min(90dvh,720px);max-height:90dvh;padding:8px;border-radius:18px}
+  :is(#morningPickingModal,#warehousePickingModal).morning-picking-overlay{padding:20px 14px}
+  :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{width:min(91vw,410px);height:min(86dvh,680px);max-height:86dvh;padding:8px;border-radius:18px}
   :is(#morningPickingModal,#warehousePickingModal) .morning-picking-head{min-height:43px;margin-bottom:4px;padding:0 5px 5px}
   :is(#morningPickingModal,#warehousePickingModal) .morning-picking-head h3{font-size:18px}
   :is(#morningPickingModal,#warehousePickingModal) .morning-picking-close{width:33px;height:33px;min-width:33px;font-size:18px}
