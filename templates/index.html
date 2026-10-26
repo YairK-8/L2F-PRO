@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-97", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-morning-page-98", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2507,6 +2507,50 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t2 .replenishment-list-actions .btn-danger{color:#fff;border-color:#d9423a;background:#d9423a;box-shadow:0 5px 14px rgba(217,66,58,.18)}
   #t2>.row>.col:first-child>.morning-open-picking-btn{min-height:45px;border-radius:12px;font-size:14px}
   #t2>.row>.col:first-child>.morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
+}
+
+/* Morning replenishment page — shared compact language with the sales flow */
+@media(max-width:640px){
+  #t1>.row>.morning-list-col{gap:0;padding:9px 8px 8px;border-top-width:3px;border-radius:20px;overflow:hidden}
+  #t1 .morning-header{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:7px;margin-bottom:7px;padding:0 3px}
+  #t1 .morning-header-copy{min-width:0;flex-basis:auto}
+  #t1 .page-heading-row h2{font-size:18px}
+  #t1 .page-help-btn{width:25px;height:25px;min-width:25px;font-size:13px}
+  #t1 .morning-header-actions{width:auto;min-width:0;justify-content:flex-end}
+  #t1 .morning-view-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:4px}
+  #t1 .morning-view-btn{min-height:34px;padding:4px 6px;border-width:1px;border-radius:10px;background:#fff;font-size:10px;gap:4px;box-shadow:none}
+  #t1 .morning-view-btn.active{border-color:#e66c12;background:#e66c12;color:#fff;box-shadow:none}
+  #t1 .morning-view-count{min-width:19px;height:19px;padding:0 5px;font-size:9px}
+  #t1 .morning-view-panel{gap:7px;min-height:0}
+  #t1 #morningSessionsPanel>.scanbox{min-height:42px;gap:3px;padding:3px 4px;border:1.5px solid #f07820;border-radius:12px;background:#fff;box-shadow:0 0 0 2px rgba(240,120,32,.06)}
+  #t1 #morningSessionsPanel>.scanbox input{height:34px;min-height:34px;padding:5px 8px;border:0!important;background:transparent;box-shadow:none!important;font-size:12px}
+  #t1 #morningSessionsPanel>.scanbox .camera-btn{order:2;width:35px;height:34px;min-width:35px;min-height:34px;padding:0;border:0;background:transparent;font-size:17px}
+  #t1 .morning-open-picking-btn{flex:0 0 auto;min-height:45px;margin:0;border-radius:12px;font-size:14px}
+  #t1 .morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
+  #t1 .morning-search-divider{display:none}
+  #t1 .morning-search-shell.is-open{height:40px;margin:0 0 1px}
+  #t1 .morning-search-row{min-height:40px;gap:3px;padding:2px 3px;border:1px solid #e9e4de;border-radius:11px;background:#fff}
+  #t1 .morning-search-row input{height:34px;min-height:34px;padding:5px 7px;border:0!important;background:transparent;box-shadow:none!important;font-size:11px}
+  #t1 .morning-search-row .camera-btn,#t1 .morning-search-clear{width:33px;height:33px;min-width:33px;min-height:33px;padding:0;border:0;background:transparent;border-radius:9px}
+  #t1 .morning-sessions-scroll{min-height:96px;height:var(--morning-list-height,210px);max-height:var(--morning-list-height,210px);padding:3px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.72);overscroll-behavior-y:contain}
+  #t1 .morning-sessions-scroll .session-card{min-height:54px;margin:0;padding:6px 3px;border:0;border-bottom:1px solid #eeeae5;border-radius:0;background:transparent;box-shadow:none}
+  #t1 .morning-sessions-scroll .session-card:last-child{border-bottom:0}
+  #t1 .morning-sessions-scroll .session-header{gap:5px;margin-bottom:3px}
+  #t1 .morning-session-identity{gap:5px}
+  #t1 .morning-sessions-scroll .session-sku{font-size:13px}
+  #t1 .morning-sessions-scroll .session-color{font-size:10px}
+  #t1 .morning-session-status{font-size:9px}
+  #t1 .morning-sessions-scroll .locHintBadge{padding:2px 4px;font-size:9px}
+  #t1 .morning-sessions-scroll .chips-row{gap:3px;padding:0 0 2px}
+  #t1 .morning-sessions-scroll .chip{min-width:31px;min-height:25px;padding:3px 5px;font-size:9px}
+  #t1 .morning-panel-actions{gap:4px;margin:0}
+  #t1 .morning-panel-actions button{min-height:36px;padding:5px 3px;border-radius:10px;background:#fff;border-color:#e8e3dd;color:#252523;font-size:9px}
+  #t1 .morning-panel-actions .btn-danger{color:#fff;border-color:#d9423a;background:#d9423a;box-shadow:0 5px 14px rgba(217,66,58,.18)}
+  #t1 #morningMissingPanel>h2{margin:0;font-size:15px}
+  #t1 #morningMissingPanel>.scanbox{min-height:40px;gap:3px;padding:2px 3px!important;margin:0!important;border:1px solid #e9e4de;border-radius:11px;background:#fff}
+  #t1 #morningMissingPanel>.scanbox input{height:34px;min-height:34px;padding:5px 7px;border:0!important;background:transparent;box-shadow:none!important;font-size:11px}
+  #t1 #morningMissingPanel>.scanbox .camera-btn{width:33px;height:33px;min-width:33px;min-height:33px;padding:0;border:0;background:transparent}
+  #t1 .approved-missing-list{min-height:96px;padding:3px 5px;border:1px solid #eeeae5;border-radius:14px;background:rgba(255,255,255,.72)}
 }
 </style>
 </head>
