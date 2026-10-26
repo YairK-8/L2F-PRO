@@ -1,20 +1,38 @@
-# Design QA — Picking card
+# Design QA — Sales replenishment page
 
-Source: `codex-clipboard-55431967-3f33-4787-8e0c-70d86545f0f0.png` — the compact, full-height mobile picking card selected by the user.
+- Source visual truth: `C:\Users\yairk\AppData\Local\Temp\codex-clipboard-648c6766-f32f-49a7-8481-dfd0eab78b19.png`
+- Source pixels: 271 × 603
+- Intended CSS viewport: mobile, up to 640 px wide
+- Density normalization: not required for the source review
+- State: authenticated branch, `השלמות מכר`, populated last-scan card and pending list
+- Implementation URL: `http://100.116.82.84:5000/`
+- Implementation screenshot: unavailable; the isolated QA browser reached the login screen and has no branch session
 
-## Implemented
+## Full-view comparison evidence
 
-- Full-height, edge-to-edge picking card with no segmented inner card.
-- Compact title and a single row for aisle filters plus remaining count.
-- Product image fills the available card body.
-- Product details and location sit over the image-to-white transition.
-- Navigation and found/missing actions stay in a compact bottom row.
-- The same responsive structure is used for morning and sales picking.
+Blocked at authentication. The live server responds successfully and serves version `20261026-sales-page-89`, but a same-state rendered capture could not be made without a branch login.
 
-## Verification
+## Focused region comparison evidence
 
-- Python syntax: passed.
-- Patch whitespace validation: passed after cleanup.
-- Browser visual comparison: blocked. The in-app browser could not reach the local Flask server (`ERR_CONNECTION_TIMED_OUT`), and Chrome was unavailable in this environment.
+Blocked for the same reason. Source regions reviewed: page heading and scan field, last-scanned product card, pending-item rows, action row, primary picking button.
+
+## Implemented fidelity changes
+
+- Green scan field and sales-page accent.
+- Large last-scanned product card with catalog image, success state, SKU, variant, time, and undo action.
+- Compact pending-item list with thumbnail, SKU, color, size, time, and cancel action.
+- Three compact secondary actions above a full-width green picking action.
+- Responsive single-screen layout with the pending list taking the remaining available height.
+
+## Findings
+
+- P2: Browser-rendered fidelity and overflow remain unverified behind authentication.
+  - Fix: capture the authenticated sales page at a mobile viewport and compare it directly with the source image.
+
+## Comparison history
+
+- Pass 1: source visual opened and measured; live implementation could not be captured in the same authenticated state.
+
+## Final result
 
 final result: blocked
