@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-93", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-sales-page-94", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2467,7 +2467,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
 #t2 .warehouse-queue-count{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:#dff5e5;color:#258b42;font-size:10px;font-weight:950}
 #t2 .warehouse-scan-queue .queue-title{justify-content:flex-start;margin:0 4px 6px}
 #t2 .warehouse-scan-queue .queue-title .small{color:#31312f;font-weight:900}
-#t2 .warehouse-page-footer .morning-open-picking-btn{margin:0;min-height:50px}
+#t2>.row>.col:first-child>.morning-open-picking-btn{flex:0 0 auto;margin:5px 0 7px;min-height:50px}
 @media(max-width:640px){
   #t2>.row>.col:first-child{gap:0;padding:9px 8px 8px;border-top-width:3px;border-radius:20px}
   #t2>.row>.col:first-child>div:first-child{margin-bottom:6px!important;padding:0 3px}
@@ -2505,8 +2505,8 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t2 .replenishment-list-actions{gap:4px;margin:0}
   #t2 .replenishment-list-actions button{min-height:36px;padding:5px 3px;border-radius:10px;background:#fff;border-color:#e8e3dd;color:#252523;font-size:9px}
   #t2 .replenishment-list-actions .btn-danger{color:#fff;border-color:#d9423a;background:#d9423a;box-shadow:0 5px 14px rgba(217,66,58,.18)}
-  #t2 .warehouse-page-footer .morning-open-picking-btn{min-height:45px;border-radius:12px;font-size:14px}
-  #t2 .warehouse-page-footer .morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
+  #t2>.row>.col:first-child>.morning-open-picking-btn{min-height:45px;border-radius:12px;font-size:14px}
+  #t2>.row>.col:first-child>.morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
 }
 </style>
 </head>
@@ -2668,6 +2668,11 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
 
         <div class="divider"></div>
         <div id="lastScannedWhCard" class="card last-scanned-card" style="display:none"></div>
+        <button class="btn-primary loc-open-modal-btn morning-open-picking-btn" type="button" onclick="openWarehousePickingModal()">
+          <i class="bi bi-box-seam" aria-hidden="true"></i>
+          <span class="morning-view-count" id="warehousePickingCount">0</span>
+          <span>התחל ליקוט</span>
+        </button>
         <div class="queue-box warehouse-scan-queue">
           <div class="queue-title">
             <div class="small"><span id="warehouseQueueCount" class="warehouse-queue-count">0</span> ממתינים לליקוט</div>
@@ -2680,11 +2685,6 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
             <button class="btn-primary" onclick="openWarehouseManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
             <button class="btn-danger" onclick="clearMissingWh()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
           </div>
-          <button class="btn-primary loc-open-modal-btn morning-open-picking-btn" type="button" onclick="openWarehousePickingModal()">
-            <i class="bi bi-box-seam" aria-hidden="true"></i>
-            <span class="morning-view-count" id="warehousePickingCount">0</span>
-            <span>התחל ליקוט</span>
-          </button>
         </div>
       </div>
 
