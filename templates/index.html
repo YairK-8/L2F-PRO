@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-inline-scan-101", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-inline-scan-102", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -509,9 +509,9 @@ img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
 .camera-overlay.inline-replenishment .camera-switch{position:absolute;bottom:9px;left:12px;font-size:25px}
 .camera-overlay.inline-replenishment .camera-torch{position:absolute;right:12px;bottom:9px;font-size:20px}
 .camera-overlay.inline-replenishment .camera-torch.active{background:#ff7a00;border-color:#ff9b42;color:#fff}
-.camera-overlay.inline-replenishment .camera-actions::before{content:"";position:absolute;left:50%;bottom:9px;width:66px;height:42px;transform:translateX(-50%);border-radius:18px;background:rgba(14,14,14,.7) repeating-linear-gradient(90deg,transparent 0 17px,rgba(255,255,255,.95) 17px 20px,transparent 20px 24px);background-size:48px 24px;background-position:center;background-repeat:no-repeat;box-shadow:0 6px 18px rgba(0,0,0,.3);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
 .camera-overlay.inline-replenishment .camera-guide{display:none}
-.camera-overlay.inline-replenishment .camera-status{right:58px;left:58px;top:10px;bottom:auto;padding:6px 9px;font-size:11px}
+.camera-overlay.inline-replenishment .camera-status{display:flex;align-items:center;justify-content:center;right:64px;left:64px;top:auto;bottom:9px;min-height:42px;padding:6px 9px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(14,14,14,.72);color:#fff;font-size:10px;line-height:1.25;box-shadow:0 6px 18px rgba(0,0,0,.3);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.camera-overlay.inline-replenishment .camera-status.error{color:#ffd5d5;background:rgba(92,16,16,.84);border-color:rgba(255,120,120,.3)}
 .camera-overlay.inline-replenishment.open .camera-shell{animation:l2f-inline-camera-in 320ms var(--motion-ease) both}
 @keyframes l2f-inline-camera-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 @keyframes l2f-scan-laser{0%,100%{opacity:.72;transform:translateY(-18px)}50%{opacity:1;transform:translateY(18px)}}
