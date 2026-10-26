@@ -1,4 +1,4 @@
-const APP_VERSION = "20261026-morning-search-99";
+const APP_VERSION = "20261026-inline-scan-100";
 const APP_SHELL_CACHE = `l2f-shell-${APP_VERSION}`;
 const RUNTIME_CACHE = `l2f-runtime-${APP_VERSION}`;
 const CDN_CACHE = `l2f-cdn-${APP_VERSION}`;

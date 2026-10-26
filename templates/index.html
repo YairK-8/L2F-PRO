@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-morning-search-99", {
+    navigator.serviceWorker.register("/sw.js?v=20261026-inline-scan-100", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -482,6 +482,11 @@ img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
 .ticket-camera-mount.open{display:block}
 .location-camera-mount{display:none;margin:0 0 14px}
 .location-camera-mount.open{display:block}
+.replenishment-scan-shell{overflow:hidden;border-radius:12px}
+.replenishment-scan-shell>.scanbox{position:relative;z-index:1}
+.replenishment-scan-shell:has(.replenishment-camera-mount.open)>.scanbox{border-radius:11px 11px 0 0!important;box-shadow:none!important}
+.replenishment-camera-mount{display:block;max-height:0;opacity:0;overflow:hidden;transform:translateY(-10px);transition:max-height 320ms var(--motion-ease),opacity 220ms ease,transform 320ms var(--motion-ease)}
+.replenishment-camera-mount.open{max-height:220px;opacity:1;transform:none}
 .camera-overlay{position:fixed;inset:0;background:rgba(15,23,42,.10);backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);z-index:12000;display:none;align-items:flex-end;justify-content:center;padding:24px 20px 7vh;pointer-events:none}
 .camera-overlay.open{display:flex}
 .camera-shell{width:min(90vw,430px);height:min(42vh,320px);min-height:260px;background:transparent;border:none;border-radius:24px;overflow:hidden;display:block;position:relative;box-shadow:none;pointer-events:auto}
@@ -492,6 +497,14 @@ img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
 .camera-overlay.inline-location .camera-shell{width:100%;max-width:100%;height:210px;min-height:210px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:20px;box-shadow:none}
 .camera-overlay.inline-location .camera-frame{width:calc(100% - 46px);height:92px;max-height:92px;border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.08)}
 .camera-overlay.inline-location .camera-status{right:10px;left:10px;bottom:10px;padding:7px 10px;font-size:12px}
+.camera-overlay.inline-replenishment{position:relative;inset:auto;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:auto;padding:0;pointer-events:auto;align-items:stretch;justify-content:stretch}
+.camera-overlay.inline-replenishment.open{display:block}
+.camera-overlay.inline-replenishment .camera-shell{width:100%;max-width:100%;height:210px;min-height:210px;background:#080808;border:0;border-radius:0 0 12px 12px;box-shadow:none}
+.camera-overlay.inline-replenishment .camera-frame{width:calc(100% - 42px);height:86px;max-height:86px;border-radius:15px;box-shadow:0 0 0 9999px rgba(0,0,0,.1)}
+.camera-overlay.inline-replenishment .camera-guide{display:none}
+.camera-overlay.inline-replenishment .camera-status{right:9px;left:9px;bottom:8px;padding:6px 9px;font-size:11px}
+.camera-overlay.inline-replenishment.open .camera-shell{animation:l2f-inline-camera-in 320ms var(--motion-ease) both}
+@keyframes l2f-inline-camera-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 .camera-overlay.inline-ticket .camera-shell{width:100%;max-width:100%;height:320px;min-height:320px;background:#000;border:1px solid rgba(255,255,255,.42);border-radius:24px;box-shadow:0 16px 32px rgba(0,0,0,.14)}
 .camera-overlay.inline-ticket .camera-shell.ticket-mode{width:100%;height:320px;min-height:320px}
 .camera-head{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0;background:transparent;gap:8px}
@@ -714,6 +727,9 @@ img.product-thumb,img.morning-pick-image,img.locProductImage{cursor:zoom-in}
   .camera-overlay.inline-ticket .camera-shell.ticket-mode{height:292px;min-height:292px}
   .camera-overlay.inline-location .camera-shell{height:190px;min-height:190px}
   .camera-overlay.inline-location .camera-frame{width:calc(100% - 34px);height:82px;max-height:82px}
+  .replenishment-camera-mount.open{max-height:194px}
+  .camera-overlay.inline-replenishment .camera-shell{height:190px;min-height:190px}
+  .camera-overlay.inline-replenishment .camera-frame{width:calc(100% - 30px);height:78px;max-height:78px}
   .camera-frame{width:min(82vw,340px);height:min(30vw,160px);max-height:160px}
   .camera-frame.ticket-mode{inset:40% auto auto 50%;width:min(86vw,330px);height:min(28vh,200px);max-height:200px}
   .camera-overlay.inline-ticket .camera-frame.ticket-mode{inset:42% auto auto 50%;width:calc(100% - 26px);height:150px}
@@ -2522,9 +2538,13 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
   #t1 .morning-view-btn.active{border-color:#e66c12;background:#e66c12;color:#fff;box-shadow:none}
   #t1 .morning-view-count{min-width:19px;height:19px;padding:0 5px;font-size:9px}
   #t1 .morning-view-panel{gap:7px;min-height:0}
-  #t1 #morningSessionsPanel>.scanbox{min-height:42px;gap:3px;padding:3px 4px;border:1.5px solid #f07820;border-radius:12px;background:#fff;box-shadow:0 0 0 2px rgba(240,120,32,.06)}
-  #t1 #morningSessionsPanel>.scanbox input{height:34px;min-height:34px;padding:5px 8px;border:0!important;background:transparent;box-shadow:none!important;font-size:12px}
-  #t1 #morningSessionsPanel>.scanbox .camera-btn{order:2;width:35px;height:34px;min-width:35px;min-height:34px;padding:0;border:0;background:transparent;font-size:17px}
+  #t1 #morningSessionsPanel>.replenishment-scan-shell>.scanbox{min-height:42px;gap:3px;padding:3px 4px;border:1.5px solid #f07820;border-radius:12px;background:#fff;box-shadow:0 0 0 2px rgba(240,120,32,.06)}
+  #t1 #morningSessionsPanel>.replenishment-scan-shell>.scanbox input{height:34px;min-height:34px;padding:5px 8px;border:0!important;background:transparent;box-shadow:none!important;font-size:12px}
+  #t1 #morningSessionsPanel>.replenishment-scan-shell>.scanbox .camera-btn{order:2;width:35px;height:34px;min-width:35px;min-height:34px;padding:0;border:0;background:transparent;font-size:17px}
+  #t1 .replenishment-scan-shell:has(.replenishment-camera-mount.open){border:1.5px solid #f07820}
+  #t1 .replenishment-scan-shell:has(.replenishment-camera-mount.open)>.scanbox{border:0}
+  #t2 .replenishment-scan-shell:has(.replenishment-camera-mount.open){border:1.5px solid #31b45a}
+  #t2 .replenishment-scan-shell:has(.replenishment-camera-mount.open)>.scanbox{border:0}
   #t1 .morning-open-picking-btn{flex:0 0 auto;min-height:45px;margin:0;border-radius:12px;font-size:14px}
   #t1 .morning-open-picking-btn .morning-view-count{min-width:21px;height:21px;font-size:10px}
   #t1 .morning-search-divider{display:none}
@@ -2644,9 +2664,12 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
         </div>
 
         <div id="morningSessionsPanel" class="morning-view-panel">
-          <div class="scanbox">
-            <input id="scanInput1" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
-            <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t1')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+          <div class="replenishment-scan-shell">
+            <div class="scanbox">
+              <input id="scanInput1" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
+              <button id="morningInlineCameraBtn" class="btn-ghost camera-btn" type="button" onclick="toggleReplenishmentCamera('t1')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה" aria-expanded="false"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+            </div>
+            <div id="morningInlineCameraMount" class="replenishment-camera-mount" aria-hidden="true"></div>
           </div>
           <div id="lastScan1" hidden></div>
 
@@ -2708,9 +2731,12 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
           <span id="rtBadge2" class="small" style="color:#27c93f">●</span>
         </div>
-        <div class="scanbox">
-          <input id="scanInput2" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
-          <button class="btn-ghost camera-btn" type="button" onclick="openCameraScanner('t2')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+        <div class="replenishment-scan-shell">
+          <div class="scanbox">
+            <input id="scanInput2" placeholder="סרוק כאן..." autocomplete="off" inputmode="numeric"/>
+            <button id="salesInlineCameraBtn" class="btn-ghost camera-btn" type="button" onclick="toggleReplenishmentCamera('t2')" title="סריקה מהמצלמה" aria-label="סריקה מהמצלמה" aria-expanded="false"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+          </div>
+          <div id="salesInlineCameraMount" class="replenishment-camera-mount" aria-hidden="true"></div>
         </div>
         <div id="lastScan2" hidden></div>
 
@@ -3980,18 +4006,55 @@ function syncTicketCameraToggleButton(){
   btn.setAttribute('aria-label', label);
 }
 
+function syncReplenishmentCameraButtons(){
+  const open = $('cameraOverlay')?.classList.contains('open');
+  const modes = [
+    ['t1','morningInlineCameraBtn'],
+    ['t2','salesInlineCameraBtn'],
+  ];
+  modes.forEach(([mode,id])=>{
+    const btn=$(id);
+    if(!btn) return;
+    const active=open && _cameraMode===mode;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-expanded',String(active));
+    const label=active ? 'סגור מצלמה' : 'סריקה מהמצלמה';
+    btn.title=label;
+    btn.setAttribute('aria-label',label);
+  });
+}
+
+function setReplenishmentCameraMountState(mount,open){
+  if(!mount) return;
+  mount.setAttribute('aria-hidden',String(!open));
+  if(open){
+    mount.classList.remove('open');
+    void mount.offsetHeight;
+    mount.classList.add('open');
+  }else{
+    mount.classList.remove('open');
+  }
+}
+
 function syncCameraOverlayMount(){
   const overlay = $('cameraOverlay');
   const ticketMount = $('ticketCameraMount');
   const locationMount = $('locationCameraMount');
-  if(!overlay || !ticketMount || !locationMount) return;
+  const morningMount = $('morningInlineCameraMount');
+  const salesMount = $('salesInlineCameraMount');
+  if(!overlay || !ticketMount || !locationMount || !morningMount || !salesMount) return;
   if(!_cameraOverlayHome){
     _cameraOverlayHome = overlay.parentElement || document.body;
   }
   const inlineTicket = isTicketCameraMode();
   const inlineLocation = !!(_cameraMode && typeof _cameraMode==='object' && _cameraMode.type==='location-workflow');
+  const inlineReplenishment = _cameraMode==='t1' || _cameraMode==='t2';
+  const replenishmentMount = _cameraMode==='t1' ? morningMount : salesMount;
   overlay.classList.toggle('inline-ticket', inlineTicket);
   overlay.classList.toggle('inline-location', inlineLocation);
+  overlay.classList.toggle('inline-replenishment', inlineReplenishment);
+  setReplenishmentCameraMountState(morningMount,inlineReplenishment && _cameraMode==='t1');
+  setReplenishmentCameraMountState(salesMount,inlineReplenishment && _cameraMode==='t2');
   if(inlineTicket){
     ticketMount.hidden = false;
     ticketMount.classList.add('open');
@@ -4004,6 +4067,12 @@ function syncCameraOverlayMount(){
     ticketMount.classList.remove('open');
     ticketMount.hidden = true;
     if(overlay.parentElement !== locationMount) locationMount.appendChild(overlay);
+  }else if(inlineReplenishment){
+    ticketMount.classList.remove('open');
+    ticketMount.hidden = true;
+    locationMount.classList.remove('open');
+    locationMount.hidden = true;
+    if(overlay.parentElement !== replenishmentMount) replenishmentMount.appendChild(overlay);
   }else{
     ticketMount.classList.remove('open');
     ticketMount.hidden = true;
@@ -4014,6 +4083,7 @@ function syncCameraOverlayMount(){
     }
   }
   syncTicketCameraToggleButton();
+  syncReplenishmentCameraButtons();
 }
 
 function holdTicketScannerForReview(statusMessage){
@@ -4037,6 +4107,16 @@ function toggleTicketCameraScanner(){
     return;
   }
   openCameraScanner({ type:'ticket-fill', target:'t4' });
+}
+
+async function toggleReplenishmentCamera(mode){
+  const overlay=$('cameraOverlay');
+  if(overlay?.classList.contains('open') && _cameraMode===mode){
+    await closeCameraScanner();
+    return;
+  }
+  if(overlay?.classList.contains('open')) await closeCameraScanner();
+  await openCameraScanner(mode);
 }
 
 function updateCameraModeUi(){
@@ -5371,6 +5451,8 @@ async function closeCameraScanner(){
   resetTicketScanState();
   updateCameraModeUi();
   syncCameraOverlayMount();
+  requestAnimationFrame(syncActivePageViewport);
+  setTimeout(syncActivePageViewport,340);
 }
 
 function openCameraInputScanner(inputId){
@@ -5631,6 +5713,9 @@ async function openCameraScanner(mode){
   syncCameraOverlayMount();
   $('cameraOverlay').classList.add('open');
   $('cameraOverlay').setAttribute('aria-hidden','false');
+  syncReplenishmentCameraButtons();
+  requestAnimationFrame(syncActivePageViewport);
+  setTimeout(syncActivePageViewport,340);
   setCameraStatus(
     ticketMode
       ? 'פותח מצלמה לסריקת טיקט... אפשר גם ללחוץ צילום'
@@ -5659,7 +5744,11 @@ async function openCameraScanner(mode){
     await stopCameraStream();
     $('cameraOverlay').classList.remove('open');
     $('cameraOverlay').setAttribute('aria-hidden','true');
+    _cameraMode=null;
+    resetTicketScanState();
+    updateCameraModeUi();
     syncCameraOverlayMount();
+    requestAnimationFrame(syncActivePageViewport);
   }
 }
 
