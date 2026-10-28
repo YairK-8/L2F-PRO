@@ -40,6 +40,10 @@ EAN_MAX_ATTEMPTS = max(1, int(os.environ.get("CATALOG_EAN_MAX_ATTEMPTS", "3")))
 HANDLE_RE = re.compile(r"^i([a-z0-9]+)(\d{4})$", re.IGNORECASE)
 SIZE_CODE_RE = re.compile(r"\d{2}$")
 EAN_RE = re.compile(r"\d{8,14}$")
+DEPARTMENT_COLLECTIONS = {
+    "men": "shop-all-mens",
+    "women": "shop-all-women",
+}
 
 _worker_lock = threading.Lock()
 _sync_lock = threading.Lock()
@@ -140,6 +144,69 @@ def _fetch_page(page):
     if not isinstance(products, list):
         raise ValueError("invalid_catalog_response")
     return products
+
+
+def _fetch_department_page(collection_handle, page):
+    query = urlencode({"limit": PAGE_SIZE, "page": page})
+    request = Request(
+        f"{SOURCE_ORIGIN}/collections/{collection_handle}/products.json?{query}",
+        headers={"User-Agent": "L2F-Catalog-Sync/1.0", "Accept": "application/json"},
+    )
+    payload = None
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            with urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+                if not response.geturl().startswith(SOURCE_ORIGIN + "/"):
+                    raise ValueError("untrusted_catalog_redirect")
+                payload = response.read(MAX_RESPONSE_BYTES + 1)
+                if len(payload) > MAX_RESPONSE_BYTES:
+                    raise ValueError("catalog_response_too_large")
+            break
+        except HTTPError as exc:
+            if exc.code != 429 or attempt + 1 >= RETRY_ATTEMPTS:
+                raise
+            time.sleep(min(300.0, RETRY_BASE_SECONDS * (2 ** attempt)))
+    parsed = json.loads((payload or b"{}").decode("utf-8"))
+    products = parsed.get("products", [])
+    if not isinstance(products, list):
+        raise ValueError("invalid_department_catalog_response")
+    return products
+
+
+def sync_product_departments():
+    """Refresh authoritative men/women membership from the public collections."""
+    totals = {}
+    for department, collection_handle in DEPARTMENT_COLLECTIONS.items():
+        skus = set()
+        for page in range(1, MAX_PAGES + 1):
+            products = _fetch_department_page(collection_handle, page)
+            for product in products:
+                match = HANDLE_RE.fullmatch(str(product.get("handle") or "").strip())
+                if match:
+                    skus.add(match.group(1))
+            if len(products) < PAGE_SIZE:
+                break
+            if PAGE_REQUEST_INTERVAL:
+                time.sleep(PAGE_REQUEST_INTERVAL)
+        if not skus:
+            raise RuntimeError(f"empty_department_collection:{department}")
+        conn = get_connection()
+        try:
+            conn.execute("DELETE FROM product_departments WHERE department=?", (department,))
+            conn.executemany(
+                """INSERT INTO product_departments (sku,department,updated_at)
+                   VALUES (?,?,datetime('now','localtime'))
+                   ON CONFLICT(sku,department) DO UPDATE SET updated_at=excluded.updated_at""",
+                [(sku, department) for sku in sorted(skus)],
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        totals[department] = len(skus)
+    return totals
 
 
 def _fetch_product(handle):
@@ -290,6 +357,11 @@ def sync_catalog():
                 break
             if PAGE_REQUEST_INTERVAL:
                 time.sleep(PAGE_REQUEST_INTERVAL)
+        try:
+            stats["departments"] = sync_product_departments()
+        except Exception as department_exc:
+            # Keep the previous successful snapshot; do not damage barcode sync.
+            stats["department_error"] = str(department_exc)[:200]
         _set_state("completed", stats=stats, completed=True)
         print(f"ITAY BRANDS catalog sync completed: {stats}")
         return {"status": "completed", **stats}

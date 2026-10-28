@@ -111,6 +111,26 @@ def _clear_stale_morning_sessions(conn, branch_id, current_session_date):
     return
 
 
+def _record_store_display_item(conn, branch_id, sku, color, session_date):
+    """Maintain the branch's current shop-floor snapshot from real morning scans."""
+    current = conn.execute(
+        "SELECT 1 FROM store_display_items WHERE branch_id=? AND session_date=? LIMIT 1",
+        (branch_id, session_date),
+    ).fetchone()
+    if not current:
+        # The first real scan of a new morning starts a fresh branch snapshot.
+        conn.execute("DELETE FROM store_display_items WHERE branch_id=?", (branch_id,))
+    conn.execute(
+        """INSERT INTO store_display_items
+               (branch_id,sku,color,session_date,last_seen_at)
+           VALUES (?,?,?,?,datetime('now','localtime'))
+           ON CONFLICT(branch_id,sku,color) DO UPDATE SET
+               session_date=excluded.session_date,
+               last_seen_at=excluded.last_seen_at""",
+        (branch_id, sku, color, session_date),
+    )
+
+
 def _resolve_missing_floor_item(conn, branch_id, sku, color, size):
     conn.execute(
         """UPDATE missing_floor
@@ -277,6 +297,7 @@ def scan(branch_id):
         }), 404
 
     sku, color, size = meta["sku"], meta["color"], meta["size"]
+    _record_store_display_item(conn, branch_id, sku, color, _today())
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
     session_data = _upsert_session(conn, branch_id, sku, color, size)
     if not session_data:

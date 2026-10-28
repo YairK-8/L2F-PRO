@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261028-look-builder-107", {
+    navigator.serviceWorker.register("/sw.js?v=20261028-look-builder-108", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -3290,7 +3290,7 @@ const PAGE_HELP_CONTENT={
     goal:'לבנות שילובים עקביים מתוך פריטים אמיתיים בקטלוג, בלי בחירה אקראית.',
     flow:['בחירת פריט','בחירת מטרה','דירוג התאמות','החלפת פריט'],
     steps:['חפש מק״ט, ברקוד, שם או צבע ובחר את הפריט שממנו מתחילים.','בחר אם הלוק מיועד ליומיום, לעבודה או לערב.','המערכת מדרגת פריטים משלימים לפי קטגוריה, צבע וסגנון.','אפשר להחליף פריט בודד בהצעה מבלי לשנות את פריט הבסיס.'],
-    note:'ההמלצות מבוססות רק על הקטלוג הקיים. הציון והסיבה מוצגים כדי להסביר מדוע כל שילוב הוצע.'
+    note:'ההמלצות כוללות רק פריטים שנסרקו בהשלמות הבוקר של הסניף ורק מאותה מחלקה — גברים או נשים. הציון והסיבה מסבירים מדוע השילוב הוצע.'
   }
 };
 
@@ -4061,6 +4061,10 @@ async function loadLookRecommendations(){
   const res=await GET(`/api/looks/recommend?sku=${encodeURIComponent(_lookAnchor.sku)}&color=${encodeURIComponent(_lookAnchor.color||'')}&occasion=${encodeURIComponent(_lookOccasion)}`);
   if(res.error){target.innerHTML='<div class="look-empty">לא ניתן היה לבנות הצעות כרגע.</div>';return;}
   _lookSuggestionsData=res.looks||[];
+  if(!_lookSuggestionsData.length){
+    target.innerHTML=`<div class="look-empty"><div><i class="bi bi-search" aria-hidden="true"></i><strong>${esc(res.message||'אין כרגע מספיק פריטים מתאימים')}</strong><br><small>ההצעות כוללות רק פריטים שנסרקו בהשלמות הבוקר של הסניף.</small></div></div>`;
+    return;
+  }
   renderLookSuggestions();
 }
 

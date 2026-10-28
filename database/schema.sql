@@ -134,6 +134,24 @@ CREATE INDEX IF NOT EXISTS idx_msession_branch ON morning_sessions(branch_id, se
 CREATE INDEX IF NOT EXISTS idx_msession_open_lookup ON morning_sessions(branch_id, sku, color, approved);
 CREATE INDEX IF NOT EXISTS idx_msession_open_activity ON morning_sessions(branch_id, approved, last_activity_at DESC, id DESC);
 
+CREATE TABLE IF NOT EXISTS store_display_items (
+    branch_id    INTEGER NOT NULL REFERENCES branches(id),
+    sku          TEXT NOT NULL,
+    color        TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    PRIMARY KEY(branch_id, sku, color)
+);
+CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id, session_date, sku);
+
+CREATE TABLE IF NOT EXISTS product_departments (
+    sku        TEXT NOT NULL,
+    department TEXT NOT NULL CHECK(department IN ('men','women')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    PRIMARY KEY(sku, department)
+);
+CREATE INDEX IF NOT EXISTS idx_product_departments_department ON product_departments(department, sku);
+
 -- ============================================================
 -- TAB 1 — MISSING FLOOR  (result after approval)
 -- ============================================================

@@ -281,7 +281,7 @@ def _feature_guard():
 @looks_bp.route("/config", methods=["GET"])
 @require_branch_or_admin
 def config(branch_id):
-    return jsonify({"enabled": _enabled(), "engine": "deterministic-v1"})
+    return jsonify({"enabled": _enabled(), "engine": "deterministic-v2-store-display"})
 
 
 @looks_bp.route("/search", methods=["GET"])
@@ -350,16 +350,40 @@ def recommend(branch_id):
         ).fetchone()
         if not anchor_row:
             return jsonify({"error": "product_not_found"}), 404
+        department_rows = conn.execute(
+            "SELECT department FROM product_departments WHERE sku=? ORDER BY department",
+            (sku,),
+        ).fetchall()
+        departments = [row["department"] for row in department_rows]
+        if not departments:
+            return jsonify({
+                "anchor": _catalog_item(anchor_row).public(),
+                "occasion": occasion,
+                "engine": "deterministic-v2-store-display",
+                "looks": [],
+                "message": "לא ניתן לזהות בבטחה אם הפריט שייך למחלקת גברים או נשים.",
+            })
+        if branch_id is None:
+            return jsonify({"error": "branch_required"}), 400
+        department_placeholders = ",".join("?" for _ in departments)
         candidate_rows = conn.execute(
-            """SELECT pi.sku, pi.color, pi.title, pi.image_path, pi.product_url,
+            f"""SELECT pi.sku, pi.color, pi.title, pi.image_path, pi.product_url,
                       MIN(COALESCE(b.barcode,'')) AS barcode
                  FROM product_images pi
+                 JOIN store_display_items display
+                   ON display.branch_id=? AND display.sku=pi.sku
+                  AND LOWER(display.color)=LOWER(pi.color)
                  LEFT JOIN barcodes b
                    ON b.sku=pi.sku AND LOWER(b.color)=LOWER(pi.color)
                 WHERE pi.sku<>? AND pi.title<>'' AND pi.image_path<>''
+                  AND EXISTS (
+                      SELECT 1 FROM product_departments pd
+                       WHERE pd.sku=pi.sku
+                         AND pd.department IN ({department_placeholders})
+                  )
                 GROUP BY pi.sku, pi.color, pi.title, pi.image_path, pi.product_url, pi.is_primary
                 ORDER BY pi.sku, pi.color""",
-            (sku,),
+            (branch_id, sku, *departments),
         ).fetchall()
     finally:
         conn.close()
@@ -369,7 +393,9 @@ def recommend(branch_id):
     return jsonify({
         "anchor": anchor.public(),
         "occasion": occasion,
-        "engine": "deterministic-v1",
+        "engine": "deterministic-v2-store-display",
+        "departments": departments,
+        "store_display_only": True,
         "looks": looks,
-        "message": "" if looks else "אין עדיין מספיק פריטים משלימים עם תמונות בקטלוג.",
+        "message": "" if looks else "אין כרגע מספיק פריטים מתאימים שנסרקו בחנות הבוקר.",
     })

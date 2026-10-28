@@ -881,6 +881,20 @@ def _migrate_sqlite():
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_wh_pending_item ON missing_warehouse(branch_id, sku, color, size) WHERE status='pending'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_floor_active_item ON missing_floor(branch_id, sku, color, size) WHERE status='missing'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS store_display_items (
+            branch_id INTEGER NOT NULL REFERENCES branches(id), sku TEXT NOT NULL,
+            color TEXT NOT NULL, session_date TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            PRIMARY KEY(branch_id,sku,color))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id,session_date,sku)")
+        conn.execute("""INSERT OR IGNORE INTO store_display_items
+            (branch_id,sku,color,session_date,last_seen_at)
+            SELECT branch_id,sku,color,session_date,last_activity_at FROM morning_sessions""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS product_departments (
+            sku TEXT NOT NULL, department TEXT NOT NULL CHECK(department IN ('men','women')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            PRIMARY KEY(sku,department))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_product_departments_department ON product_departments(department,sku)")
         _ensure_structured_barcode_scale_tables(conn)
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)
@@ -963,6 +977,21 @@ def _migrate_postgres():
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_wh_pending_item ON missing_warehouse(branch_id, sku, color, size) WHERE status='pending'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_missing_floor_active_item ON missing_floor(branch_id, sku, color, size) WHERE status='missing'")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_models_sku ON catalog_models(sku)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS store_display_items (
+            branch_id INTEGER NOT NULL REFERENCES branches(id), sku TEXT NOT NULL,
+            color TEXT NOT NULL, session_date TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL DEFAULT (to_char(timezone('Asia/Jerusalem', now()), 'YYYY-MM-DD HH24:MI:SS')),
+            PRIMARY KEY(branch_id,sku,color))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id,session_date,sku)")
+        conn.execute("""INSERT INTO store_display_items
+            (branch_id,sku,color,session_date,last_seen_at)
+            SELECT branch_id,sku,color,session_date,last_activity_at FROM morning_sessions
+            ON CONFLICT(branch_id,sku,color) DO NOTHING""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS product_departments (
+            sku TEXT NOT NULL, department TEXT NOT NULL CHECK(department IN ('men','women')),
+            updated_at TEXT NOT NULL DEFAULT (to_char(timezone('Asia/Jerusalem', now()), 'YYYY-MM-DD HH24:MI:SS')),
+            PRIMARY KEY(sku,department))""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_product_departments_department ON product_departments(department,sku)")
         _ensure_structured_barcode_scale_tables(conn)
         _seed_structured_barcode_scales(conn)
         _restore_legacy_size_scale(conn)
@@ -984,7 +1013,31 @@ def _initialize_from_schema(schema_path):
         conn.close()
 
 
+def _prepare_legacy_schema_for_indexes():
+    """Add columns referenced by schema indexes before CREATE INDEX runs."""
+    conn = get_connection()
+    try:
+        if get_db_backend() == "postgres":
+            conn.execute(
+                "ALTER TABLE IF EXISTS morning_sessions ADD COLUMN IF NOT EXISTS last_activity_at TEXT"
+            )
+        else:
+            table = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='morning_sessions'"
+            ).fetchone()
+            if table:
+                columns = {
+                    row["name"] for row in conn.execute("PRAGMA table_info(morning_sessions)").fetchall()
+                }
+                if "last_activity_at" not in columns:
+                    conn.execute("ALTER TABLE morning_sessions ADD COLUMN last_activity_at TEXT")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def init_db():
+    _prepare_legacy_schema_for_indexes()
     if get_db_backend() == "postgres":
         _initialize_from_schema(POSTGRES_SCHEMA_PATH)
         _migrate_postgres()
