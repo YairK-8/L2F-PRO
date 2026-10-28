@@ -308,13 +308,21 @@ def search(branch_id):
                    OR LOWER(pi.color) LIKE ?
                    OR EXISTS (
                        SELECT 1 FROM barcodes bx
-                        WHERE bx.sku=pi.sku AND LOWER(bx.barcode) LIKE ?
+                        WHERE bx.sku=pi.sku
+                          AND LOWER(bx.color)=LOWER(pi.color)
+                          AND LOWER(bx.barcode) LIKE ?
                    )
                 GROUP BY pi.sku, pi.color, pi.title, pi.image_path, pi.product_url, pi.is_primary
-                ORDER BY CASE WHEN LOWER(pi.sku)=? THEN 0 ELSE 1 END,
+                ORDER BY CASE WHEN EXISTS (
+                             SELECT 1 FROM barcodes exact_barcode
+                              WHERE exact_barcode.sku=pi.sku
+                                AND LOWER(exact_barcode.color)=LOWER(pi.color)
+                                AND LOWER(exact_barcode.barcode)=?
+                         ) THEN 0 ELSE 1 END,
+                         CASE WHEN LOWER(pi.sku)=? THEN 0 ELSE 1 END,
                          pi.is_primary DESC, pi.sku, pi.color
                 LIMIT 24""",
-            (like, like, like, like, exact),
+            (like, like, like, like, exact, exact),
         ).fetchall()
     finally:
         conn.close()

@@ -1,4 +1,4 @@
-const APP_VERSION = "20261028-look-builder-109";
+const APP_VERSION = "20261029-look-color-picker-111";
 const APP_SHELL_CACHE = `l2f-shell-${APP_VERSION}`;
 const RUNTIME_CACHE = `l2f-runtime-${APP_VERSION}`;
 const CDN_CACHE = `l2f-cdn-${APP_VERSION}`;
