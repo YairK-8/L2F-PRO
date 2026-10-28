@@ -16,6 +16,7 @@ from backend.barcodes import barcodes_bp
 from backend.missing_floor import missing_floor_bp
 from backend.missing_warehouse import missing_warehouse_bp
 from backend.locations import locations_bp
+from backend.looks import looks_bp
 from backend.product_image_sync import start_product_image_sync
 from backend.catalog_sync import start_catalog_sync
 from backend.daily_cleanup import start_daily_cleanup
@@ -59,7 +60,7 @@ app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 
 for bp in [auth_bp, admin_bp, barcodes_bp, missing_floor_bp,
-           missing_warehouse_bp, locations_bp]:
+           missing_warehouse_bp, locations_bp, looks_bp]:
     app.register_blueprint(bp)
 
 socketio.init_app(app)

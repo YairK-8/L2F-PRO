@@ -21,6 +21,7 @@ services:
       DAILY_RESET_TIMEZONE: ${DAILY_RESET_TIMEZONE:-Asia/Jerusalem}
       MISSING_FLOOR_RESET_HOUR: ${MISSING_FLOOR_RESET_HOUR:-6}
       LOCATION_INACTIVITY_MONTHS: ${LOCATION_INACTIVITY_MONTHS:-3}
+      LOOK_BUILDER_ENABLED: ${LOOK_BUILDER_ENABLED:-1}
     volumes:
       - ./database:/app/database
       - ./static/product_images:/app/static/product_images

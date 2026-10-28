@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261026-replenishment-parity-106", {
+    navigator.serviceWorker.register("/sw.js?v=20261028-look-builder-107", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -2452,9 +2452,40 @@ button:disabled{transition:opacity var(--motion-base) ease;opacity:.58}
   .tabs[data-active-index="1"]::before{transform:translateX(calc(-100% - 4px))}
   .tabs[data-active-index="2"]::before{transform:translateX(calc(-200% - 8px))}
   .tabs[data-active-index="3"]::before{transform:translateX(calc(-300% - 12px))}
+  .tabs:not(.looks-disabled)::before{width:calc((100% - 28px)/5)}
+  .tabs:not(.looks-disabled)[data-active-index="1"]::before{transform:translateX(calc(-100% - 4px))}
+  .tabs:not(.looks-disabled)[data-active-index="2"]::before{transform:translateX(calc(-200% - 8px))}
+  .tabs:not(.looks-disabled)[data-active-index="3"]::before{transform:translateX(calc(-300% - 12px))}
+  .tabs:not(.looks-disabled)[data-active-index="4"]::before{transform:translateX(calc(-400% - 16px))}
   .tabs .tab{z-index:1;background:transparent!important}
   body.app-dark #appScreen .tabs::before{background:#f3f3ef}
 }
+
+/* Look builder — isolated so it can be disabled without affecting existing pages. */
+.look-builder-screen{--look-accent:#f97316;--look-soft:#fff4e9;min-height:0}
+.look-builder-shell{display:flex;flex-direction:column;gap:12px;min-height:calc(100dvh - 184px);padding:2px 0 8px}
+.look-builder-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.look-builder-head h2{margin:0;font-size:clamp(22px,4vw,30px)}
+.look-builder-head p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.look-search-wrap{position:relative}
+.look-search-box{display:flex;align-items:center;gap:8px;padding:5px;border:1.5px solid #eadfd5;border-radius:18px;background:#fff;box-shadow:0 8px 26px rgba(75,46,24,.06)}
+.look-search-box:focus-within{border-color:var(--look-accent);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
+.look-search-box>i{margin-inline-start:10px;color:var(--look-accent);font-size:18px}
+.look-search-box input{flex:1;min-width:0;border:0!important;box-shadow:none!important;background:transparent!important}
+.look-search-results{position:absolute;z-index:30;top:calc(100% + 6px);right:0;left:0;max-height:310px;overflow:auto;padding:6px;border:1px solid #eadfd5;border-radius:16px;background:#fff;box-shadow:0 18px 40px rgba(38,25,14,.16)}
+.look-search-result{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:10px;width:100%;padding:8px;border:0;border-bottom:1px solid #f2ebe5;background:#fff;text-align:right}
+.look-search-result:last-child{border-bottom:0}.look-search-result img{width:52px;height:58px;object-fit:cover;border-radius:11px;background:#f3f0ed}.look-search-result strong{display:block}.look-search-result small{color:var(--muted)}
+.look-anchor-card{display:grid;grid-template-columns:minmax(100px,35%) 1fr;gap:14px;align-items:center;padding:12px;border:1px solid #eadfd5;border-radius:22px;background:linear-gradient(105deg,#fff 42%,var(--look-soft));box-shadow:0 12px 30px rgba(75,46,24,.07)}
+.look-anchor-card img{width:100%;height:150px;object-fit:cover;border-radius:16px;background:#f1eeeb}.look-anchor-meta strong{display:block;font-size:28px;line-height:1}.look-anchor-meta span{display:block;margin-top:7px;color:#6f6a65;font-weight:700}.look-anchor-kicker{margin-bottom:8px!important;color:var(--look-accent)!important;font-size:12px}
+.look-occasion{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:5px;border:1px solid #eadfd5;border-radius:16px;background:#f8f5f1}
+.look-occasion button{padding:9px 6px;border:0;border-radius:12px;background:transparent;color:#756f69;font-weight:800}.look-occasion button.active{background:#fff;color:var(--look-accent);box-shadow:0 3px 12px rgba(75,46,24,.1)}
+.look-results-head{display:flex;align-items:center;justify-content:space-between}.look-results-head h3{margin:0}.look-results-head span{color:var(--muted);font-size:12px}
+.look-suggestions{display:grid;gap:12px;padding-bottom:8px}
+.look-card{padding:12px;border:1px solid #eadfd5;border-radius:22px;background:#fff;box-shadow:0 10px 26px rgba(75,46,24,.06)}
+.look-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.look-card-head strong{font-size:16px}.look-score{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#e9f8ee;color:#16803a;font-weight:900;font-size:12px}
+.look-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.look-item{position:relative;min-width:0}.look-item img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:13px;background:#f1eeeb}.look-item strong,.look-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.look-item strong{margin-top:5px;font-size:12px}.look-item small{color:var(--muted);font-size:10px}.look-replace{position:absolute;top:5px;left:5px;width:29px;height:29px;padding:0;border:1px solid rgba(255,255,255,.8);border-radius:50%;background:rgba(255,255,255,.92);color:#333}.look-reason{margin:10px 0 0;padding-top:9px;border-top:1px solid #f1e9e2;color:#6f6a65;font-size:12px;line-height:1.45}
+.look-empty{display:grid;place-items:center;min-height:220px;padding:24px;border:1px dashed #e6d9ce;border-radius:22px;background:#fffaf6;text-align:center;color:#756f69}.look-empty i{display:block;margin-bottom:10px;color:var(--look-accent);font-size:32px}.look-loading{animation:l2f-item-in var(--motion-base) var(--motion-ease) both}
+@media(max-width:640px){.look-builder-shell{min-height:calc(100dvh - 170px)}.look-builder-head p{display:none}.look-anchor-card img{height:125px}.look-card{padding:10px}}
 
 /* Picking card — large product-first layout */
 :is(#morningPickingModal,#warehousePickingModal) .morning-picking-modal{display:flex;flex-direction:column;overflow:hidden}
@@ -2687,11 +2718,12 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
     </div>
   </header>
 
-  <nav class="tabs" data-active-index="2">
+  <nav class="tabs looks-disabled" data-active-index="2">
     <div class="tab" data-tab="t1"><i class="bi bi-brightness-high-fill tab-icon tab-icon-sun" aria-hidden="true"></i><span class="tab-label">השלמות בוקר</span><span class="tab-queue-count" id="morningNavCount" hidden>0</span></div>
     <div class="tab" data-tab="t2"><i class="bi bi-receipt-cutoff tab-icon" aria-hidden="true"></i><span class="tab-label">השלמות מכר</span><span class="tab-queue-count" id="warehouseNavCount" hidden>0</span></div>
     <div class="tab active" data-tab="t3"><i class="bi bi-pin-map-fill tab-icon" aria-hidden="true"></i><span class="tab-label">מיקומים</span></div>
     <div class="tab" data-tab="t4"><i class="bi bi-upc-scan tab-icon" aria-hidden="true"></i><span class="tab-label">ברקודים</span></div>
+    <div class="tab" data-tab="t5" id="lookBuilderTab" hidden><i class="bi bi-stars tab-icon" aria-hidden="true"></i><span class="tab-label">לוקים</span></div>
   </nav>
 
   <!-- ═══ TAB 1 — Morning Sessions ═══ -->
@@ -2982,6 +3014,39 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
     </div>
   </section>
 
+  <!-- ═══ TAB 5 — Look Builder (feature flagged) ═══ -->
+  <section id="t5" class="look-builder-screen" hidden>
+    <div class="look-builder-shell">
+      <div class="look-builder-head">
+        <div>
+          <div class="page-heading-row">
+            <h2>הרכבת לוק</h2>
+            <button class="page-help-btn" type="button" onclick="openPageHelp('looks')" title="איך משתמשים בעמוד?" aria-label="הסבר על הרכבת לוק">?</button>
+          </div>
+          <p>בחר פריט וקבל שילובים מדורגים מתוך הקטלוג האמיתי</p>
+        </div>
+      </div>
+      <div class="look-search-wrap">
+        <div class="look-search-box">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input id="lookSearchInput" type="search" placeholder="חיפוש לפי מק״ט, ברקוד, שם או צבע" autocomplete="off" inputmode="search"/>
+          <button class="btn-ghost camera-btn" type="button" onclick="openCameraInputScanner('lookSearchInput')" title="סריקת ברקוד" aria-label="סריקת ברקוד"><i class="bi bi-upc-scan" aria-hidden="true"></i></button>
+        </div>
+        <div id="lookSearchResults" class="look-search-results" hidden></div>
+      </div>
+      <div id="lookAnchorCard" hidden></div>
+      <div class="look-occasion" role="group" aria-label="בחירת סוג הלוק">
+        <button class="active" type="button" data-look-occasion="casual">יומיומי</button>
+        <button type="button" data-look-occasion="work">עבודה</button>
+        <button type="button" data-look-occasion="evening">ערב</button>
+      </div>
+      <div class="look-results-head"><h3>הצעות מתאימות</h3><span>הדירוג מבוסס על סוג הפריט, צבע וסגנון</span></div>
+      <div id="lookSuggestions" class="look-suggestions">
+        <div class="look-empty"><div><i class="bi bi-stars" aria-hidden="true"></i><strong>בחר פריט כדי להתחיל</strong><br><small>המערכת תציג שילובים עקביים ולא אקראיים.</small></div></div>
+      </div>
+    </div>
+  </section>
+
   <div class="screen-credit" id="indexCredit">&copy; כל הזכויות שמורות ליאיר קרשיגייב</div>
 </div><!-- .wrap -->
 </div><!-- #appScreen -->
@@ -3219,6 +3284,13 @@ const PAGE_HELP_CONTENT={
     flow:['סריקת ברקוד','זיהוי מוצר','בדיקת פרטים','שמירה'],
     steps:['סרוק טיקט או הזן ברקוד. המערכת תנסה לזהות ולמלא את פרטי המוצר.','בדוק את המק״ט, הצבע והמידה ושמור את הרשומה.','בקטלוג אפשר לחפש רשומות קיימות ולייצא אותן לקובץ.'],
     note:'לאותו מק״ט יכולים להיות כמה ברקודים לפי צבע ומידה. שינוי רשומה משפיע על הזיהוי בכל המערכת.'
+  },
+  looks:{
+    title:'הרכבת לוק',
+    goal:'לבנות שילובים עקביים מתוך פריטים אמיתיים בקטלוג, בלי בחירה אקראית.',
+    flow:['בחירת פריט','בחירת מטרה','דירוג התאמות','החלפת פריט'],
+    steps:['חפש מק״ט, ברקוד, שם או צבע ובחר את הפריט שממנו מתחילים.','בחר אם הלוק מיועד ליומיום, לעבודה או לערב.','המערכת מדרגת פריטים משלימים לפי קטגוריה, צבע וסגנון.','אפשר להחליף פריט בודד בהצעה מבלי לשנות את פריט הבסיס.'],
+    note:'ההמלצות מבוססות רק על הקטלוג הקיים. הציון והסיבה מוצגים כדי להסביר מדוע כל שילוב הוצע.'
   }
 };
 
@@ -3480,6 +3552,8 @@ const DELETE = url     => api('DELETE',url);
 // AUTH
 // ══════════════════════════════════════════════════════════
 let _branchId=null, _socket=null, _socketHeartbeatTimer=null, _locationsOnly=false;
+let _lookBuilderEnabled=false, _lookAnchor=null, _lookOccasion='casual', _lookSearchTimer=null;
+let _lookSuggestionsData=[];
 let _deviceId=null, _deviceName=null, _forceLogoutInProgress=false;
 let _deviceNameResolver=null;
 let _realtimeSyncPromise=null, _realtimeLastSyncAt=0;
@@ -3751,6 +3825,7 @@ async function enterApp(branch){
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
   $('branchBadge').innerHTML=`<span class="branch-badge-text">${esc(branch.name)}</span><i class="bi bi-shop" aria-hidden="true"></i>`;
+  await loadLookFeatureConfig();
   applyBranchAccessMode();
   if(!_locationsOnly){
     initSocketIO();
@@ -3762,7 +3837,7 @@ async function enterApp(branch){
 
 function openRequestedTab(){
   const requested=new URLSearchParams(location.search).get('tab');
-  if(!['t1','t2','t3','t4'].includes(requested)) return;
+  if(!['t1','t2','t3','t4','t5'].includes(requested)) return;
   document.querySelector(`.tab[data-tab="${requested}"]:not([hidden])`)?.click();
 }
 
@@ -3770,12 +3845,13 @@ function applyBranchAccessMode(){
   const nav=document.querySelector('#appScreen .tabs');
   if(nav) nav.hidden=_locationsOnly;
   $$('.tab').forEach(tab=>{
-    const allowed=!_locationsOnly || tab.dataset.tab==='t3';
+    const featureAllowed=tab.dataset.tab!=='t5' || _lookBuilderEnabled;
+    const allowed=featureAllowed && (!_locationsOnly || tab.dataset.tab==='t3');
     tab.hidden=!allowed;
     tab.classList.toggle('active',allowed && tab.dataset.tab==='t3');
   });
   if(_locationsOnly){
-    ['t1','t2','t4'].forEach(id=>$(id).hidden=true);
+    ['t1','t2','t4','t5'].forEach(id=>$(id).hidden=true);
     $('t3').hidden=false;
     nav?.setAttribute('data-active-index','2');
   }
@@ -3921,6 +3997,108 @@ function setRtDot(on){
 }
 
 // ══════════════════════════════════════════════════════════
+// LOOK BUILDER — read-only, deterministic catalog suggestions
+// ══════════════════════════════════════════════════════════
+async function loadLookFeatureConfig(){
+  const nav=document.querySelector('#appScreen .tabs');
+  try{
+    const res=await GET('/api/looks/config');
+    _lookBuilderEnabled=!!res.enabled;
+  }catch(_err){
+    _lookBuilderEnabled=false;
+  }
+  $('lookBuilderTab').hidden=!_lookBuilderEnabled;
+  nav?.classList.toggle('looks-disabled',!_lookBuilderEnabled);
+  if(!_lookBuilderEnabled) $('t5').hidden=true;
+}
+
+function lookImage(item){
+  return esc(item?.image_url||'/APP-icon.png?v=20261006-icon-2');
+}
+
+function renderLookAnchor(){
+  const card=$('lookAnchorCard');
+  if(!_lookAnchor){card.hidden=true;card.innerHTML='';return;}
+  card.hidden=false;
+  card.className='look-anchor-card';
+  card.innerHTML=`<img src="${lookImage(_lookAnchor)}" alt="${esc(_lookAnchor.title||_lookAnchor.sku)}" loading="lazy" onerror="this.src='/APP-icon.png?v=20261006-icon-2'"/>
+    <div class="look-anchor-meta"><span class="look-anchor-kicker">פריט הבסיס שבחרת</span><strong>${esc(_lookAnchor.sku)}</strong><span>${esc(_lookAnchor.title||'פריט מהקטלוג')}</span><span>${esc(_lookAnchor.color||'')}</span></div>`;
+}
+
+function renderLookSearchResults(items){
+  const box=$('lookSearchResults');
+  if(!items.length){
+    box.innerHTML='<div class="look-empty" style="min-height:90px">לא נמצאו פריטים מתאימים</div>';
+  }else{
+    box.innerHTML=items.map((item,index)=>`<button class="look-search-result" type="button" data-look-result="${index}">
+      <img src="${lookImage(item)}" alt="" loading="lazy" onerror="this.src='/APP-icon.png?v=20261006-icon-2'"/>
+      <span><strong>${esc(item.sku)}</strong><small>${esc(item.title||'')} · ${esc(item.color||'')}</small></span><i class="bi bi-chevron-left" aria-hidden="true"></i></button>`).join('');
+    box.querySelectorAll('[data-look-result]').forEach(button=>button.addEventListener('click',()=>selectLookAnchor(items[Number(button.dataset.lookResult)])));
+  }
+  box.hidden=false;
+}
+
+async function runLookSearch(){
+  if(!_lookBuilderEnabled) return;
+  const query=String($('lookSearchInput')?.value||'').trim();
+  if(query.length<2){$('lookSearchResults').hidden=true;return;}
+  const res=await GET(`/api/looks/search?q=${encodeURIComponent(query)}`);
+  renderLookSearchResults(res.items||[]);
+}
+
+async function selectLookAnchor(item){
+  _lookAnchor=item;
+  $('lookSearchInput').value=`${item.sku}${item.color?' · '+item.color:''}`;
+  $('lookSearchResults').hidden=true;
+  renderLookAnchor();
+  await loadLookRecommendations();
+}
+
+async function loadLookRecommendations(){
+  if(!_lookBuilderEnabled||!_lookAnchor) return;
+  const target=$('lookSuggestions');
+  target.innerHTML='<div class="look-empty look-loading"><div><i class="bi bi-stars" aria-hidden="true"></i><strong>מרכיב הצעות מתאימות…</strong></div></div>';
+  const res=await GET(`/api/looks/recommend?sku=${encodeURIComponent(_lookAnchor.sku)}&color=${encodeURIComponent(_lookAnchor.color||'')}&occasion=${encodeURIComponent(_lookOccasion)}`);
+  if(res.error){target.innerHTML='<div class="look-empty">לא ניתן היה לבנות הצעות כרגע.</div>';return;}
+  _lookSuggestionsData=res.looks||[];
+  renderLookSuggestions();
+}
+
+function renderLookSuggestions(){
+  const target=$('lookSuggestions');
+  if(!_lookSuggestionsData.length){target.innerHTML='<div class="look-empty"><div><i class="bi bi-search" aria-hidden="true"></i><strong>אין עדיין מספיק פריטים משלימים</strong><br><small>נסה פריט בסיס אחר או סגנון אחר.</small></div></div>';return;}
+  target.innerHTML=_lookSuggestionsData.map((look,lookIndex)=>`<article class="look-card">
+    <div class="look-card-head"><strong>לוק ${lookIndex+1}</strong><span class="look-score"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>${esc(look.score)}% התאמה</span></div>
+    <div class="look-items">${look.items.map((item,itemIndex)=>`<div class="look-item">
+      <img src="${lookImage(item)}" alt="${esc(item.title||item.sku)}" loading="lazy" onerror="this.src='/APP-icon.png?v=20261006-icon-2'"/>
+      ${!item.fixed&&item.alternatives?.length?`<button class="look-replace" type="button" onclick="replaceLookItem(${lookIndex},${itemIndex})" title="החלף פריט" aria-label="החלף פריט"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></button>`:''}
+      <strong>${esc(item.sku)}</strong><small>${esc(item.color||item.category_label||'')}</small></div>`).join('')}</div>
+    <p class="look-reason"><i class="bi bi-lightbulb" aria-hidden="true"></i> ${esc(look.reason||'שילוב מאוזן לפי נתוני הקטלוג')}</p></article>`).join('');
+}
+
+function replaceLookItem(lookIndex,itemIndex){
+  const item=_lookSuggestionsData[lookIndex]?.items?.[itemIndex];
+  if(!item?.alternatives?.length) return;
+  const replacement=item.alternatives.shift();
+  item.alternatives.push({...item,alternatives:undefined,fixed:undefined});
+  _lookSuggestionsData[lookIndex].items[itemIndex]={...replacement,fixed:false,alternatives:item.alternatives};
+  renderLookSuggestions();
+}
+
+$('lookSearchInput')?.addEventListener('input',()=>{
+  clearTimeout(_lookSearchTimer);
+  _lookSearchTimer=setTimeout(runLookSearch,220);
+});
+document.querySelectorAll('[data-look-occasion]').forEach(button=>button.addEventListener('click',async()=>{
+  document.querySelectorAll('[data-look-occasion]').forEach(item=>item.classList.toggle('active',item===button));
+  _lookOccasion=button.dataset.lookOccasion;
+  await loadLookRecommendations();
+}));
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.look-search-wrap')) $('lookSearchResults')?.setAttribute('hidden','');
+});
+
+// ══════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════
 $$('.tab').forEach((tab,index)=>tab.addEventListener('click',()=>{
@@ -3928,10 +4106,11 @@ $$('.tab').forEach((tab,index)=>tab.addEventListener('click',()=>{
   $$('.tab').forEach(t=>t.classList.remove('active'));
   tab.classList.add('active');
   tab.closest('.tabs')?.setAttribute('data-active-index',String(index));
-  ['t1','t2','t3','t4'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
+  ['t1','t2','t3','t4','t5'].forEach(id=>$(id).hidden=id!==tab.dataset.tab);
   replayMotion($(tab.dataset.tab),'motion-page-enter');
   requestAnimationFrame(syncActivePageViewport);
   if(tab.dataset.tab==='t4') loadBarcodes();
+  if(tab.dataset.tab==='t5' && _lookAnchor) loadLookRecommendations();
 }));
 $('bcNewBarcode')?.addEventListener('change', ()=>previewDerivedBarcodeFields());
 $('bcNewBarcode')?.addEventListener('blur', ()=>previewDerivedBarcodeFields());
@@ -5434,6 +5613,11 @@ async function refreshCurrentPage(){
       toast('קטלוג הברקודים רוענן');
       return;
     }
+    if(activeTab==='t5'){
+      if(_lookAnchor) await loadLookRecommendations();
+      toast('הצעות הלוקים רועננו');
+      return;
+    }
     await loadAll();
     toast('הנתונים רועננו');
   }catch(_err){
@@ -5553,6 +5737,9 @@ async function fillCameraTargetInput(inputId, code){
   }
   if(inputId==='locSearchSku'){
     setTimeout(()=>{ doLocSearch(); }, 60);
+  }
+  if(inputId==='lookSearchInput'){
+    setTimeout(()=>{ runLookSearch(); },60);
   }
   setCameraStatus(`הברקוד ${code} הוזן לשדה.`);
   await closeCameraScanner();
