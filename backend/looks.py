@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from dataclasses import dataclass
 
 from flask import Blueprint, jsonify, request
@@ -13,6 +15,14 @@ from database.db import get_connection
 
 
 looks_bp = Blueprint("looks", __name__, url_prefix="/api/looks")
+
+STORE_DISPLAY_TTL_DAYS = 5
+
+
+def _store_display_cutoff():
+    return (
+        datetime.now(ZoneInfo("Asia/Jerusalem")) - timedelta(days=STORE_DISPLAY_TTL_DAYS)
+    ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _enabled():
@@ -378,12 +388,15 @@ def recommend(branch_id):
             f"""SELECT pi.sku, pi.color, pi.title, pi.image_path, pi.product_url,
                       MIN(COALESCE(b.barcode,'')) AS barcode
                  FROM product_images pi
-                 JOIN store_display_items display
-                   ON display.branch_id=? AND display.sku=pi.sku
-                  AND LOWER(display.color)=LOWER(pi.color)
                  LEFT JOIN barcodes b
                    ON b.sku=pi.sku AND LOWER(b.color)=LOWER(pi.color)
                 WHERE pi.sku<>? AND pi.title<>'' AND pi.image_path<>''
+                  AND EXISTS (
+                      SELECT 1 FROM store_display_items display
+                       WHERE display.branch_id=?
+                         AND display.sku=pi.sku
+                         AND display.last_seen_at>=?
+                  )
                   AND EXISTS (
                       SELECT 1 FROM product_departments pd
                        WHERE pd.sku=pi.sku
@@ -391,7 +404,7 @@ def recommend(branch_id):
                   )
                 GROUP BY pi.sku, pi.color, pi.title, pi.image_path, pi.product_url, pi.is_primary
                 ORDER BY pi.sku, pi.color""",
-            (branch_id, sku, *departments),
+            (sku, branch_id, _store_display_cutoff(), *departments),
         ).fetchall()
     finally:
         conn.close()
@@ -405,5 +418,5 @@ def recommend(branch_id):
         "departments": departments,
         "store_display_only": True,
         "looks": looks,
-        "message": "" if looks else "אין כרגע מספיק פריטים מתאימים שנסרקו בחנות הבוקר.",
+        "message": "" if looks else "אין כרגע מספיק פריטים מתאימים שנסרקו בחנות בחמשת הימים האחרונים.",
     })

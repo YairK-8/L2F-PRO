@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from database.db import get_connection, insert_and_get_id
 from backend.auth_utils import require_branch
 from backend.barcodes import (
@@ -112,14 +114,16 @@ def _clear_stale_morning_sessions(conn, branch_id, current_session_date):
 
 
 def _record_store_display_item(conn, branch_id, sku, color, session_date):
-    """Maintain the branch's current shop-floor snapshot from real morning scans."""
-    current = conn.execute(
-        "SELECT 1 FROM store_display_items WHERE branch_id=? AND session_date=? LIMIT 1",
-        (branch_id, session_date),
-    ).fetchone()
-    if not current:
-        # The first real scan of a new morning starts a fresh branch snapshot.
-        conn.execute("DELETE FROM store_display_items WHERE branch_id=?", (branch_id,))
+    """Mark a morning-scanned SKU as displayed for five days from its latest scan."""
+    cutoff = (
+        datetime.now(ZoneInfo("Asia/Jerusalem")) - timedelta(days=5)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        """DELETE FROM store_display_items
+           WHERE branch_id=?
+             AND last_seen_at < ?""",
+        (branch_id, cutoff),
+    )
     conn.execute(
         """INSERT INTO store_display_items
                (branch_id,sku,color,session_date,last_seen_at)

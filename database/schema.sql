@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS store_display_items (
     PRIMARY KEY(branch_id, sku, color)
 );
 CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id, session_date, sku);
+CREATE INDEX IF NOT EXISTS idx_store_display_active ON store_display_items(branch_id, sku, last_seen_at);
 
 CREATE TABLE IF NOT EXISTS product_departments (
     sku        TEXT NOT NULL,

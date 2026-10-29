@@ -887,9 +887,16 @@ def _migrate_sqlite():
             last_seen_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
             PRIMARY KEY(branch_id,sku,color))""")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id,session_date,sku)")
-        conn.execute("""INSERT OR IGNORE INTO store_display_items
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_active ON store_display_items(branch_id,sku,last_seen_at)")
+        conn.execute("""INSERT INTO store_display_items
             (branch_id,sku,color,session_date,last_seen_at)
-            SELECT branch_id,sku,color,session_date,last_activity_at FROM morning_sessions""")
+            SELECT branch_id,sku,color,MAX(session_date),MAX(last_activity_at)
+              FROM morning_sessions
+             GROUP BY branch_id,sku,color
+            ON CONFLICT(branch_id,sku,color) DO UPDATE SET
+                session_date=excluded.session_date,
+                last_seen_at=excluded.last_seen_at
+            WHERE excluded.last_seen_at>store_display_items.last_seen_at""")
         conn.execute("""CREATE TABLE IF NOT EXISTS product_departments (
             sku TEXT NOT NULL, department TEXT NOT NULL CHECK(department IN ('men','women')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
@@ -983,10 +990,16 @@ def _migrate_postgres():
             last_seen_at TEXT NOT NULL DEFAULT (to_char(timezone('Asia/Jerusalem', now()), 'YYYY-MM-DD HH24:MI:SS')),
             PRIMARY KEY(branch_id,sku,color))""")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_branch ON store_display_items(branch_id,session_date,sku)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_store_display_active ON store_display_items(branch_id,sku,last_seen_at)")
         conn.execute("""INSERT INTO store_display_items
             (branch_id,sku,color,session_date,last_seen_at)
-            SELECT branch_id,sku,color,session_date,last_activity_at FROM morning_sessions
-            ON CONFLICT(branch_id,sku,color) DO NOTHING""")
+            SELECT branch_id,sku,color,MAX(session_date),MAX(last_activity_at)
+              FROM morning_sessions
+             GROUP BY branch_id,sku,color
+            ON CONFLICT(branch_id,sku,color) DO UPDATE SET
+                session_date=excluded.session_date,
+                last_seen_at=excluded.last_seen_at
+            WHERE excluded.last_seen_at>store_display_items.last_seen_at""")
         conn.execute("""CREATE TABLE IF NOT EXISTS product_departments (
             sku TEXT NOT NULL, department TEXT NOT NULL CHECK(department IN ('men','women')),
             updated_at TEXT NOT NULL DEFAULT (to_char(timezone('Asia/Jerusalem', now()), 'YYYY-MM-DD HH24:MI:SS')),
