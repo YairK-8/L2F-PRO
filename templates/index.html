@@ -345,9 +345,10 @@ button{cursor:pointer}button:hover{filter:brightness(.97)}
 body.app-dark .manual-entry-modal{background:#141414;border-color:rgba(255,255,255,.08);color:#f4f4f1}
 body.app-dark .manual-entry-section{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)}
 .morning-panel-actions{justify-content:flex-start;margin-top:0}
-.replenishment-list-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:12px}
+.replenishment-list-actions{display:grid;grid-template-columns:44px repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:12px}
 .replenishment-list-actions button{display:inline-flex;width:100%;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:clamp(11px,2.7vw,13px);font-weight:850;white-space:nowrap}
-.replenishment-transfer-action{grid-column:1/-1;background:#fff8ef;border-color:#edc99e;color:#9a5515}
+.replenishment-transfer-action{background:#fff8ef;border-color:#edc99e;color:#9a5515;padding:0!important}
+.replenishment-transfer-action>i{font-size:17px}
 .replenishment-status-panel{display:none!important}
 .morning-sessions-scroll{min-height:var(--morning-list-height,220px);height:var(--morning-list-height,420px);max-height:var(--morning-list-height,420px);overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
@@ -2788,7 +2789,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
 
           <div class="actions morning-panel-actions replenishment-list-actions">
-            <button class="btn-accent replenishment-transfer-action" onclick="transferMorningToSales()"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> העבר הכול להשלמות מכר</button>
+            <button class="btn-accent replenishment-transfer-action" onclick="transferMorningToSales()" title="העבר הכול להשלמות מכר" aria-label="העבר הכול להשלמות מכר"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></button>
             <button class="btn-accent" onclick="exportMorningMissingOnly()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
             <button class="btn-primary" onclick="openMorningManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
             <button class="btn-danger" onclick="clearSessions()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
@@ -2854,7 +2855,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
         </div>
         <div class="warehouse-page-footer">
           <div class="actions replenishment-list-actions">
-            <button class="btn-accent replenishment-transfer-action" onclick="transferSalesToMorning()"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> העבר הכול להשלמות בוקר</button>
+            <button class="btn-accent replenishment-transfer-action" onclick="transferSalesToMorning()" title="העבר הכול להשלמות בוקר" aria-label="העבר הכול להשלמות בוקר"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></button>
             <button class="btn-accent" onclick="exportMissingWh()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
             <button class="btn-primary" onclick="openWarehouseManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
             <button class="btn-danger" onclick="clearMissingWh()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
