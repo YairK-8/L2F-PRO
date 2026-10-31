@@ -347,6 +347,7 @@ body.app-dark .manual-entry-section{background:rgba(255,255,255,.05);border-colo
 .morning-panel-actions{justify-content:flex-start;margin-top:0}
 .replenishment-list-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:12px}
 .replenishment-list-actions button{display:inline-flex;width:100%;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:clamp(11px,2.7vw,13px);font-weight:850;white-space:nowrap}
+.replenishment-transfer-action{grid-column:1/-1;background:#fff8ef;border-color:#edc99e;color:#9a5515}
 .replenishment-status-panel{display:none!important}
 .morning-sessions-scroll{min-height:var(--morning-list-height,220px);height:var(--morning-list-height,420px);max-height:var(--morning-list-height,420px);overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
@@ -2787,6 +2788,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
 
           <div class="actions morning-panel-actions replenishment-list-actions">
+            <button class="btn-accent replenishment-transfer-action" onclick="transferMorningToSales()"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> העבר הכול להשלמות מכר</button>
             <button class="btn-accent" onclick="exportMorningMissingOnly()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
             <button class="btn-primary" onclick="openMorningManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
             <button class="btn-danger" onclick="clearSessions()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
@@ -2852,6 +2854,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
         </div>
         <div class="warehouse-page-footer">
           <div class="actions replenishment-list-actions">
+            <button class="btn-accent replenishment-transfer-action" onclick="transferSalesToMorning()"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> העבר הכול להשלמות בוקר</button>
             <button class="btn-accent" onclick="exportMissingWh()"><i class="bi bi-upload" aria-hidden="true"></i> יצוא לקובץ</button>
             <button class="btn-primary" onclick="openWarehouseManualModal()"><i class="bi bi-plus-circle" aria-hidden="true"></i> הוספה ידנית</button>
             <button class="btn-danger" onclick="clearMissingWh()"><i class="bi bi-trash3" aria-hidden="true"></i> נקה רשימה</button>
@@ -3994,6 +3997,9 @@ function initSocketIO(){
   });
   _socket.on('tab1_floor_missing_added', ()=>loadMissingFloor());
   _socket.on('tab1_floor_missing_cleared', ()=>loadMissingFloor());
+  _socket.on('replenishment_lists_transferred', ()=>{
+    Promise.all([loadSessions(),loadMissingWh(),loadMissingFloor()]);
+  });
   _socket.on('locations_pruned', ()=>loadLocTable());
 }
 
@@ -6765,6 +6771,22 @@ async function clearSessions(){
   toast('קבוצות היום נוקו');
 }
 
+async function transferMorningToSales(){
+  const scannedCount=Object.values(_sessions).reduce((total,session)=>total+(session.sizes_found||[]).length,0);
+  if(!scannedCount){
+    toast('אין מידות שנסרקו להעברה');
+    return;
+  }
+  if(!confirm('העברת רשימת הבוקר\n\nכל המידות שנסרקו יועברו להשלמות מכר ויימחקו מרשימת הבוקר. האם להמשיך?')) return;
+  const res=await POST('/api/missing-floor/sessions/transfer-to-sales');
+  if(res?.error){toast('ההעברה לא הושלמה');return;}
+  await Promise.all([loadSessions(),loadMissingWh()]);
+  const skipped=Number(res.skipped_sessions||0);
+  toast(skipped
+    ? `הועברו ${Number(res.variants||0)} פריטים; ${skipped} קבוצות ללא סריקה נשארו בבוקר`
+    : `הועברו ${Number(res.variants||0)} פריטים להשלמות מכר`);
+}
+
 async function loadMissingFloor(){
   const rows=await GET('/api/missing-floor');
   const nextRows=Array.isArray(rows) ? rows : [];
@@ -7497,6 +7519,16 @@ async function clearMissingWh(){
   _whItems={};
   renderWhQueue();
   updateStat2();
+}
+
+async function transferSalesToMorning(){
+  const itemCount=Object.keys(_whItems).length;
+  if(!itemCount){toast('אין פריטים להעברה');return;}
+  if(!confirm('העברת רשימת המכר\n\nכל הפריטים יירשמו כסריקות בוקר ויימחקו מרשימת המכר. האם להמשיך?')) return;
+  const res=await POST('/api/missing-warehouse/transfer-to-morning');
+  if(res?.error){toast('ההעברה לא הושלמה');return;}
+  await Promise.all([loadMissingWh(),loadSessions(),loadMissingFloor()]);
+  toast(`הועברו ${Number(res.items||0)} פריטים להשלמות בוקר`);
 }
 
 async function exportMissingWh(){

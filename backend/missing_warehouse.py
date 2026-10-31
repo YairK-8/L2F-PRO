@@ -9,6 +9,13 @@ from backend.barcodes import normalize_size_label, normalize_barcode as _normali
 from backend.product_images import attach_product_image, attach_product_images
 from backend.realtime import emit_update
 from backend.utils import today as _today
+from backend.missing_floor import (
+    _auto_approve_completed_session,
+    _lock_morning_branch,
+    _record_store_display_item,
+    _resolve_missing_floor_item,
+    _upsert_session,
+)
 
 missing_warehouse_bp = Blueprint("missing_warehouse", __name__, url_prefix="/api/missing-warehouse")
 
@@ -279,3 +286,63 @@ def clear_all(branch_id):
     conn.close()
     emit_update(branch_id, "tab2_cleared", {})
     return jsonify({"ok": True})
+
+
+def _transfer_warehouse_items_to_morning(conn, branch_id):
+    """Move every pending sales variant through the normal morning workflow."""
+    rows = conn.execute(
+        """SELECT * FROM missing_warehouse
+           WHERE branch_id=? AND status='pending'
+           ORDER BY scanned_at ASC, id ASC""",
+        (branch_id,),
+    ).fetchall()
+    transferred_ids = []
+    transferred_variants = 0
+    approved_sessions = 0
+
+    for row in rows:
+        size = normalize_size_label(row["size"])
+        if not all([row["sku"], row["color"], size]):
+            continue
+        _record_store_display_item(conn, branch_id, row["sku"], row["color"], _today())
+        _resolve_missing_floor_item(conn, branch_id, row["sku"], row["color"], size)
+        session_data = _upsert_session(
+            conn, branch_id, row["sku"], row["color"], size
+        )
+        if session_data:
+            if _auto_approve_completed_session(conn, branch_id, session_data):
+                approved_sessions += 1
+        transferred_ids.append(row["id"])
+        transferred_variants += 1
+
+    for item_id in transferred_ids:
+        conn.execute(
+            "DELETE FROM missing_warehouse WHERE id=? AND branch_id=?",
+            (item_id, branch_id),
+        )
+
+    return {
+        "items": transferred_variants,
+        "approved_sessions": approved_sessions,
+        "skipped_items": len(rows) - transferred_variants,
+    }
+
+
+@missing_warehouse_bp.route("/transfer-to-morning", methods=["POST"])
+@require_branch
+def transfer_to_morning(branch_id):
+    conn = get_connection()
+    # Keep the same lock order as the opposite transfer direction so two
+    # simultaneous corrections cannot deadlock one another.
+    _lock_morning_branch(conn, branch_id)
+    _lock_warehouse_branch(conn, branch_id)
+    result = _transfer_warehouse_items_to_morning(conn, branch_id)
+    conn.commit()
+    conn.close()
+
+    if result["items"]:
+        emit_update(branch_id, "replenishment_lists_transferred", {
+            "direction": "sales_to_morning",
+            **result,
+        })
+    return jsonify({"ok": True, **result})

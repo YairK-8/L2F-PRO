@@ -499,6 +499,81 @@ def clear_sessions(branch_id):
     return jsonify({"ok": True})
 
 
+def _transfer_morning_sessions_to_warehouse(conn, branch_id):
+    """Move scanned morning variants into the pending sales-pick list.
+
+    A morning session can also be created manually before any size was
+    scanned. Such a session is deliberately left in place: there is no
+    concrete variant that can safely be added to the sales list.
+    """
+    rows = conn.execute(
+        """SELECT * FROM morning_sessions
+           WHERE branch_id=? AND approved=0
+           ORDER BY created_at ASC, id ASC""",
+        (branch_id,),
+    ).fetchall()
+    now_ts = conn.execute("SELECT datetime('now','localtime') AS ts").fetchone()["ts"]
+    transferred_session_ids = []
+    transferred_variants = 0
+    inserted_variants = 0
+
+    for row in rows:
+        sizes = _sizes_list(row["sizes_found"])
+        if not sizes:
+            continue
+        for size in sizes:
+            existing = conn.execute(
+                """SELECT id FROM missing_warehouse
+                   WHERE branch_id=? AND sku=? AND color=? AND size=?
+                     AND status='pending'
+                   LIMIT 1""",
+                (branch_id, row["sku"], row["color"], size),
+            ).fetchone()
+            if not existing:
+                insert_and_get_id(
+                    conn,
+                    """INSERT INTO missing_warehouse
+                           (branch_id,sku,color,size,quantity,scan_history,scanned_at)
+                       VALUES (?,?,?,?,1,?,?)""",
+                    (branch_id, row["sku"], row["color"], size, now_ts, now_ts),
+                )
+                inserted_variants += 1
+            transferred_variants += 1
+        transferred_session_ids.append(row["id"])
+
+    for session_id in transferred_session_ids:
+        conn.execute(
+            "DELETE FROM morning_sessions WHERE id=? AND branch_id=?",
+            (session_id, branch_id),
+        )
+
+    return {
+        "sessions": len(transferred_session_ids),
+        "variants": transferred_variants,
+        "inserted": inserted_variants,
+        "skipped_sessions": len(rows) - len(transferred_session_ids),
+    }
+
+
+@missing_floor_bp.route("/sessions/transfer-to-sales", methods=["POST"])
+@require_branch
+def transfer_sessions_to_sales(branch_id):
+    conn = get_connection()
+    _lock_morning_branch(conn, branch_id)
+    if conn.dialect == "postgres":
+        conn.execute("SELECT pg_advisory_xact_lock(?, ?)", (127837, int(branch_id)))
+    result = _transfer_morning_sessions_to_warehouse(conn, branch_id)
+    conn.commit()
+    conn.close()
+
+    if result["sessions"]:
+        emit_update(branch_id, "replenishment_lists_transferred", {
+            "direction": "morning_to_sales",
+            **result,
+        })
+    return jsonify({"ok": True, **result})
+
+
 # ── Missing floor results ─────────────────────────────────────
 
 @missing_floor_bp.route("", methods=["GET"])
