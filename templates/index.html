@@ -49,7 +49,7 @@ window.__l2fVerifyIconFont = async function(){
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20261029-look-color-picker-111", {
+    navigator.serviceWorker.register("/sw.js?v=20261101-offline-locations-1", {
       updateViaCache: "none",
     }).catch(() => {});
   });
@@ -349,6 +349,12 @@ body.app-dark .manual-entry-section{background:rgba(255,255,255,.05);border-colo
 .replenishment-list-actions button{display:inline-flex;width:100%;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:clamp(11px,2.7vw,13px);font-weight:850;white-space:nowrap}
 .replenishment-transfer-action{background:#fff8ef;border-color:#edc99e;color:#9a5515;padding:0!important}
 .replenishment-transfer-action>i{font-size:17px}
+.locations-offline-banner{display:flex;align-items:flex-start;gap:9px;margin:0 0 10px;padding:10px 12px;border:1px solid #edc99e;border-radius:14px;background:#fff8ef;color:#874b12;font-size:12px;line-height:1.45}
+.locations-offline-banner[hidden]{display:none}
+.locations-offline-banner i{margin-top:2px;font-size:15px}
+.locations-offline-banner strong{display:block;font-size:13px}
+body.app-dark .locations-offline-banner{background:rgba(255,138,0,.12);border-color:rgba(255,138,0,.28);color:#ffb66f}
+.locations-offline-disabled{opacity:.48;pointer-events:none}
 .replenishment-status-panel{display:none!important}
 .morning-sessions-scroll{min-height:var(--morning-list-height,220px);height:var(--morning-list-height,420px);max-height:var(--morning-list-height,420px);overflow-y:auto;padding:6px 6px 2px;border-radius:20px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
 .morning-sessions-scroll.is-empty{display:flex;align-items:center;justify-content:center}
@@ -2881,6 +2887,10 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
           </div>
           <p>חפש מק״ט או סרוק ברקוד כדי למצוא את המיקום</p>
         </div>
+        <div id="locationsOfflineBanner" class="locations-offline-banner" role="status" hidden>
+          <i class="bi bi-cloud-slash" aria-hidden="true"></i>
+          <div><strong>מצב גיבוי — חיפוש בלבד</strong><span id="locationsOfflineUpdatedAt">המידע נשמר במכשיר זה.</span></div>
+        </div>
         <div class="card loc-search-card">
           <div class="loc-search-bar">
             <button class="btn-primary loc-search-submit" type="button" onclick="doLocSearch()"><span>חפש</span><i class="bi bi-search" aria-hidden="true"></i></button>
@@ -2909,7 +2919,7 @@ body.app-dark :is(#morningPickingModal,#warehousePickingModal) .pick-product-siz
 
         <div class="divider"></div>
 
-        <button class="btn-primary loc-open-modal-btn" type="button" onclick="openLocationModal()"><span>הוסף / עדכן מיקום</span><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></button>
+        <button id="locationOpenModalBtn" class="btn-primary loc-open-modal-btn" type="button" onclick="openLocationModal()"><span>הוסף / עדכן מיקום</span><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></button>
 
         <div class="divider"></div>
 
@@ -3562,6 +3572,7 @@ const DELETE = url     => api('DELETE',url);
 // AUTH
 // ══════════════════════════════════════════════════════════
 let _branchId=null, _socket=null, _socketHeartbeatTimer=null, _locationsOnly=false;
+let _branchName='', _locationsOfflineMode=false, _locationsCacheUpdatedAt='';
 let _lookBuilderEnabled=false, _lookAnchor=null, _lookOccasion='casual', _lookSearchTimer=null;
 let _lookSuggestionsData=[];
 let _deviceId=null, _deviceName=null, _forceLogoutInProgress=false;
@@ -3621,7 +3632,101 @@ let BARCODE_SIZE_CODE_MAP = Object.freeze({
 let _barcodeScaleLoadPromise = null;
 const DEVICE_ID_KEY = 'l2f_device_id';
 const DEVICE_NAME_KEY = 'l2f_device_name';
+const OFFLINE_BRANCH_KEY = 'l2f_offline_branch';
+const OFFLINE_SESSION_KEY = 'l2f_offline_session_active';
+const LOCATION_CACHE_DB = 'l2f-offline-data';
+const LOCATION_CACHE_STORE = 'locationSnapshots';
 const REALTIME_SYNC_MIN_GAP_MS = 1200;
+
+function openOfflineLocationDb(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB) return reject(new Error('indexeddb_unavailable'));
+    const request=indexedDB.open(LOCATION_CACHE_DB,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(LOCATION_CACHE_STORE)){
+        db.createObjectStore(LOCATION_CACHE_STORE,{keyPath:'branchId'});
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('indexeddb_open_failed'));
+  });
+}
+
+async function writeLocationSnapshot(rows){
+  if(!_branchId || !Array.isArray(rows)) return false;
+  const record={
+    branchId:Number(_branchId),
+    branchName:_branchName||'',
+    rows:rows.map(row=>({sku:String(row.sku||''),location:String(row.location||'')})),
+    updatedAt:new Date().toISOString(),
+  };
+  try{
+    const db=await openOfflineLocationDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(LOCATION_CACHE_STORE,'readwrite');
+      tx.objectStore(LOCATION_CACHE_STORE).put(record);
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error||new Error('indexeddb_write_failed'));
+      tx.onabort=()=>reject(tx.error||new Error('indexeddb_write_aborted'));
+    });
+    db.close();
+    _locationsCacheUpdatedAt=record.updatedAt;
+    return true;
+  }catch(_err){
+    return false;
+  }
+}
+
+async function readLocationSnapshot(branchId){
+  const normalizedId=Number(branchId||0);
+  if(!normalizedId) return null;
+  try{
+    const db=await openOfflineLocationDb();
+    const record=await new Promise((resolve,reject)=>{
+      const tx=db.transaction(LOCATION_CACHE_STORE,'readonly');
+      const request=tx.objectStore(LOCATION_CACHE_STORE).get(normalizedId);
+      request.onsuccess=()=>resolve(request.result||null);
+      request.onerror=()=>reject(request.error||new Error('indexeddb_read_failed'));
+    });
+    db.close();
+    return record;
+  }catch(_err){
+    return null;
+  }
+}
+
+function rememberOfflineBranch(branch){
+  try{
+    localStorage.setItem(OFFLINE_BRANCH_KEY,JSON.stringify({
+      id:Number(branch.id),name:String(branch.name||''),locations_only:!!branch.locations_only,
+    }));
+    localStorage.setItem(OFFLINE_SESSION_KEY,'1');
+  }catch(_err){}
+}
+
+function formatOfflineSnapshotTime(value){
+  const parsed=new Date(value||'');
+  if(Number.isNaN(parsed.getTime())) return 'זמן העדכון האחרון אינו זמין';
+  return `עודכן לאחרונה ${new Intl.DateTimeFormat('he-IL',{dateStyle:'short',timeStyle:'short'}).format(parsed)}`;
+}
+
+function setLocationsOfflineMode(enabled,updatedAt=''){
+  _locationsOfflineMode=!!enabled;
+  if(updatedAt) _locationsCacheUpdatedAt=updatedAt;
+  const banner=$('locationsOfflineBanner');
+  if(banner){
+    banner.hidden=!_locationsOfflineMode;
+    $('locationsOfflineUpdatedAt').textContent=formatOfflineSnapshotTime(_locationsCacheUpdatedAt);
+  }
+  const addButton=$('locationOpenModalBtn');
+  if(addButton){
+    addButton.disabled=_locationsOfflineMode;
+    addButton.classList.toggle('locations-offline-disabled',_locationsOfflineMode);
+    addButton.title=_locationsOfflineMode?'לא ניתן לשנות מיקומים במצב גיבוי':'';
+  }
+  if(typeof renderLocTable==='function') renderLocTable();
+}
 
 function authErr(id,msg){const e=$(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
 
@@ -3671,7 +3776,8 @@ async function doLogout(options={}){
   const reason = options.reason || '';
   await closeCameraScanner();
   stopRealtimeSyncTimer();
-  await POST('/api/auth/logout');
+  try{ localStorage.removeItem(OFFLINE_SESSION_KEY); }catch(_err){}
+  try{ await POST('/api/auth/logout'); }catch(_err){}
   if(_socket)_socket.disconnect();
   document.body.classList.remove('desktop-warehouse-fit');
   document.body.classList.remove('barcode-page-fit');
@@ -3822,25 +3928,29 @@ function ensureRealtimeConnected(opts={}){
   }catch(_err){}
 }
 
-async function enterApp(branch){
+async function enterApp(branch,options={}){
+  const offline=!!options.offline;
   _branchId=branch.id;
-  _locationsOnly=!!branch.locations_only;
+  _branchName=String(branch.name||'');
+  _locationsOnly=offline||!!branch.locations_only;
   _realtimeNeedsCatchup=false;
   _sessionsLoaded=false;
   _missingFloorLoaded=false;
   _missingWarehouseLoaded=false;
   _realtimeFallbackWarned=false;
+  if(!offline) rememberOfflineBranch(branch);
   await ensureDeviceIdentity();
   hideAuthNotice();
   $('authScreen').style.display='none';
   $('appScreen').style.display='block';
   $('branchBadge').innerHTML=`<span class="branch-badge-text">${esc(branch.name)}</span><i class="bi bi-shop" aria-hidden="true"></i>`;
-  await loadLookFeatureConfig();
+  if(!offline) await loadLookFeatureConfig();
   applyBranchAccessMode();
-  if(!_locationsOnly){
+  if(!offline && !_locationsOnly){
     initSocketIO();
     await loadAll();
   }
+  await loadLocTable({preferCache:offline,silent:true});
   openRequestedTab();
   requestAnimationFrame(syncActivePageViewport);
 }
@@ -3869,12 +3979,26 @@ function applyBranchAccessMode(){
 
 // Auto-login check
 (async()=>{
-  const res=await GET('/api/auth/me');
-  if(res.error==='branch_blocked'){
-    toast('הסניף הזה חסום כרגע');
-    return;
+  try{
+    const res=await GET('/api/auth/me');
+    if(res.error==='branch_blocked'){
+      toast('הסניף הזה חסום כרגע');
+      return;
+    }
+    if(res.branch_id) await enterApp({id:res.branch_id,name:res.branch_name,locations_only:res.locations_only});
+  }catch(_err){
+    let savedBranch=null;
+    try{
+      if(localStorage.getItem(OFFLINE_SESSION_KEY)==='1'){
+        savedBranch=JSON.parse(localStorage.getItem(OFFLINE_BRANCH_KEY)||'null');
+      }
+    }catch(_storageErr){}
+    const snapshot=savedBranch?.id ? await readLocationSnapshot(savedBranch.id) : null;
+    if(snapshot?.rows?.length){
+      await enterApp(savedBranch,{offline:true});
+      toast('השרת אינו זמין — המיקומים נפתחו במצב גיבוי',2600);
+    }
   }
-  if(res.branch_id) await enterApp({id:res.branch_id,name:res.branch_name,locations_only:res.locations_only});
 })();
 
 // ══════════════════════════════════════════════════════════
@@ -5654,9 +5778,9 @@ async function refreshCurrentPage(){
       return;
     }
     if(activeTab==='t3'){
-      await loadLocTable();
+      const locationState=await loadLocTable();
       if(($('locSearchSku')?.value||'').trim()) await doLocSearch();
-      toast('נתוני המיקומים רועננו');
+      toast(locationState?.offline?'השרת אינו זמין — מוצג עותק הגיבוי':'נתוני המיקומים רועננו');
       return;
     }
     if(activeTab==='t4'){
@@ -7769,13 +7893,18 @@ document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='visible'){
     ensureRealtimeConnected();
     syncRealtimeState({force:true});
+    if(_branchId) loadLocTable({silent:true});
   }
 });
 
-window.addEventListener('focus', ()=>{ ensureRealtimeConnected(); });
+window.addEventListener('focus', ()=>{
+  ensureRealtimeConnected();
+  if(_branchId) loadLocTable({silent:true});
+});
 window.addEventListener('online', ()=>{
   ensureRealtimeConnected();
   syncRealtimeState({force:true});
+  if(_branchId) loadLocTable({silent:true});
 });
 window.addEventListener('pagehide', ()=>{ stopCameraStream(); stopRealtimeSyncTimer(); });
 
@@ -7823,6 +7952,10 @@ async function resetLocationModalForNext(){
 }
 
 async function openLocationModal(sku='', location=''){
+  if(_locationsOfflineMode){
+    toast('במצב גיבוי ניתן לחפש מיקומים בלבד');
+    return;
+  }
   $('locationModal').classList.add('open');
   $('locFormSku').value=String(sku||'').trim();
   $('locFormLoc').value=String(location||'').trim();
@@ -7960,24 +8093,48 @@ async function doLocSearch(){
 
   let resolvedSku=rawValue;
   let foundViaBarcode=false;
-  let locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+  let locationRes=null;
+  let usedOfflineCache=_locationsOfflineMode;
 
-  if(locationRes.error){
-    _lastLocationSearchResult=null;
-    editButton.hidden=true;
-    const barcodeRes=await GET(`/api/barcodes/${encodeURIComponent(rawValue)}`);
-    if(!barcodeRes.error && barcodeRes.sku){
-      resolvedSku=String(barcodeRes.sku).trim();
-      foundViaBarcode=true;
+  if(!usedOfflineCache){
+    try{
       locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
-    }else{
-      const derived = getBarcodeDerivedFields(rawValue);
-      if(derived.sku){
-        resolvedSku=String(derived.sku).trim();
-        foundViaBarcode=true;
-        locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+      if(locationRes.error){
+        _lastLocationSearchResult=null;
+        editButton.hidden=true;
+        const barcodeRes=await GET(`/api/barcodes/${encodeURIComponent(rawValue)}`);
+        if(!barcodeRes.error && barcodeRes.sku){
+          resolvedSku=String(barcodeRes.sku).trim();
+          foundViaBarcode=true;
+          locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+        }else{
+          const derived=getBarcodeDerivedFields(rawValue);
+          if(derived.sku){
+            resolvedSku=String(derived.sku).trim();
+            foundViaBarcode=true;
+            locationRes=await GET(`/api/locations/search?sku=${encodeURIComponent(resolvedSku)}`);
+          }
+        }
       }
+    }catch(_err){
+      usedOfflineCache=true;
     }
+  }
+
+  if(usedOfflineCache){
+    if(!_locRows.length){
+      const snapshot=await readLocationSnapshot(_branchId);
+      _locRows=Array.isArray(snapshot?.rows)?snapshot.rows:[];
+      if(snapshot?.updatedAt) _locationsCacheUpdatedAt=snapshot.updatedAt;
+    }
+    const derived=getBarcodeDerivedFields(rawValue);
+    if(!_locRows.some(row=>String(row.sku)===resolvedSku) && derived.sku){
+      resolvedSku=String(derived.sku).trim();
+      foundViaBarcode=true;
+    }
+    const cachedRow=_locRows.find(row=>String(row.sku)===resolvedSku);
+    locationRes=cachedRow?{...cachedRow,offline:true}:{error:'not_found',offline:true};
+    setLocationsOfflineMode(true,_locationsCacheUpdatedAt);
   }
 
   skuValue.textContent=resolvedSku;
@@ -8000,25 +8157,25 @@ async function doLocSearch(){
   if(locationRes.error){
     _lastLocationSearchResult={sku:resolvedSku,location:''};
     editButton.textContent='הוסף מיקום';
-    editButton.hidden=false;
+    editButton.hidden=_locationsOfflineMode;
     box.dataset.state='missing';
     stateIcon.className='bi bi-exclamation-circle-fill';
     locationValue.textContent='לא נמצא';
     locationLabel.textContent='תוצאה לחיפוש';
     stateText.textContent=foundViaBarcode
-      ? 'הברקוד זוהה, אבל למק״ט אין מיקום'
-      : 'לא נמצא במחסן';
+      ? (_locationsOfflineMode?'הברקוד זוהה, אך אין מיקום בעותק הגיבוי':'הברקוד זוהה, אבל למק״ט אין מיקום')
+      : (_locationsOfflineMode?'לא נמצא בעותק הגיבוי':'לא נמצא במחסן');
   }else{
     _lastLocationSearchResult={sku:resolvedSku,location:String(locationRes.location||'')};
     editButton.textContent='שנה מיקום';
-    editButton.hidden=false;
+    editButton.hidden=_locationsOfflineMode;
     box.dataset.state='found';
     stateIcon.className='bi bi-check-circle-fill';
     locationValue.textContent=locationRes.location;
     locationLabel.textContent='מיקום במחסן';
     stateText.textContent=foundViaBarcode
-      ? 'נמצא דרך הברקוד'
-      : 'נמצא במחסן';
+      ? (_locationsOfflineMode?'נמצא דרך הברקוד בעותק הגיבוי':'נמצא דרך הברקוד')
+      : (_locationsOfflineMode?'נמצא בעותק הגיבוי':'נמצא במחסן');
   }
   box.classList.remove('is-empty');
   box.style.display='flex';
@@ -8094,11 +8251,11 @@ function renderLocTable(){
       <td><b>${esc(r.sku)}</b></td>
       <td>${esc(r.location)}</td>
       <td>
-        <button class="btn-ghost" style="padding:4px 8px;font-size:12px"
+        <button class="btn-ghost" style="padding:4px 8px;font-size:12px" ${_locationsOfflineMode?'disabled hidden':''}
                 onclick='fillLocationForm(${JSON.stringify(String(r.sku||''))}, ${JSON.stringify(String(r.location||''))})'>ערוך</button>
         <button class="btn-ghost" style="padding:4px 8px;font-size:12px"
                 onclick='navigator.clipboard.writeText(${JSON.stringify(String(r.location||''))}).then(()=>toast("הועתק"))'>העתק</button>
-        <button class="btn-danger" style="padding:4px 8px;font-size:12px"
+        <button class="btn-danger" style="padding:4px 8px;font-size:12px" ${_locationsOfflineMode?'disabled hidden':''}
                 onclick='deleteLoc(${JSON.stringify(String(r.sku||''))})'>מחק</button>
       </td>
     </tr>`).join('');
@@ -8106,9 +8263,33 @@ function renderLocTable(){
   $('locListCount').textContent=q ? `${rows.length} תוצאות מתוך ${_locRows.length}` : `${_locRows.length} פריטים`;
 }
 
-async function loadLocTable(){
-  _locRows=await GET('/api/locations');
+async function loadLocTable(options={}){
+  const preferCache=!!options.preferCache;
+  if(!preferCache){
+    try{
+      const rows=await GET('/api/locations');
+      if(Array.isArray(rows)){
+        _locRows=rows;
+        await writeLocationSnapshot(rows);
+        setLocationsOfflineMode(false,_locationsCacheUpdatedAt);
+        renderLocTable();
+        return {offline:false,count:rows.length};
+      }
+      return {offline:false,count:0,error:rows?.error||'invalid_response'};
+    }catch(_err){}
+  }
+  const snapshot=await readLocationSnapshot(_branchId);
+  if(snapshot){
+    _locRows=Array.isArray(snapshot.rows)?snapshot.rows:[];
+    _locationsCacheUpdatedAt=String(snapshot.updatedAt||'');
+    setLocationsOfflineMode(true,_locationsCacheUpdatedAt);
+    renderLocTable();
+    if(!options.silent) toast('מוצג עותק הגיבוי השמור במכשיר');
+    return {offline:true,count:_locRows.length};
+  }
+  _locRows=[];
   renderLocTable();
+  return {offline:true,count:0};
 }
 
 $('locListSearch').addEventListener('input',renderLocTable);
@@ -8120,6 +8301,7 @@ $('locListSearch').addEventListener('keydown',e=>{
 });
 
 async function upsertLocation(){
+  if(_locationsOfflineMode){toast('לא ניתן לשנות מיקומים במצב גיבוי');return false;}
   if(_locationSaveBusy) return false;
   const sku=$('locFormSku').value.trim(),location=$('locFormLoc').value.trim();
   if(!sku||!location){
@@ -8147,10 +8329,12 @@ async function upsertLocation(){
 }
 
 async function deleteLoc(sku){
+  if(_locationsOfflineMode){toast('לא ניתן למחוק מיקומים במצב גיבוי');return;}
   await DELETE(`/api/locations/${sku}`); toast('נמחק'); loadLocTable();
 }
 
 async function wipeLocations(){
+  if(_locationsOfflineMode){toast('לא ניתן למחוק מיקומים במצב גיבוי');return;}
   if(!confirm('מחיקת רשימת המיקומים\n\nפעולה זו תמחק את כל מיקומי הסניף. האם להמשיך?'))return;
   const rows=await GET('/api/locations');
   for(const r of rows) await DELETE(`/api/locations/${r.sku}`);
@@ -8158,6 +8342,7 @@ async function wipeLocations(){
 }
 
 async function importLocations(){
+  if(_locationsOfflineMode){toast('לא ניתן לייבא מיקומים במצב גיבוי');return;}
   const f=$('locFileInput').files[0];
   if(!f) return toast('בחר קובץ JSON');
   const fd=new FormData(); fd.append('file',f);
