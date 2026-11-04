@@ -12,7 +12,6 @@ from backend.utils import today as _today
 from backend.missing_floor import (
     _auto_approve_completed_session,
     _lock_morning_branch,
-    _record_store_display_item,
     _resolve_missing_floor_item,
     _upsert_session,
 )
@@ -304,7 +303,6 @@ def _transfer_warehouse_items_to_morning(conn, branch_id):
         size = normalize_size_label(row["size"])
         if not all([row["sku"], row["color"], size]):
             continue
-        _record_store_display_item(conn, branch_id, row["sku"], row["color"], _today())
         _resolve_missing_floor_item(conn, branch_id, row["sku"], row["color"], size)
         session_data = _upsert_session(
             conn, branch_id, row["sku"], row["color"], size

@@ -1,6 +1,4 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 from database.db import get_connection, insert_and_get_id
 from backend.auth_utils import require_branch
 from backend.barcodes import (
@@ -108,33 +106,6 @@ def _clear_stale_manual_missing(conn, branch_id, current_session_date):
     )
 
 
-def _clear_stale_morning_sessions(conn, branch_id, current_session_date):
-    # Morning sessions now stay open until a manual clear.
-    return
-
-
-def _record_store_display_item(conn, branch_id, sku, color, session_date):
-    """Mark a morning-scanned SKU as displayed for five days from its latest scan."""
-    cutoff = (
-        datetime.now(ZoneInfo("Asia/Jerusalem")) - timedelta(days=5)
-    ).strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute(
-        """DELETE FROM store_display_items
-           WHERE branch_id=?
-             AND last_seen_at < ?""",
-        (branch_id, cutoff),
-    )
-    conn.execute(
-        """INSERT INTO store_display_items
-               (branch_id,sku,color,session_date,last_seen_at)
-           VALUES (?,?,?,?,datetime('now','localtime'))
-           ON CONFLICT(branch_id,sku,color) DO UPDATE SET
-               session_date=excluded.session_date,
-               last_seen_at=excluded.last_seen_at""",
-        (branch_id, sku, color, session_date),
-    )
-
-
 def _resolve_missing_floor_item(conn, branch_id, sku, color, size):
     conn.execute(
         """UPDATE missing_floor
@@ -224,7 +195,6 @@ def get_sessions(branch_id):
     """Return all open (unapproved) morning sessions, with location hint."""
     conn = get_connection()
     _lock_morning_branch(conn, branch_id)
-    _clear_stale_morning_sessions(conn, branch_id, _today())
     rows = conn.execute(
         """SELECT ms.*, wl.location AS location_hint
            FROM morning_sessions ms
@@ -284,7 +254,6 @@ def scan(branch_id):
 
     conn = get_connection()
     _lock_morning_branch(conn, branch_id)
-    _clear_stale_morning_sessions(conn, branch_id, _today())
 
     meta, catalog_created = resolve_barcode_catalog_entry(
         conn,
@@ -301,7 +270,6 @@ def scan(branch_id):
         }), 404
 
     sku, color, size = meta["sku"], meta["color"], meta["size"]
-    _record_store_display_item(conn, branch_id, sku, color, _today())
     _resolve_missing_floor_item(conn, branch_id, sku, color, size)
     session_data = _upsert_session(conn, branch_id, sku, color, size)
     if not session_data:
@@ -472,7 +440,6 @@ def add_manual_missing(branch_id):
 
     conn = get_connection()
     _lock_morning_branch(conn, branch_id)
-    _clear_stale_morning_sessions(conn, branch_id, _today())
     session_data = _upsert_manual_session(conn, branch_id, sku, color, size)
     session_data["location_hint"] = _location_for_sku(conn, branch_id, sku)
     session_data = attach_product_image(conn, session_data)

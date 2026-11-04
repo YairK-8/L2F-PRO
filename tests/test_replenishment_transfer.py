@@ -45,11 +45,6 @@ class ReplenishmentTransferTests(unittest.TestCase):
                 barcode TEXT PRIMARY KEY, sku TEXT, color TEXT, size TEXT
             );
             CREATE TABLE barcode_size_scale (code TEXT PRIMARY KEY, size TEXT);
-            CREATE TABLE store_display_items (
-                branch_id INTEGER, sku TEXT, color TEXT, session_date TEXT,
-                last_seen_at TEXT DEFAULT (datetime('now','localtime')),
-                PRIMARY KEY(branch_id, sku, color)
-            );
             CREATE TABLE missing_floor (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 branch_id INTEGER, sku TEXT, color TEXT, size TEXT,
