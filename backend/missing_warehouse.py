@@ -49,14 +49,6 @@ def _find_pending_item(conn, branch_id, sku, color, size):
     ).fetchone()
 
 
-def _history_list(value: str) -> list[str]:
-    return [x for x in str(value or "").split(",") if x]
-
-
-def _history_str(values: list[str]) -> str:
-    return ",".join(values)
-
-
 def _lock_warehouse_branch(conn, branch_id):
     """Serialize sale-list mutations per branch while the transaction is open."""
     if conn.dialect == "postgres":
